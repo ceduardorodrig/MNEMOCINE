@@ -17,7 +17,7 @@ Bot de relatoria com IA para reuniões institucionais.
 
 | Service | Imagem | Portas | Função |
 |---|---|---|---|
-| sae-core_api | sumaenimahub-steniobot-api:latest | `0.0.0.0:9090` | Aplicação FastAPI + GPU |
+| sae-core_api | sumaenima-server:latest | `0.0.0.0:9090` | Aplicação Rust Axum 0.8 + React 19 WASM Client |
 | sae-core_db | postgres:16-alpine | — | Banco de dados principal |
 | sae-core_valkey | valkey/valkey:8-alpine | — | Cache distribuído + sessão |
 | sae-core_backup | sumaenimahub-backup-sentinel:latest | `0.0.0.0:9092` | Backup automático (Borg + pg_dump) |

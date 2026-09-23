@@ -8,7 +8,7 @@ Servidor de ebooks com download automático.
 
 **Servidor:** kavure (migrado 09/08/2026)
 **Porta:** `8083`
-**URL:** `http://kuaray.chimaera-heptatonic.ts.net:8083`
+**URL:** `http://kavure.chimaera-heptatonic.ts.net:8083`
 
 ## Stack
 
@@ -18,7 +18,7 @@ Servidor de ebooks com download automático.
 
 ## Acesso
 
-`http://kuaray.chimaera-heptatonic.ts.net:8083`
+`http://kavure.chimaera-heptatonic.ts.net:8083`
 
 ## Funcionamento
 

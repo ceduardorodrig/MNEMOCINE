@@ -58,11 +58,9 @@ O driver NVIDIA cria múltiplos sinks HDMI duplicados (6× `alsa_output.pci-0000
 ## Papéis
 
 - **NAS da Tailnet** (07/08): exporta via NFSv4 `/mnt/BACKUP/media/music` e `/media/books` (biblioteca canônica) + `/mnt/BACKUP/sumaenima-server-kavure` (backup do core) para kuaray/kavure — ver [`network/nfs.md`](../network/nfs.md)
-- Exit Node da Tailnet
-- Servidor de jogos (Minecraft; Project Zomboid migrado p/ kavure)
-- Gerenciamento Docker (Portainer)
-- **GPU workers do Sumænimá** (vision/audio/ollama) + build-node (07/08/2026 — o core `sae-core` migrou para o kavure)
-- Sincronização (Syncthing a reativar) e Rclone (CLI ativo — off-site Drive + mount; GUI removida 26/08)
+- Workstation de desenvolvimento, IA e gaming (Steam/Wayland/Hyprland; servidores dedicados de jogos Zomboid, Minecraft e Valheim migrados p/ kavure)
+- **GPU workers do Sumænimá** (StênioREC / vision / audio / ollama) + build-node (07/08/2026 — o core `sae-core` migrou para o kavure)
+- Sincronização (Syncthing) e Rclone (CLI ativo — off-site Drive + mount; GUI removida 26/08)
 
 ## Hibernação (21/08/2026)
 
@@ -158,16 +156,14 @@ Nenhum atualmente (tráfego Sumænimá é roteado via Nginx proxies em ybyra e k
 
 | Porta | Serviço | Bind |
 |---|---|---|
-| 9000 | Portainer | `0.0.0.0` |
-| 8443 | Crafty (Minecraft) | `0.0.0.0` |
-| 25565 | Minecraft server | `0.0.0.0` |
 | 11434 | Ollama (GPU worker) | `0.0.0.0` |
+| 9090 | StênioREC (Whisper daemon local GPU) | `127.0.0.1` / Tailscale |
 | 61208 | Glances | `0.0.0.0` |
 | 2375 | Docker proxy (homepage) | `0.0.0.0` |
 | 27036 | Steam | `0.0.0.0` |
 | 5355 | systemd-resolved | `0.0.0.0` |
 
-> **Portas de serviços migrados p/ kavure (não escutam mais aqui):** 9090 (sae-core_api), 9092 (backup sentinel). **A reativar:** 8384 (syncthing). **46295 (rclone webgui) removida 26/08** — GUI desativada.
+> **Portas de serviços migrados p/ kavure (não escutam mais aqui):** 9090 (sae-core_api Swarm), 9092 (backup sentinel), 8443/8444 (Crafty Controller Minecraft), 25565 (Minecraft server), 16261 (Project Zomboid). **A reativar:** 8384 (syncthing). **Portainer e rclone GUI removidos.**
 
 ## SMART — discos externos (fix 22/09/2026)
 

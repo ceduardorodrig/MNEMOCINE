@@ -8,7 +8,7 @@ Streaming de música — servidor Subsonic-API compatível.
 
 **Servidor:** kavure (migrado 09/08/2026)
 **Porta:** `4533`
-**URL:** `http://kuaray.chimaera-heptatonic.ts.net:4533`
+**URL:** `http://kavure.chimaera-heptatonic.ts.net:4533`
 
 ## Stack
 
@@ -18,7 +18,7 @@ Streaming de música — servidor Subsonic-API compatível.
 
 ## Acesso
 
-`http://kuaray.chimaera-heptatonic.ts.net:4533`
+`http://kavure.chimaera-heptatonic.ts.net:4533`
 
 ## Clientes Compatíveis
 

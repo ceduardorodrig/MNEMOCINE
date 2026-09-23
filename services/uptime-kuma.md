@@ -46,10 +46,13 @@ Oracle Cloud reivindica VMs gratuitas (AMD Free Tier) se o uso médio de CPU fic
 
 | Grupo | Qtd | Alvos |
 |---|---|---|
-| Psicopompo | 8 | API (interno), Backup, Crafty, Minecraft, Glances, Ping, Syncthing |
+| Kavure | ~12 | Swarm sae-core (API, backup, Valkey), Jogos (Minecraft/Crafty, Zomboid, Valheim), Home Assistant, Pi-hole, Glances |
+| Psicopompo | 4 | StênioREC, Glances, Ping, Syncthing |
 | Ybytu | 7 | AdGuard, Homepage, Uptime Kuma, Filebrowser, Syncthing, Glances, Changedetection, Ntfy |
 | Ybyra | 6 | Proxy API (externo), SPA, Funnel, Umami, Datavis, Glances, Ping |
-| Kuaray | ~14 | *arr stack, streaming, DNS |
+| Kuaray | ~5 | Standby mirror, Glances, Ping |
+
+> **Histórico de migração:** anteriormente, Crafty/Minecraft e a API ficavam no Psicopompo, e *arr/HA no Kuaray. Após a consolidação no Kavure (08-09/2026), os probes de serviços foram remapeados para seus respectivos hosts reais.
 
 ### Divisão Borda vs Física
 

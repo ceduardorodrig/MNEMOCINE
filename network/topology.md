@@ -213,6 +213,8 @@ graph TB
 | 3001 | Zomboid Control Panel | Tailscale |
 | 61208 | Glances | Tailscale |
 | 2375 | Docker proxy (homepage) | Tailscale |
+| 8444 | Crafty Controller (Minecraft web) | Tailscale |
+| 25565 | Minecraft Server (Java/Fabric) | Tailscale |
 | 9090 | Sumænimá Backend API (core) | Tailscale |
 | 9092 | Sumænimá Backup health | Tailscale |
 
@@ -225,16 +227,18 @@ http://ybyra.chimaera-heptatonic.ts.net               → Sumænimá (SPA Fronte
 http://kuaray.chimaera-heptatonic.ts.net:8085         → ~~Sumænimá (SPA Frontend - Borda Secundária)~~ — DEPRECIADO; standby: kavure `proxy-standby` + `tunnel-standby` (failover)
 http://psicopompo.chimaera-heptatonic.ts.net:9000     → Portainer
 http://ybytu.chimaera-heptatonic.ts.net:3001          → Homepage
-http://kuaray.chimaera-heptatonic.ts.net:8123         → Home Assistant
+http://kavure.chimaera-heptatonic.ts.net:8123         → Home Assistant
 http://kavure.chimaera-heptatonic.ts.net:3001         → Zomboid Control Panel
 http://kavure.chimaera-heptatonic.ts.net:16261        → Project Zomboid (game)
+https://kavure.chimaera-heptatonic.ts.net:8444        → Crafty Controller (Minecraft)
+http://kavure.chimaera-heptatonic.ts.net:4533         → Navidrome (Música)
+http://kavure.chimaera-heptatonic.ts.net:8083         → Calibre-web Automated (Ebooks)
 http://kavure.chimaera-heptatonic.ts.net:61208        → Glances
 ```
 
 Publicamente (via Funnel):
 ```
-https://kuaray.chimaera-heptatonic.ts.net:10000       → Home Assistant
-https://kavure.chimaera-heptatonic.ts.net:8443        → aiostreams
+https://kavure.chimaera-heptatonic.ts.net:10000       → aiostreams
 ```
 
 ## Observações

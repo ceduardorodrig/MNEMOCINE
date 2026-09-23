@@ -1,22 +1,22 @@
 ---
-tags: [homelab, service, crafty, gaming, server, psicopompo]
+tags: [homelab, service, crafty, gaming, server, kavure]
 ---
 
 # Dominium — Servidor Minecraft
 
-Servidor modded Fabric gerenciado pelo Crafty Controller no psicopompo.
+Servidor modded Fabric gerenciado pelo Crafty Controller no kavure (migrado do psicopompo em 08/08/2026).
 
-**Servidor físico:** psicopompo
+**Servidor físico:** kavure
 **Container:** crafty-controller
-**Diretório:** `/mnt/NVME_PCI/minecraftserver [dominium]/`
+**Diretório:** `/srv/data/minecraft/minecraftserver [dominium]/`
 
 ## Acesso
 
 | Tipo | Como |
 |---|---|
-| IP do servidor | `psicopompo.chimaera-heptatonic.ts.net` |
+| IP do servidor | `kavure.chimaera-heptatonic.ts.net` |
 | Porta | `25565` (Java Edition) |
-| Console | Crafty Admin → `https://psicopompo.chimaera-heptatonic.ts.net:8443` |
+| Console | Crafty Admin → `https://kavure.chimaera-heptatonic.ts.net:8444` |
 | RCON | localhost:25575 (apenas do host) |
 
 ## Grupos do LuckPerms
