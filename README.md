@@ -55,7 +55,7 @@ flowchart TD
 
         YBYTU["☁️ ybytu (Oracle Cloud Edge DNS)<br/>AMD EPYC · 1GB RAM · Ubuntu 24.04 LTS<br/>AdGuard Home DNS · Homepage · Uptime Kuma"]
 
-        KAVURE["🍓 kavure (Dedicated Services & Swarm Manager)<br/>Intel Core i3-8100 4C/4T · 12GB RAM · Ubuntu 24.04 LTS<br/>Docker Swarm (sae-core) · Grafana/Prometheus · Game Servers"]
+        KAVURE["🍓 kavure (Dedicated Services & Swarm Manager)<br/>Intel Core i3-8100 4C/4T · 12GB RAM · Ubuntu 24.04 LTS<br/>Docker Swarm (sae-core) · Grafana/Prometheus · Game Servers (Minecraft, Zomboid, Valheim)"]
 
         KUARAY["💾 kuaray (Standby Mirror · Deprecated)<br/>Intel Core i5-4200U · 6GB RAM<br/>Linux Mint 22.3 · 224GB SSD + 1TB HDD"]
     end
@@ -78,7 +78,7 @@ flowchart TD
 | Node Name | Form Factor & Role | CPU & Architecture | Memory | Storage Configuration | Operating System |
 |:---|:---|:---|:---:|:---|:---|
 | **`psicopompo`** | Primary Workstation / AI Host | Intel Xeon E-2246G (6C/12T @ 3.6 GHz) + NVIDIA RTX 5050 | 46 GB DDR4 | 462 GB NVMe (OS) + 1.7 TB NVMe (Data) + 448 GB SSD + 1 TB HDD | **CachyOS** (Arch Linux) |
-| **`kavure`** | Dedicated Services & Swarm Manager | Intel Core i3-8100 (4C/4T @ 3.6 GHz) | 12 GB DDR4 | 223 GB SSD (Future: M.2 SATA 1 TB + HDD 4-8 TB) | **Ubuntu 24.04.4 LTS** |
+| **`kavure`** | Dedicated Services & Swarm Manager (sae-core, Minecraft, Zomboid, Valheim) | Intel Core i3-8100 (4C/4T @ 3.6 GHz) | 12 GB DDR4 | 223 GB SSD (Future: M.2 SATA 1 TB + HDD 4-8 TB) | **Ubuntu 24.04.4 LTS** |
 | **`kuaray`** | Standby Mirror / Archive (⚠️ Deprecated 28/08/2026) | Intel Core i5-4200U (2C/4T @ 1.6 GHz) | 6 GB DDR3 | 224 GB SSD + 1 TB HDD | **Linux Mint 22.3 (Zena)** |
 | **`ybyra`** | Cloud Edge Reverse Proxy | AMD EPYC 7551 (2 vCPUs @ 2.0 GHz) | 1 GB RAM | 150 GB Block Storage | **Ubuntu 24.04.4 LTS** (OCI) |
 | **`ybytu`** | Cloud Edge DNS & Telemetry | AMD EPYC 7551 (2 vCPUs @ 2.0 GHz) | 1 GB RAM | 50 GB Block Storage | **Ubuntu 24.04.4 LTS** (OCI) |
@@ -102,6 +102,7 @@ flowchart TD
 - **ntfy:** Self-hosted lightweight push notifications delivering system events directly to mobile devices.
 
 ### 🎮 Low-Latency Dedicated Gaming
+- **Minecraft Server (Dominium) via Crafty Controller:** Dedicated Fabric 1.21.1 modded server hosted on `kavure` with Crafty Controller 4 web panel (`:8444`), G1 GC memory management (soft-max heap coexisting with Zomboid), and automated NFS offbox snapshots to NAS.
 - **Project Zomboid Dedicated Server:** Custom modded persistence server hosted on `kavure` with live web administration panel.
 - **Valheim Dedicated Server:** Synchronized survival server running on `kavure` with automated world backups.
 - **Punktfunk:** Low-latency desktop and game streaming protocol.

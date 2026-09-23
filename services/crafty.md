@@ -34,7 +34,7 @@ Painel de gerenciamento de servidores Minecraft.
 
 ## Acesso
 
-`https://psicopompo.chimaera-heptatonic.ts.net:8443`
+`https://kavure.chimaera-heptatonic.ts.net:8444`
 
 ## Dados
 
