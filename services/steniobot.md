@@ -132,23 +132,20 @@ Peça no chat para um agente executar `sumaenima-ctl start`.
 
 > Recovery detalhado: `docs/deployment.md` no repo original (seções "Proteção de dados em renomeação de pasta" e "Recovery de volume órfão").
 
-## Documentação Original
+## Documentação Canônica
 
-A documentação completa do StênioBOT está no repo principal em `/mnt/NVME_PCI/agentic-ai/sumaenimahub/sumaenima-hub/docs/` (e na cópia do kavure `/srv/data/sumaenimahub/SUMAENIMA-HUB/docs/`):
+A documentação detalhada da stack de relatoria e transcrição reside no repositório **Sumænimá Hub** (`docs/`):
 
-| Documento | Conteúdo |
+| Módulo / Guia | Conteúdo |
 |---|---|
-| [`deployment.md`](../steniobot/docs/deployment.md) | Deploy, migrações, recovery, checklist |
-| [`environment.md`](../steniobot/docs/environment.md) | Todas as env vars |
-| [`connectivity.md`](../steniobot/docs/connectivity.md) | Tailscale, Funnel, HA |
-| [`observability.md`](../steniobot/docs/observability.md) | Loki/Grafana, logs JSON |
-| [`security.md`](../steniobot/docs/security.md) | Matriz de segurança |
-| ~~[`casaos-integration.md`](../steniobot/docs/casaos-integration.md)~~ | ~~Gateway Nginx no kuaray~~ — CasaOS removido (08/08) |
-| [`ci-github.md`](../steniobot/docs/ci-github.md) | CI/CD GitHub Actions |
-| [`alembic-workflow.md`](../steniobot/docs/alembic-workflow.md) | Migrações de banco |
-| [`architecture.md`](../steniobot/docs/architecture.md) | Arquitetura v2 |
-
-> Nota: os links acima funcionam apenas localmente (mesma máquina). No GitHub, consultar o repo [SUMAENIMA-HUB](https://github.com/ceduardorodrig/SUMAENIMA-HUB).
+| `deployment.md` | Deploy, migrações, recovery, checklist |
+| `environment.md` | Variáveis de ambiente e segredos SOPS |
+| `connectivity.md` | Conectividade Tailscale, Funnel e balanceamento |
+| `observability.md` | Métricas Prometheus, Loki/Grafana, logs JSON |
+| `security.md` | Matriz de segurança e isolamento de dados |
+| `ci-github.md` | Workflows CI/CD GitHub Actions |
+| `alembic-workflow.md` | Migrações e versionamento de banco |
+| `architecture.md` | Arquitetura v3.0 (100% Rust backend Axum) |
 
 ## Dependências
 

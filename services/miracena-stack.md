@@ -6,9 +6,8 @@ tags: [homelab, servico, miracena, stack, docker, n8n, directus, wordpress, nuxt
 
 **Servidor:** Kavure (Dell OptiPlex 3060 SFF)
 **Data de Deploy:** 10/09/2026
-**Status:** Em produção (Incubação temporária no Homelab)
-**Projeto Canônico & Governança:** [`projects/260727-arquiteto-produto-miracena`](../../projects/260727-arquiteto-produto-miracena/README.md)
-**Stack no Projeto:** [`projects/260727-arquiteto-produto-miracena/infraestrutura/homelab-incubacao-stack.md`](../../projects/260727-arquiteto-produto-miracena/infraestrutura/homelab-incubacao-stack.md)
+**Projeto Canônico & Governança:** Miracena (Incubação temporária no Homelab)
+**Ambiente:** Servidor Kavure (instância dedicada isolada)
 
 ## Stack Deployada
 

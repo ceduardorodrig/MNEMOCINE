@@ -90,7 +90,7 @@ O cache começa vazio e cresce apenas com o que está sendo usado.
 
 ## PRD Completo
 
-Ver [`sumaenima-hub/docs/arandu-prd.md`](../../sumaenimahub/sumaenima-hub/docs/arandu-prd.md) no repositório principal.
+Consulte a especificação de produto (PRD) no repositório **Sumænimá Hub** (`docs/arandu-prd.md`).
 
 ## See also
 
