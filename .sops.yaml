@@ -1,0 +1,7 @@
+# sops — regras de criptografia (chave age)
+# Decriptar: sops --decrypt <arquivo>   (usa a chave privada em ~/.config/sops/age/keys.txt)
+# Editar:    sops <arquivo>             (abre editor + re-encripta)
+creation_rules:
+  - path_regex: \.env$
+    encrypted_regex: "^(.*)$"
+    age: age1fgqzpezgrgltznctlvw7xexglhj7kv96hr6n7jz2xaucm4977y8sfn2s8f

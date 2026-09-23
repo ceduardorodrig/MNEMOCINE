@@ -1,0 +1,9 @@
+*.enc.env
+*.env
+*.bak*
+*.tmp
+*.key
+*.pem
+.stversions/
+.smart-env/
+.DS_Store
