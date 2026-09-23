@@ -4,7 +4,7 @@
 [![Mesh Network](https://img.shields.io/badge/mesh-Tailscale%20%2F%20WireGuard-informational?style=flat-square&logo=tailscale)](network/tailscale.md)
 [![Governance](https://img.shields.io/badge/governance-StenioSentinel-brightgreen?style=flat-square)](https://github.com/ceduardorodrig/STENIO-SENTINEL)
 [![License](https://img.shields.io/badge/license-MIT%20%7C%20Apache--2.0-blue?style=flat-square)](LICENSE-MIT)
-[![OS](https://img.shields.io/badge/os-CachyOS%20%7C%20Arch%20%7C%20Ubuntu-orange?style=flat-square&logo=archlinux)](servers/psicopompo.md)
+[![OS](https://img.shields.io/badge/os-CachyOS%20%7C%20Ubuntu%20%7C%20Linux%20Mint-orange?style=flat-square&logo=linux)](servers/psicopompo.md)
 [![Location](https://img.shields.io/badge/location-Brasília--DF%2C%20Brazil-informational?style=flat-square)](https://github.com/ceduardorodrig)
 
 > **"A resilient, 5-node hybrid cloud and sovereign AI infrastructure designed to operate free from foreign corporate cloud monopolies."**
@@ -45,7 +45,7 @@ The infrastructure operates across an encrypted, peer-to-peer **WireGuard / Tail
 ```mermaid
 flowchart TD
     subgraph WAN ["🌐 Public Internet & Reverse Edge"]
-        YBYRA["☁️ ybyra (Oracle Cloud Always-Free)<br/>AMD EPYC · 1GB RAM · Edge Nginx Proxy<br/>Tailscale Funnel Gateway · SSL Termination"]
+        YBYRA["☁️ ybyra (Oracle Cloud Always-Free)<br/>AMD EPYC · 1GB RAM · Ubuntu 24.04 LTS<br/>Edge Nginx Proxy · Tailscale Funnel Gateway"]
     end
 
     subgraph MESH ["🔒 Encrypted Tailscale / WireGuard Mesh (100.x.y.z)"]
@@ -53,11 +53,11 @@ flowchart TD
 
         PSICOPOMPO["🖥️ psicopompo (Primary Workstation & AI Host)<br/>Intel Xeon E-2246G 6C/12T · 46GB RAM<br/>NVIDIA GeForce RTX 5050 (Driver 615.x / cuBLAS)<br/>CachyOS (Arch Linux) · Whisper / Gemma 3 Engine"]
 
-        YBYTU["☁️ ybytu (Oracle Cloud Edge DNS)<br/>AMD EPYC · AdGuard Home DNS · Syncthing Mirror"]
+        YBYTU["☁️ ybytu (Oracle Cloud Edge DNS)<br/>AMD EPYC · 1GB RAM · Ubuntu 24.04 LTS<br/>AdGuard Home DNS · Homepage · Uptime Kuma"]
 
-        KUARAY["💾 kuaray (Storage & Media Host)<br/>Intel Core i5-4200U · 6GB RAM<br/>NVMe SSD + 1TB Storage · Media Stack"]
+        KAVURE["🍓 kavure (Dedicated Services & Swarm Manager)<br/>Intel Core i3-8100 4C/4T · 12GB RAM · Ubuntu 24.04 LTS<br/>Docker Swarm (sae-core) · Grafana/Prometheus · Game Servers"]
 
-        KAVURE["🍓 kavure (Dedicated Services & Swarm Node)<br/>Intel Core i3-8100 4C/4T · 12GB RAM<br/>Docker Swarm · Dedicated Game Servers (Valheim / Zomboid)"]
+        KUARAY["💾 kuaray (Standby Mirror · Deprecated)<br/>Intel Core i5-4200U · 6GB RAM<br/>Linux Mint 22.3 · 224GB SSD + 1TB HDD"]
     end
 
     subgraph STORAGE ["🛡️ Backup & Disaster Recovery Layer"]
@@ -78,10 +78,10 @@ flowchart TD
 | Node Name | Form Factor & Role | CPU & Architecture | Memory | Storage Configuration | Operating System |
 |:---|:---|:---|:---:|:---|:---|
 | **`psicopompo`** | Primary Workstation / AI Host | Intel Xeon E-2246G (6C/12T @ 3.6 GHz) + NVIDIA RTX 5050 | 46 GB DDR4 | 462 GB NVMe (OS) + 1.7 TB NVMe (Data) + 448 GB SSD + 1 TB HDD | **CachyOS** (Arch Linux) |
-| **`kavure`** | Dedicated Services & Swarm Node | Intel Core i3-8100 (4C/4T @ 3.6 GHz) | 12 GB DDR4 | 223 GB SSD (High-Speed Local Storage) | Ubuntu Server LTS |
-| **`kuaray`** | Storage & Media Server | Intel Core i5-4200U (2C/4T @ 1.6 GHz) | 6 GB DDR3 | 224 GB SSD + 1 TB HDD | Ubuntu Server LTS |
-| **`ybyra`** | Cloud Edge Reverse Proxy | AMD EPYC 7551 (2 vCPUs @ 2.0 GHz) | 1 GB RAM | 150 GB Block Storage | Oracle Linux LTS |
-| **`ybytu`** | Cloud Edge DNS & Dashboard | AMD EPYC 7551 (2 vCPUs @ 2.0 GHz) | 1 GB RAM | 50 GB Block Storage | Oracle Linux LTS |
+| **`kavure`** | Dedicated Services & Swarm Manager | Intel Core i3-8100 (4C/4T @ 3.6 GHz) | 12 GB DDR4 | 223 GB SSD (Future: M.2 SATA 1 TB + HDD 4-8 TB) | **Ubuntu 24.04.4 LTS** |
+| **`kuaray`** | Standby Mirror / Archive (⚠️ Deprecated 28/08/2026) | Intel Core i5-4200U (2C/4T @ 1.6 GHz) | 6 GB DDR3 | 224 GB SSD + 1 TB HDD | **Linux Mint 22.3 (Zena)** |
+| **`ybyra`** | Cloud Edge Reverse Proxy | AMD EPYC 7551 (2 vCPUs @ 2.0 GHz) | 1 GB RAM | 150 GB Block Storage | **Ubuntu 24.04.4 LTS** (OCI) |
+| **`ybytu`** | Cloud Edge DNS & Telemetry | AMD EPYC 7551 (2 vCPUs @ 2.0 GHz) | 1 GB RAM | 50 GB Block Storage | **Ubuntu 24.04.4 LTS** (OCI) |
 
 ---
 

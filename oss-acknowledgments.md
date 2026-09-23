@@ -9,7 +9,8 @@ A infraestrutura do Homelab Mnemocine é operada com base em projetos e tecnolog
 ## Sistemas Operacionais, Armazenamento & Kernel
 
 - **[CachyOS](https://cachyos.org/)** / **[Arch Linux](https://archlinux.org/)** (GPL) — Sistema operacional com kernel BORE/EEVDF otimizado com compilações x86-64-v3/v4 para o nó primário `psicopompo`
-- **[Ubuntu Server](https://ubuntu.com/)** (GPL) — Distribuição base para os nós de borda e serviços (`kavure`, `kuaray`, `ybytu`, `ybyra`)
+- **[Ubuntu Server](https://ubuntu.com/)** (GPL) — Distribuição base para os nós de borda e serviços (`kavure`, `ybytu`, `ybyra`)
+- **[Linux Mint](https://linuxmint.com/)** (GPL) — Distribuição desktop/servidor utilizada no nó standby `kuaray` (versão 22.3 Zena)
 - **[Btrfs](https://btrfs.readthedocs.io/)** (GPL) — Sistema de arquivos com snapshots copy-on-write e compressão zstd
 - **[Snapper](http://snapper.io/)** (GPL-2.0) — Gerenciamento automatizado de snapshots btrfs pré/pós transações
 - **[Restic](https://restic.net/)** (BSD-2-Clause) — Backup criptografado e deduplicado para o storage NAS
