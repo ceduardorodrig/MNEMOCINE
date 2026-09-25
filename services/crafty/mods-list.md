@@ -2,20 +2,20 @@
 tags: [homelab, service, crafty, gaming, psicopompo]
 ---
 
-# Dominium — Lista de Mods
+# Dominium — Mods List
 
-**Servidor:** Fabric 1.21.1 | **Gerenciado por:** Crafty Controller
+**Server:** Fabric 1.21.1 | **Managed by:** Crafty Controller
 **Client:** Modrinth Profile — `Dominium 1.0.0`
 
-- **Total de mods exclusivos do cliente:** 34
-- **Total de mods exclusivos do servidor:** 28
-- **Total de mods compartilhados:** 76 (dos quais 1 com versão discrepante)
+- **Total client-only mods:** 34
+- **Total server-only mods:** 28
+- **Total shared mods:** 76 (of which 1 has a version mismatch)
 
 ---
 
-## Compartilhados (Cliente + Servidor)
+## Shared (Client + Server)
 
-| Mod | Versão Cliente | Versão Servidor |
+| Mod | Client Version | Server Version |
 |---|---|---|
 | animal_feeding_trough | animal_feeding_trough-1.1.2+1.21.1 | animal_feeding_trough-1.1.2+1.21.1 |
 | another_furniture-fabric | another_furniture-fabric-4.0.2 | another_furniture-fabric-4.0.2 |
@@ -96,9 +96,9 @@ tags: [homelab, service, crafty, gaming, psicopompo]
 
 ---
 
-## Apenas Cliente
+## Client Only
 
-| Mod | Versão |
+| Mod | Version |
 |---|---|
 | appleskin-fabric-mc1.21 | appleskin-fabric-mc1.21-3.0.6 |
 | atmosfera | atmosfera-2.6.0+mc1.21.1 |
@@ -137,9 +137,9 @@ tags: [homelab, service, crafty, gaming, psicopompo]
 
 ---
 
-## Apenas Servidor
+## Server Only
 
-| Mod | Versão |
+| Mod | Version |
 |---|---|
 | [1.21.x] horde nights v1.3.14 | [1.21.x] Horde Nights v1.3.14 |
 | additionalstructures | AdditionalStructures-1.21.x-(v.5.1.0-fabric) |
@@ -172,9 +172,9 @@ tags: [homelab, service, crafty, gaming, psicopompo]
 
 ---
 
-## Notas
+## Notes
 
-- **1 mod(s) com versão diferente entre cliente e servidor** — execute `sync_mods.py` para sincronizar.
-- `controlify` e `super_resolution` estão com extensão `.disabled` no cliente (instalados mas desativados).
-- `azurelib` existe apenas no cliente (separado do `azurelibarmor` que está nos dois).
-- O script `sync_mods.py` copia as versões mais novas do cliente para o servidor.
+- **1 mod(s) with a different version between client and server** — run `sync_mods.py` to sync.
+- `controlify` and `super_resolution` have the `.disabled` extension on the client (installed but disabled).
+- `azurelib` exists only on the client (separate from `azurelibarmor`, which is on both).
+- The `sync_mods.py` script copies the newest versions from the client to the server.

@@ -2,42 +2,42 @@
 tags: [homelab, service, crafty, gaming, server, kavure]
 ---
 
-# Dominium — Servidor Minecraft
+# Dominium — Minecraft Server
 
-Servidor modded Fabric gerenciado pelo Crafty Controller no kavure (migrado do psicopompo em 08/08/2026).
+Modded Fabric server managed by Crafty Controller on kavure (migrated from psicopompo on 08/08/2026).
 
-**Servidor físico:** kavure
+**Physical server:** kavure
 **Container:** crafty-controller
-**Diretório:** `/srv/data/minecraft/minecraftserver [dominium]/`
+**Directory:** `/srv/data/minecraft/minecraftserver [dominium]/`
 
-## Acesso
+## Access
 
-| Tipo | Como |
+| Type | How |
 |---|---|
-| IP do servidor | `kavure.chimaera-heptatonic.ts.net` |
-| Porta | `25565` (Java Edition) |
+| Server IP | `kavure.chimaera-heptatonic.ts.net` |
+| Port | `25565` (Java Edition) |
 | Console | Crafty Admin → `https://kavure.chimaera-heptatonic.ts.net:8444` |
-| RCON | localhost:25575 (apenas do host) |
+| RCON | localhost:25575 (host only) |
 
-## Grupos do LuckPerms
+## LuckPerms Groups
 
-| Grupo | Prefixo | Herda de | Permissões principais |
+| Group | Prefix | Inherits from | Main permissions |
 |---|---|---|---|
 | `admin` | `<dark_gray>[<red>Admin<dark_gray>]` | — | All commands: give, time, weather, tp, gamemode, selector, advancedbackups, ledger |
-| `dominium` | — | default | Survival + confiança total |
+| `dominium` | — | default | Survival + full trust |
 | `builder` | — | default | Survival + `/gamemode` |
 | `lonewanderer` | — | default | Survival + `/tpa`, `/tpaccept`, `/back`, `/home`, `/sethome`, `/spawn` |
 | `default` | — | — | `/msg`, `/tpa`, `/tpaccept`, `/back`, `/home`, `/sethome`, `/spawn` |
 
-## Players Registrados
+## Registered Players
 
-| Player | UUID | Grupo |
+| Player | UUID | Group |
 |---|---|---|
 | oxelytrum | `86869f39-8b2e-4519-bfa1-6c86e0b49d4c` | `dominium` |
 | twister2700 | `9d6c62d9-16ca-4159-8614-9a067848bf53` | `dominium` |
 | onidsouza | `f971f8da-379e-4190-9032-c3ba8fc3eda5` | `builder` |
 
-## Comandos Úteis (LuckPerms)
+## Useful Commands (LuckPerms)
 
 ```bash
 # Ver grupo de um player
@@ -61,15 +61,15 @@ Servidor modded Fabric gerenciado pelo Crafty Controller no kavure (migrado do p
 
 ## Backup
 
-As permissões estão no banco H2 do LuckPerms dentro do container:
+The permissions live in the LuckPerms H2 database inside the container:
 `/crafty/servers/dominium/mods/luckperms/luckperms-h2-v2.mv.db`
 
-Para backup:
+To back up:
 ```bash
 docker cp crafty-controller:/crafty/servers/dominium/mods/luckperms/luckperms-h2-v2.mv.db /backup/
 ```
 
-Para restaurar:
+To restore:
 ```bash
 docker cp /backup/luckperms-h2-v2.mv.db crafty-controller:/crafty/servers/dominium/mods/luckperms/
 docker restart crafty-controller
@@ -77,17 +77,17 @@ docker restart crafty-controller
 
 ## Modpack (DOMINIUM-MODPACK)
 
-O modpack é distribuído via **Packwiz + GitHub Pages** com auto-update.
+The modpack is distributed via **Packwiz + GitHub Pages** with auto-update.
 
-| Item | Valor |
+| Item | Value |
 |---|---|
-| Repositório | [ceduardorodrig/DOMINIUM-MODPACK](https://github.com/ceduardorodrig/DOMINIUM-MODPACK) |
+| Repository | [ceduardorodrig/DOMINIUM-MODPACK](https://github.com/ceduardorodrig/DOMINIUM-MODPACK) |
 | Pack URL | `https://ceduardorodrig.github.io/DOMINIUM-MODPACK/pack.toml` |
 | Mod loader | Fabric 0.19.3 |
 | MC Version | 1.21.1 |
 | Mods | 112 (Modrinth) |
 
-### Atualizar mods
+### Update mods
 
 ```bash
 cd /home/edu/DOMINIUM-MODPACK
@@ -98,7 +98,7 @@ git commit -m "Atualizar mods $(date +%d/%m/%Y)"
 git push
 ```
 
-### Adicionar mod novo
+### Add a new mod
 
 ```bash
 packwiz mr add <slug>
@@ -106,22 +106,22 @@ packwiz refresh
 git add -A && git commit -m "Adicionar <mod>" && git push
 ```
 
-### Sincronizar servidor
+### Sync the server
 
-O servidor Crafty precisa dos mesmos mods (lado `server`/`both`). Use o script:
+The Crafty server needs the same mods (`server`/`both` side). Use the script:
 
 ```bash
 python3 "/mnt/NVME_PCI/minecraftserver [dominium]/sync_mods.py"
 ```
 
-### Instalação limpa
+### Clean installation
 
-Para testar a instalação do zero no PrismLauncher:
-1. `Adicionar Instância` → `Importar` → colar a Pack URL acima
-2. Baixar [packwiz-installer-bootstrap.jar](https://github.com/packwiz/packwiz-installer-bootstrap/releases)
-3. Colocar em `minecraft/` e configurar como comando de pré-lançamento
+To test a from-scratch install on PrismLauncher:
+1. `Adicionar Instância` → `Importar` → paste the Pack URL above
+2. Download [packwiz-installer-bootstrap.jar](https://github.com/packwiz/packwiz-installer-bootstrap/releases)
+3. Place it in `minecraft/` and configure it as the pre-launch command
 
 ## See also
 - [[crafty]] — Crafty Controller
-- [[psicopompo]] — Servidor
-- [[psicopompo-gaming]] — Jogos no psicopompo
+- [[psicopompo]] — Server
+- [[psicopompo-gaming]] — Games on psicopompo

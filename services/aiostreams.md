@@ -4,25 +4,25 @@ tags: [homelab, service, aiostreams, media]
 
 # aiostreams
 
-Proxy de streaming para players de mídia.
+Streaming proxy for media players.
 
-**Servidor:** kavure
-**Porta:** `3000`
+**Server:** kavure
+**Port:** `3000`
 **Funnel:** `kavure.chimaera-heptatonic.ts.net:10000`
-**URL interna:** `http://localhost:3000`
-**URL pública:** `https://kavure.chimaera-heptatonic.ts.net:10000`
+**Internal URL:** `http://localhost:3000`
+**Public URL:** `https://kavure.chimaera-heptatonic.ts.net:10000`
 
 ## Stack
 
-| Container | Imagem | Função |
+| Container | Image | Role |
 |---|---|---|
-| aiostreams | viren070/aiostreams:latest | Proxy de streaming |
+| aiostreams | viren070/aiostreams:latest | Streaming proxy |
 
-## Acesso
+## Access
 
 - **Tailscale:** `http://kavure.chimaera-heptatonic.ts.net:3000`
-- **Público:** `https://kavure.chimaera-heptatonic.ts.net:10000` (via Funnel)
+- **Public:** `https://kavure.chimaera-heptatonic.ts.net:10000` (via Funnel)
 
-## Funcionamento
+## How it works
 
-Proxy que recebe requisições de players (ex: Stremio) e retorna streams resolvidos via serviços de terceiros.
+Proxy that receives requests from players (e.g. Stremio) and returns resolved streams via third-party services.

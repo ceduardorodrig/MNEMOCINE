@@ -15,92 +15,92 @@ Root tag. Every file inside `mnemocine` must have it.
 
 ### `#server` — Tailnet servers
 - `#psicopompo` — Main / gaming / desktop
-- `#ybytu` — Cloud / DNS primário
-- `#ybyra` — Cloud / futuro SPA host
+- `#ybytu` — Cloud / primary DNS
+- `#ybyra` — Cloud / future SPA host
 - `#kuaray` — Media / Home Assistant
-- `#kavure` — Servidor de serviços dedicado (Project Zomboid, painel; Sumænimá em migração)
+- `#kavure` — Dedicated services server (Project Zomboid, panel; Sumænimá in migration)
 
 ### `#service` — Individual services
 - `#adguard` — AdGuard Home (DNS)
-- `#aiostreams` — Streaming de áudio/vídeo web
-- `#calibre-web` — Biblioteca de eBooks
-- `#casaos` — Painel de gerenciamento kuaray (~~ativo~~ — **histórico**, removido 08/08)
-- `#comet` — Indexador de Usenet
+- `#aiostreams` — Web audio/video streaming
+- `#calibre-web` — eBook library
+- `#casaos` — kuaray management panel (~~active~~ — **historical**, removed 08/08)
+- `#comet` — Usenet indexer
 - `#crafty` — Minecraft server (psicopompo)
-- `#duplicati` — Backup de arquivos (~~ativo~~ — **histórico**, removido 06/08)
-- `#flaresolverr` — Proxy para Cloudflare
-- `#grafana` — Dashboards de observabilidade
-- `#home-assistant` — Automação residencial
-- `#homepage` — Dashboard de serviços
-- `#uptime-kuma` — Monitoramento de uptime
-- `#kavita` — Leitor de mangás/quadrinhos (~~ativo~~ — **histórico**, removido 10/08)
-- `#lidarr` — Gerenciador de música
+- `#duplicati` — File backup (~~active~~ — **historical**, removed 06/08)
+- `#flaresolverr` — Proxy for Cloudflare
+- `#grafana` — Observability dashboards
+- `#home-assistant` — Home automation
+- `#homepage` — Services dashboard
+- `#uptime-kuma` — Uptime monitoring
+- `#kavita` — Manga/comic reader (~~active~~ — **historical**, removed 10/08)
+- `#lidarr` — Music manager
 - `#loki` — Log aggregation (Loki)
 - `#mosquitto` — Broker MQTT
-- `#navidrome` — Streaming de música
-- `#n8n` — Automação visual (workflows)
+- `#navidrome` — Music streaming
+- `#n8n` — Visual automation (workflows)
 - `#pihole` — DNS blocker (kuaray)
-- `#portainer` — Gerenciamento Docker
-- `#prometheus` — Métricas time-series (Prometheus)
-- `#punktfunk` — Streaming de jogos/desktop de baixa latência
-- `#changedetection` — Monitoramento de mudanças em páginas
-- `#ntfy` — Notificações push
-- `#prowlarr` — Indexador de torrent/usenet
-- `#soularr` — Integração Soulseek + Lidarr
-- `#searxng` — Busca privada (meta-search)
-- `#slskd` — Cliente Soulseek
-- `#steniobot` — Bot de relatoria com IA
-- `#sumaenima-local` — Controle local do SUMAENIMA (sumaenima-ctl)
-- `#stremio` — Streaming de filmes/séries
-- `#syncthing` — Sincronização de arquivos
-- `#transmission` — Cliente torrent
-- `#vert` — Microblogging descentralizado
-- `#watchtower` — Auto-update de containers
-- `#zomboid` — Servidor Project Zomboid
-- `#zomboid-panel` — Painel web do Project Zomboid
-- `#wol` — Wake-on-LAN, relay de acionamento remoto
+- `#portainer` — Docker management
+- `#prometheus` — Time-series metrics (Prometheus)
+- `#punktfunk` — Low-latency game/desktop streaming
+- `#changedetection` — Change monitoring on pages
+- `#ntfy` — Push notifications
+- `#prowlarr` — Torrent/usenet indexer
+- `#soularr` — Soulseek + Lidarr integration
+- `#searxng` — Private search (meta-search)
+- `#slskd` — Soulseek client
+- `#steniobot` — AI reporting bot
+- `#sumaenima-local` — Local control of SUMAENIMA (sumaenima-ctl)
+- `#stremio` — Movie/series streaming
+- `#syncthing` — File synchronization
+- `#transmission` — Torrent client
+- `#vert` — Decentralized microblogging
+- `#watchtower` — Container auto-update
+- `#zomboid` — Project Zomboid server
+- `#zomboid-panel` — Project Zomboid web panel
+- `#wol` — Wake-on-LAN, remote trigger relay
 
 ### `#network` — Network, DNS and firewall
-### `#tailscale` — Tailscale específico
-### `#backup` — Estratégia e procedimentos de backup
-- `#snapshot` — Snapshots btrfs/snapper (anti-deleção)
-- `#snapper` — Snapper específico
-- `#btrfs` — Filesystem btrfs
-- `#config` — Configurações e compose
+### `#tailscale` — Tailscale specific
+### `#backup` — Backup strategy and procedures
+- `#snapshot` — btrfs/snapper snapshots (anti-deletion)
+- `#snapper` — Snapper specific
+- `#btrfs` — btrfs filesystem
+- `#config` — Settings and compose
 - `#compose` — Docker Compose
-- `#ritual` — Rituais e verificação de backup
-- `#checklist` — Checklist / pendências
+- `#ritual` — Rituals and backup verification
+- `#checklist` — Checklist / pending items
 ### `#recovery` — Disaster recovery
 ### `#docker` — Docker, compose, containers
 
-### Categorias de serviço
-- `#media` — Streaming, música, livros
+### Service categories
+- `#media` — Streaming, music, books
 - `#download` — Torrent, Usenet, Soulseek
 - `#dns` — AdGuard, Pi-hole
 - `#automation` — Home Assistant, MQTT
 - `#monitoring` — Portainer, Homepage, Glances
 - `#gaming` — Crafty, Steam, Minecraft
-- `#storage` — Discos, pools, volumes, montagens
-- `#cloud` — Cloud storage, remotes, sincronização off-site
+- `#storage` — Disks, pools, volumes, mounts
+- `#cloud` — Cloud storage, remotes, off-site sync
 - `#rclone` — Rclone, mounts, Google Drive
-- `#tutorial` — Guias passo-a-passo
-- `#todo` — Pendências / WIP
-- `#env` — Variáveis de ambiente, portas
-- `#sops` — Criptografia de segredos (sops/age), store central
-- `#ssl` — Certificados, TLS
-- `#meta` — Tags que descrevem o próprio sistema de tags
-- `#taxonomy` — Usada na própria _tags.md
-- `#agents` — Instruções para agentes de IA
-- `#steam` — Steam / jogos no Linux
-- `#power` — Energia, suspensão, hibernação (S3/S4)
+- `#tutorial` — Step-by-step guides
+- `#todo` — Pending items / WIP
+- `#env` — Environment variables, ports
+- `#sops` — Secret encryption (sops/age), central store
+- `#ssl` — Certificates, TLS
+- `#meta` — Tags that describe the tag system itself
+- `#taxonomy` — Used in _tags.md itself
+- `#agents` — Instructions for AI agents
+- `#steam` — Steam / games on Linux
+- `#power` — Power, suspend, hibernate (S3/S4)
 
-### `#hardware` — Dispositivos físicos, periféricos, mídias
-- `#usb` — Dispositivos USB, pendrives, gravadores
-- `#fat` — Filesystem FAT32, vfat, dirty bit
-- `#gpu` — Placas de vídeo (GPU) e configuração de vídeo
-- `#nvidia` — Driver e configuração NVIDIA (proprietário)
-- `#rebar` — ReBAR / Resizable BAR (BIOS da Dell não permite; via Linux sim)
+### `#hardware` — Physical devices, peripherals, media
+- `#usb` — USB devices, flash drives, recorders
+- `#fat` — FAT32, vfat filesystem, dirty bit
+- `#gpu` — Graphics cards (GPU) and video configuration
+- `#nvidia` — NVIDIA driver and configuration (proprietary)
+- `#rebar` — ReBAR / Resizable BAR (Dell BIOS does not allow it; via Linux it does)
 
-### `#desktop` — Desktop / Workstation (ex.: KDE no psicopompo)
-- `#kde` — KDE Plasma (sessão, applets, configuração)
+### `#desktop` — Desktop / Workstation (e.g.: KDE on psicopompo)
+- `#kde` — KDE Plasma (session, applets, configuration)
 - `#plasma` — Plasma shell / widgets / workarounds

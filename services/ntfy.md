@@ -4,9 +4,9 @@ tags: [homelab, service, ntfy, monitoring, ybytu]
 
 # Ntfy
 
-Servidor de notificações push. Roda no ybytu (Docker).
+Push notification server. Runs on ybytu (Docker).
 
-**Servidor:** ybytu
+**Server:** ybytu
 
 ## Deploy
 
@@ -17,21 +17,21 @@ docker run -d --restart unless-stopped --name ntfy \
   binwiederhier/ntfy serve
 ```
 
-## Acesso
+## Access
 
 - URL: `http://100.115.253.109:8083`
 - Tailscale DNS: `http://ybytu.chimaera-heptatonic.ts.net:8083`
 
-## Tópicos
+## Topics
 
-| Tópico | Origem |
+| Topic | Source |
 |---|---|
-| `chimaera-heptatonic` | Changedetection.io (mudanças em páginas) |
-| `uptimekuma` | Uptime Kuma (alertas de downtime) |
+| `chimaera-heptatonic` | Changedetection.io (page changes) |
+| `uptimekuma` | Uptime Kuma (downtime alerts) |
 
-## Integrações
+## Integrations
 
-- App ntfy no celular
+- ntfy app on the phone
 - Changedetection.io → `ntfy://100.115.253.109:8083/chimaera-heptatonic`
 - Uptime Kuma → webhook `http://100.115.253.109:8083/uptimekuma`
 

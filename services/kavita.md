@@ -4,28 +4,28 @@ tags: [homelab, service, kavita, media]
 
 # Kavita
 
-> **⚠️ REMOVIDO (10/08/2026):** leitor de mangás/quadrinhos desinstalado do kavure (container removido, dir `/srv/data/kavita` apagado). Referências removidas do homepage e das docs. Esta doc fica como histórico.
+> **⚠️ REMOVED (10/08/2026):** manga/comic reader uninstalled from kavure (container removed, `/srv/data/kavita` dir deleted). References removed from homepage and the docs. This doc stays as history.
 
-Servidor de leitura de mangás, quadrinhos e ebooks.
+Manga, comic and ebook reader server.
 
-**Servidor:** kavure (migrado 09/08/2026)
-**Porta:** `5000`
+**Server:** kavure (migrated 09/08/2026)
+**Port:** `5000`
 **URL:** `http://kuaray.chimaera-heptatonic.ts.net:5000`
 
 ## Stack
 
-| Container | Imagem | Função |
+| Container | Image | Role |
 |---|---|---|
-| kavita | jvmilazz0/kavita:latest | Leitor de manga/ebook |
+| kavita | jvmilazz0/kavita:latest | Manga/ebook reader |
 
-## Acesso
+## Access
 
 `http://kuaray.chimaera-heptatonic.ts.net:5000`
 
-## Funcionamento
+## Operation
 
-Servidor de leitura otimizado para:
-- Mangás
-- Quadrinhos (HQ)
+Reading server optimized for:
+- Mangas
+- Comics (graphic novels)
 - Ebooks
-- Leitura em navegador ou app mobile
+- Reading in the browser or a mobile app

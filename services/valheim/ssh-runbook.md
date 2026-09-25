@@ -2,28 +2,28 @@
 tags: [homelab, service, valheim, tutorial]
 ---
 
-# Valheim — Runbook SSH
+# Valheim — SSH Runbook
 
-Operação manual do servidor de **Valheim** no kavure via SSH. Fonte de verdade: [`valheim-server.md`](valheim-server.md).
+Manual operation of the **Valheim** server on kavure via SSH. Source of truth: [`valheim-server.md`](valheim-server.md).
 
-## Acesso
+## Access
 
 ```bash
 tailscale ssh kavure@kavure
 ```
 
-## Scripts de operação (`/usr/local/bin/valheim-*`)
+## Operations scripts (`/usr/local/bin/valheim-*`)
 
-| Script | O que faz |
+| Script | What it does |
 |---|---|
-| `valheim-start` | Liga o servidor (`docker compose up -d`) |
-| `valheim-stop` | Para o servidor (`docker compose down`) |
-| `valheim-restart` | Reinicia o servidor (`docker compose restart`) |
-| `valheim-status` | Status do container + portas UDP + recursos |
-| `valheim-backup` | Backup off-box via rsync → NFS psicopompo |
-| `valheim-playercount` | Mostra players conectados (via log) |
+| `valheim-start` | Starts the server (`docker compose up -d`) |
+| `valheim-stop` | Stops the server (`docker compose down`) |
+| `valheim-restart` | Restarts the server (`docker compose restart`) |
+| `valheim-status` | Container status + UDP ports + resources |
+| `valheim-backup` | Off-box backup via rsync → psicopompo NFS |
+| `valheim-playercount` | Shows connected players (via log) |
 
-## Comandos rápidos
+## Quick commands
 
 ```bash
 tailscale ssh kavure@kavure
@@ -34,7 +34,7 @@ valheim-start
 valheim-backup
 ```
 
-## Equivalente Docker manual
+## Manual Docker equivalent
 
 ```bash
 cd /srv/data/valheim
@@ -46,9 +46,9 @@ docker compose logs -f            # console
 docker compose logs -f --tail 100
 ```
 
-> **Diferente do Zomboid:** o Valheim não tem RCON — não é possível forçar save remoto via comando. O container salva automaticamente a cada 30 min (`AUTO_BACKUP`) e antes de shutdown/update.
+> **Unlike Zomboid:** Valheim has no RCON — you cannot force a remote save via command. The container saves automatically every 30 min (`AUTO_BACKUP`) and before shutdown/update.
 
-## Status / portas
+## Status / ports
 
 ```bash
 valheim-status
@@ -56,18 +56,18 @@ docker ps --filter name=valheim-server
 ss -lunpt | grep -E '2456|2457|2458'
 ```
 
-| Porta | Protocolo | Uso |
+| Port | Protocol | Use |
 |---|---|---|
-| 2456 | UDP | Jogo (principal) |
-| 2457 | UDP | Jogo (backup) |
-| 2458 | UDP | Jogo (backup) |
+| 2456 | UDP | Game (primary) |
+| 2457 | UDP | Game (backup) |
+| 2458 | UDP | Game (backup) |
 
 ## Backup
 
-- **Off-box (principal):** `valheim-backup` (rsync `--delete` de `/srv/data/valheim/saves/worlds_local/` → NFS psicopompo `/mnt/BACKUP/valheim-server-kavure/daily/worlds_local/`). Corrigido em 13/09/2026 (caminho antigo `config/backups/` não existia neste setup).
-- **Container (local):** `AUTO_BACKUP` a cada 30 min em `/home/steam/backups` (`./backups`, persistido desde 13/09). Retenção 7 dias.
-- **Pré-update:** `AUTO_BACKUP_ON_UPDATE=1` salva antes de atualizar
-- **Pré-shutdown:** `AUTO_BACKUP_ON_SHUTDOWN=1` salva antes de desligar
+- **Off-box (primary):** `valheim-backup` (rsync `--delete` from `/srv/data/valheim/saves/worlds_local/` → psicopompo NFS `/mnt/BACKUP/valheim-server-kavure/daily/worlds_local/`). Fixed on 13/09/2026 (the old path `config/backups/` did not exist in this setup).
+- **Container (local):** `AUTO_BACKUP` every 30 min into `/home/steam/backups` (`./backups`, persisted since 13/09). Retention 7 days.
+- **Pre-update:** `AUTO_BACKUP_ON_UPDATE=1` saves before updating
+- **Pre-shutdown:** `AUTO_BACKUP_ON_SHUTDOWN=1` saves before shutting down
 - World data: `/srv/data/valheim/saves/worlds_local/` (Fimbulvetr.db + Fimbulvetr.fwl + auto-backups)
 
 ## Logs
@@ -87,29 +87,29 @@ tail -f /var/log/valheim-backup.log
 docker logs valheim-server --tail 200 2>&1 | grep -iE 'BepInEx|Plugin|Error|Exception'
 ```
 
-## Agendamentos (systemd timers)
+## Schedules (systemd timers)
 
 ```ini
 # hl-valheim-restart.timer — 05:00 diário (Persistent=true)
 # hl-valheim-backup.timer  — 05:30 diário (Persistent=true)
 ```
 
-- **Fuso do host:** `America/Sao_Paulo`
-- **watchtower** (container da stack `ops`, **03:00 BRT**): atualiza `valheim-server` — recria container com stop-timeout 30s; `AUTO_BACKUP_ON_UPDATE=1` salva antes.
+- **Host timezone:** `America/Sao_Paulo`
+- **watchtower** (`ops` stack container, **03:00 BRT**): updates `valheim-server` — recreates the container with stop-timeout 30s; `AUTO_BACKUP_ON_UPDATE=1` saves first.
 
-## Update de mods
+## Mod update
 
-1. Editar `MODS:` no `/srv/data/valheim/docker-compose.yml`
-2. `valheim-restart` — no boot o BepInEx baixa/instala os mods automaticamente
-3. Confirmar no log:
+1. Edit `MODS:` in `/srv/data/valheim/docker-compose.yml`
+2. `valheim-restart` — on boot BepInEx downloads/installs the mods automatically
+3. Confirm in the log:
 
 ```bash
 docker logs valheim-server --tail 100 2>&1 | grep -iE 'BepInEx|Plugin|Loading'
 ```
 
-## Update de versão (steamcmd)
+## Version update (steamcmd)
 
-O `AUTO_UPDATE` rodando `0 3 * * *` (03:00) já faz update automático. Para manual:
+The `AUTO_UPDATE` cron running `0 3 * * *` (03:00) already does automatic updates. To do it manually:
 
 ```bash
 cd /srv/data/valheim
@@ -120,16 +120,16 @@ docker compose up -d
 
 ## Troubleshooting
 
-- **Container não sobe?** `docker logs valheim-server --tail 100` + `valheim-status`
-- **Mundo corrompido?** Restaurar de `/srv/data/valheim/saves/worlds_local/` (backup mais recente) ou do off-box NFS
-- **Mods quebrados?** Verificar `BepInEx/LogOutput.log` — erros de compile indicam incompatibilidade
-- **Mundo vazio (só terreno)?** `frame tag 0x48` no log → Compression do SmoothServer quebrou; ver [[valheim-server#SmoothServer Compression incompatível com Valheim 1.0.12 (mundo vazio)]]
-- **RAM alta?** O Valheim consome ~1-2 GB em idle; `valheim-restart` limpa o heap
-- **Conexão lenta?** SmoothServer monitora peers — verificar logs `[PeerTelemetry]`
+- **Container won't come up?** `docker logs valheim-server --tail 100` + `valheim-status`
+- **Corrupted world?** Restore from `/srv/data/valheim/saves/worlds_local/` (most recent backup) or from the off-box NFS
+- **Broken mods?** Check `BepInEx/LogOutput.log` — compile errors indicate an incompatibility
+- **Empty world (terrain only)?** `frame tag 0x48` in the log → SmoothServer Compression broke; see [[valheim-server#SmoothServer Compression incompatible with Valheim 1.0.12 (empty world)]]
+- **High RAM?** Valheim uses ~1-2 GB at idle; `valheim-restart` clears the heap
+- **Slow connection?** SmoothServer monitors peers — check the `[PeerTelemetry]` logs
 
 ## See also
 
-- [[valheim-server]] — Servidor Valheim (Docker no kavure)
-- [[onboarding]] — Guia para jogadores
-- [[kavure]] — Servidor de destino
-- [[project-zomboid]] — Servidor Zomboid (padrão de referência)
+- [[valheim-server]] — Valheim server (Docker on kavure)
+- [[onboarding]] — Player guide
+- [[kavure]] — Target server
+- [[project-zomboid]] — Zomboid server (reference pattern)

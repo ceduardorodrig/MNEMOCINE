@@ -4,31 +4,31 @@ tags: [homelab, service, zomboid-panel, gaming]
 
 # Zomboid Control Panel
 
-Painel web de administração para o servidor de **Project Zomboid** — o "Crafty" do Zomboid.
+Web admin panel for the **Project Zomboid** server — Zomboid's "Crafty".
 
-**Projeto:** [fpsacha/zomboid-control-panel](https://github.com/fpsacha/zomboid-control-panel) (MIT, ativo, testado até B42.18)
-**Versão:** v1.1.36 (atualizado 07/08/2026 — imagem `ghcr.io/fpsacha/zomboid-panel:latest`; o watchtower também atualiza às 03:00)
-**Servidor:** kavure (ativo desde 06/08/2026)
-**Acesso:** via Tailscale
+**Project:** [fpsacha/zomboid-control-panel](https://github.com/fpsacha/zomboid-control-panel) (MIT, active, tested up to B42.18)
+**Version:** v1.1.36 (updated 07/08/2026 — image `ghcr.io/fpsacha/zomboid-panel:latest`; watchtower also updates it at 03:00)
+**Server:** kavure (active since 06/08/2026)
+**Access:** via Tailscale
 
-## Recursos
+## Features
 
-- **Controle do servidor** — start/stop/restart/save, status, uptime
-- **Console + RCON** — terminal com histórico (elimina SSH/sudo para administrar)
-- **Mod manager** — detecta updates do Workshop, resolve `Mods=`/`WorkshopItems=` automaticamente
-- **Backups** com restore pela UI
-- **Agendador** — restarts/saves/broadcast (substitui timers systemd)
-- Extras: mapa do mundo ao vivo, Discord bot, editor INI, eventos/clima
+- **Server control** — start/stop/restart/save, status, uptime
+- **Console + RCON** — terminal with history (no more SSH/sudo to administer)
+- **Mod manager** — detects Workshop updates, resolves `Mods=`/`WorkshopItems=` automatically
+- **Backups** with restore from the UI
+- **Scheduler** — restarts/saves/broadcast (replaces systemd timers)
+- Extras: live world map, Discord bot, INI editor, events/weather
 
-## Requisitos
+## Requirements
 
-- Servidor PZ com **RCON habilitado**: `RCONPort=27015` + `RCONPassword=...` no `pzserver.ini`
-- Acesso de rede do painel ao servidor (mesma máquina, LAN ou Tailscale)
-- Para PanelBridge (features avançadas): `DoLuaChecksum=false` no server `.ini`
+- PZ server with **RCON enabled**: `RCONPort=27015` + `RCONPassword=...` in `pzserver.ini`
+- Network access from the panel to the server (same machine, LAN or Tailscale)
+- For PanelBridge (advanced features): `DoLuaChecksum=false` in the server `.ini`
 
-## Instalação (kavure)
+## Installation (kavure)
 
-Opções: **Docker** (`ghcr.io/fpsacha/zomboid-panel:latest`) ou binário Linux (`./start.sh`).
+Options: **Docker** (`ghcr.io/fpsacha/zomboid-panel:latest`) or Linux binary (`./start.sh`).
 
 ```bash
 mkdir -p ~/zomboid-panel && cd ~/zomboid-panel
@@ -38,27 +38,27 @@ mv .env.example .env
 docker compose up -d
 ```
 
-- Acessa em `http://localhost:3001` (ou via Tailscale)
-- Configurar: caminho do server PZ, dados, RCON (host/port/senha)
-- No Docker, usar `PUID`/`PGID` dos donos das pastas do PZ
+- Browse to `http://localhost:3001` (or via Tailscale)
+- Configure: PZ server path, data, RCON (host/port/password)
+- In Docker, use the `PUID`/`PGID` of the PZ folder owners
 
-## Segurança
+## Security
 
-- JWT em todas as rotas + rate limiting
-- Não expor a porta 3001 diretamente à internet — usar Tailscale ou reverse proxy com HTTPS
+- JWT on all routes + rate limiting
+- Do not expose port 3001 directly to the internet — use Tailscale or a reverse proxy with HTTPS
 
-## Mods e caminho do Workshop
+## Mods and Workshop path
 
-- O painel lê os mods em `/pz-server/steamapps/workshop` — o compose do painel faz bind de `/srv/data/zomboid/workshop-mods` nesse path (mesmo overlay do container do jogo).
-- A cópia antiga em `pz-dedicated/steamapps/workshop/` foi **removida** (07/08/2026) — causava "Mod update available" eterno (local desatualizado vs Steam).
-- O Mod manager compara o `timeUpdated` local (da pasta) com a Steam API. Se aparecer "update available", reinicie o jogo (`zomboid-restart`) para baixar a atualização; o auto-scan do painel (5 min) então mostra tudo em dia.
+- The panel reads the mods at `/pz-server/steamapps/workshop` — the panel's compose bind-mounts `/srv/data/zomboid/workshop-mods` at that path (same overlay as the game container).
+- The old copy at `pz-dedicated/steamapps/workshop/` was **removed** (07/08/2026) — it caused a permanent "Mod update available" (stale local copy vs Steam).
+- The Mod manager compares the local `timeUpdated` (from the folder) with the Steam API. If "update available" appears, restart the game (`zomboid-restart`) to download the update; the panel's auto-scan (5 min) then shows everything up to date.
 
 ## PanelBridge
 
-- Mod Lua server-side que dá ao painel ações fora do RCON (teleport, heal, clima, inventário...). Vive em `pz-dedicated/media/lua/server/PanelBridge.lua`.
-- **Fix 07/08/2026:** a pasta `media/lua/server/` era `root:root` → o painel (uid 1000) não conseguia **auto-atualizar** o bridge (EACCES). `sudo chown -R kavure:kavure /srv/data/zomboid/pz-dedicated/media/lua/server` resolveu — auto-update `1.7.21 → 1.7.23 → 1.7.24` confirmado no log do painel (após update do painel para v1.1.36).
+- Server-side Lua mod that gives the panel actions outside RCON (teleport, heal, weather, inventory...). Lives in `pz-dedicated/media/lua/server/PanelBridge.lua`.
+- **Fix 07/08/2026:** the `media/lua/server/` folder was `root:root` → the panel (uid 1000) could not **auto-update** the bridge (EACCES). `sudo chown -R kavure:kavure /srv/data/zomboid/pz-dedicated/media/lua/server` fixed it — auto-update `1.7.21 → 1.7.23 → 1.7.24` confirmed in the panel log (after updating the panel to v1.1.36).
 
 ## See also
-- [[project-zomboid]] — Servidor Project Zomboid
-- [[kavure]] — Servidor de destino
-- [[kavure-migration-plan]] — Plano de migração
+- [[project-zomboid]] — Project Zomboid server
+- [[kavure]] — Target server
+- [[kavure-migration-plan]] — Migration plan

@@ -4,42 +4,42 @@ tags: [homelab, service, adguard, dns]
 
 # AdGuard Home
 
-Servidor DNS com bloqueio de anúncios e rastreadores.
+DNS server with ad and tracker blocking.
 
-**Servidor:** ybytu
-**Porta DNS:** `53` (TCP/UDP)
-**Porta Admin:** `3000`
+**Server:** ybytu
+**DNS Port:** `53` (TCP/UDP)
+**Admin Port:** `3000`
 **URL:** `http://ybytu.chimaera-heptatonic.ts.net:3000`
 
-## Instância
+## Instance
 
-Roda tanto como **container Docker** quanto como **binário nativo** (`/opt/adguardhome/`). O nativo é a instância ativa em produção.
+Runs both as a **Docker container** and as a **native binary** (`/opt/adguardhome/`). The native one is the instance active in production.
 
-- Nativo: `/opt/adguardhome/AdGuardHome`
+- Native: `/opt/adguardhome/AdGuardHome`
 - Config: `/opt/adguardhome/conf/AdGuardHome.yaml`
 - Work dir: `/opt/adguardhome/work`
 
-## Acesso Admin
+## Admin Access
 
 ```
 URL: http://ybytu.chimaera-heptatonic.ts.net:3000
 ```
 
-- **Login:** a senha admin é **hash (bcrypt)** no `AdGuardHome.yaml` (`users:`) — **não vai ao store sops** (não reutilizável).
-- **Reset de senha (28/08/2026):** gerar novo hash bcrypt e injetar no YAML:
+- **Login:** the admin password is a **hash (bcrypt)** in `AdGuardHome.yaml` (`users:`) — it **does not go into the sops store** (not reusable).
+- **Password reset (28/08/2026):** generate a new bcrypt hash and inject it into the YAML:
   ```bash
   htpasswd -B -C 10 -n -b admin '<NOVA_SENHA>'      # ou: mkpasswd -m bcrypt -R 10 '<NOVA_SENHA>'
   ```
-  Copiar a parte `$2y$...` para `users:` → `password:` no `/opt/adguardhome/conf/AdGuardHome.yaml` e `systemctl restart adguardhome`. Ver [wiki de configuração do AdGuard Home](https://github.com/AdguardTeam/AdGuardHome/wiki/Configuration#reset-web-password).
+  Copy the `$2y$...` part into `users:` → `password:` in `/opt/adguardhome/conf/AdGuardHome.yaml` and `systemctl restart adguardhome`. See [AdGuard Home configuration wiki](https://github.com/AdguardTeam/AdGuardHome/wiki/Configuration#reset-web-password).
 
-## Listas de Bloqueio
+## Blocklists
 
-Listas ativas (verificar no admin — podem ter mudado):
+Active lists (check in the admin — they may have changed):
 - AdGuard DNS filter
 - OISD basic
 - ...
 
-## Manutenção
+## Maintenance
 
 ```bash
 # Verificar status
@@ -53,4 +53,4 @@ systemctl status adguardhome
 
 ## Logs
 
-`/opt/adguardhome/work/data/querylog.json` (desabilitar ou limitar em produção com 1GB de RAM)
+`/opt/adguardhome/work/data/querylog.json` (disable it or limit it in production with 1GB of RAM)

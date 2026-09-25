@@ -4,19 +4,19 @@ tags: [homelab, tutorial, docker, storage, kavure]
 
 # Docker/containerd Disk Cleanup — kavure
 
-Guia de diagnóstico e manutenção do espaço usado por Docker/containerd no kavure. Canonizado em **13/09/2026** após a limpeza que recuperou ~14GB (containerd 51G → 38G; disco 71G → 85G livres).
+Diagnostic and maintenance guide for the space used by Docker/containerd on kavure. Canonized on **13/09/2026** after the cleanup that recovered ~14GB (containerd 51G → 38G; disk 71G → 85G free).
 
-## Por que o kavure acumula (causa raiz, 13/09/2026)
+## Why kavure accumulates (root cause, 13/09/2026)
 
-O kavure roda **Ubuntu + Docker com runtime containerd** (`/var/lib/containerd`). O acumulado vem de:
+kavure runs **Ubuntu + Docker with the containerd runtime** (`/var/lib/containerd`). The accumulation comes from:
 
-1. **Watchtower atualiza imagens mas não remove as versões antigas que ainda têm tag** — `WATCHTOWER_CLEANUP=true` só remove *dangling* (`<none>`); imagens antigas com tag duplicada (ex.: `postgres:15-alpine` ×2, `valkey:8-alpine` ×3, `pgvector:pg16` ×2) **ficam presas**.
-2. **Réplicas órfãs de redeploys do Swarm** — tasks antigas (`sae-core_api.1.*`, `sae-core_backup.1.*`) ficam como containers `Exited` após `docker stack deploy`; o Swarm não as remove sozinho.
-3. **Containers sem nome órfãos** do containerd — resíduo de estado que `docker rm` não resolve (diz "No such container" mas lista). Inofensivo, some no restart do docker.
+1. **Watchtower updates images but does not remove the old versions that still have a tag** — `WATCHTOWER_CLEANUP=true` only removes *dangling* (`<none>`) images; old tagged images with duplicates (e.g.: `postgres:15-alpine` ×2, `valkey:8-alpine` ×3, `pgvector:pg16` ×2) **stay stuck**.
+2. **Orphan replicas from Swarm redeploys** — old tasks (`sae-core_api.1.*`, `sae-core_backup.1.*`) remain as `Exited` containers after `docker stack deploy`; Swarm does not remove them on its own.
+3. **Orphan unnamed containers** from containerd — state residue that `docker rm` cannot resolve (it says "No such container" but still lists it). Harmless, it goes away on a docker restart.
 
-> O `docker system df` mostra essas como "RECLAIMABLE" mesmo com tag, porque nenhum container **ativo** as usa — mas **NÃO é lixo removível às cegas**: imagens de serviços sob demanda (Crafty/Zomboid `danixu86/project-zomboid-dedicated-server` 10.4GB, Swarm edge `nginx-sumaenima`/`sumaenima-umami`) aparecem "não usadas" mas são necessárias para subir serviços sob demanda.
+> `docker system df` shows these as "RECLAIMABLE" even when they have a tag, because no **active** container uses them — but they are **NOT blindly-removable garbage**: images for on-demand services (Crafty/Zomboid `danixu86/project-zomboid-dedicated-server` 10.4GB, Swarm edge `nginx-sumaenima`/`sumaenima-umami`) show up as "unused" but are needed to bring up on-demand services.
 
-## Rotina de limpeza (verificar/rodar manualmente)
+## Cleanup routine (check/run manually)
 
 ```bash
 # 1. Estado
@@ -43,21 +43,21 @@ done
 #    nem a do servidor de jogo do Crafty — docker service ls para conferir.
 ```
 
-> **NÃO** usar `docker system prune -af` cegamente: remove imagens de serviços sob demanda. Prefira alvos explícitos (padrão homelab).
+> Do **NOT** use `docker system prune -af` blindly: it removes images for on-demand services. Prefer explicit targets (the homelab standard).
 
-## Resultado da limpeza de 13/09/2026
+## Result of the 13/09/2026 cleanup
 
-| Item | Antes | Depois |
+| Item | Before | After |
 |---|---|---|
 | `/var/lib/containerd` | 51G | **38G** |
-| Disco `/` | 71G livres (66%) | **85G livres (60%)** |
-| Imagens | 61 (54GB) | 45 (40GB) |
+| `/` disk | 71G free (66%) | **85G free (60%)** |
+| Images | 61 (54GB) | 45 (40GB) |
 | Dangling | 10 (17GB) | 0 |
 
-Removidos: 3 containers órfãos (2 réplicas Swarm + 1 sem nome) · 10 dangling · 6 imagens duplicadas/órfãs (`postgres:15-alpine`, `pgvector:pg16`, `valkey:8-alpine` ×2, `kavita`, `hello-world`).
+Removed: 3 orphan containers (2 Swarm replicas + 1 unnamed) · 10 dangling · 6 duplicate/orphan images (`postgres:15-alpine`, `pgvector:pg16`, `valkey:8-alpine` ×2, `kavita`, `hello-world`).
 
-Preservadas (necessárias sob demanda): `danixu86/project-zomboid-dedicated-server` (10.4GB, Crafty), `nginx-sumaenima`/`sumaenima-umami` (Swarm edge), `steamcmd`.
+Preserved (needed on demand): `danixu86/project-zomboid-dedicated-server` (10.4GB, Crafty), `nginx-sumaenima`/`sumaenima-umami` (Swarm edge), `steamcmd`.
 
-## Referências
+## References
 
 - Homelab: [`services/monitoring.md`](../services/monitoring.md) · [`servers/kavure.md`](../servers/kavure.md) · [`guides/docker-disk-cleanup.md`](docker-disk-cleanup.md) (psicopompo, btrfs/snapper)

@@ -4,66 +4,66 @@ tags: [homelab, server, kavure, docker, storage, gaming, todo, miracena]
 
 # kavure
 
-**Papel:** Servidor de serviços dedicado — Sumænimá (sae-core), Minecraft, Project Zomboid, Valheim, monitoramento.
-**Shell padrão:** bash (`/bin/bash`)
+**Role:** Dedicated services server — Sumænimá (sae-core), Minecraft, Project Zomboid, Valheim, monitoring.
+**Default shell:** bash (`/bin/bash`)
 
-> **Status:** ✅ **No ar** — Ubuntu instalado, Tailscale + SSH funcionando. **Project Zomboid migrado e ativo (Docker, 06/08/2026)**; **stack de infra `ops` ativa** (autoheal, watchtower, glances) e **host em `America/Sao_Paulo`** (07/08/2026); **Sumænimá sae-core MIGRADO E ATIVO (07/08/2026)** — kavure é o manager do Swarm (role=core) com db, valkey, api (9090), umami-db, backup (NFS → psicopompo) e asciline.
-> **Atualizado 28/08/2026:** `apt dist-upgrade` completo (51 pacotes) + reboot. Kernel **6.8.0-137 → 6.8.0-138**. Swarm (3 nós), jogos e serviços OK pós-reboot.
-> **Home Assistant reconfigurado no kavure (16/08):** container com `cap_add: [NET_ADMIN, NET_RAW]`; **HACS 2.0.5 instalado e configurado** (OAuth GitHub OK); Tuya (nuvem) e backup automático pendentes de config. **Kavure NÃO tem hardware Bluetooth** (integração removida). Ver [`services/home-assistant.md`](../services/home-assistant.md).
-> **Fix NFS shutdown race (10/09/2026):** 4 entries `hard` → `soft` no fstab (configs, repos, music, books). Todos os mounts agora usam `soft,nofail,mount-timeout=10s`. Removido `idle-timeout` dos mounts Docker (evita "device is busy" no shutdown). Criado drop-in `/etc/systemd/system/docker.service.d/nfs-ordering.conf` (`After=remote-fs.target`, `TimeoutStopSec=30s`). Backup fstab: `/etc/fstab.bak.20260910`. Kernel **6.8.0-138 → 6.8.0-139**. Ver [`network/nfs.md`](../network/nfs.md).
-> **Fix Boot-Race Tailscale + NFS (25/09/2026):** (1) Atualizado `/etc/systemd/system/docker.service.d/nfs-ordering.conf` com `After=tailscaled.service remote-fs.target` e `Wants=tailscaled.service remote-fs.target`. Previne que o Docker inicie antes dos mounts NFS estarem prontos (o que causava `ExitCode=128` no `calibre` e `navidrome`). (2) Ativado `net.ipv4.ip_nonlocal_bind = 1` via `/etc/sysctl.d/99-tailscale-bind.conf` (kavure e psicopompo), permitindo que processos como HAProxy e Docker daemon bindem nas portas com IP específico da Tailnet antes mesmo da atribuição do IP ser concluída na interface.
-> Ver [`kavure-migration-plan`](../network/kavure-migration-plan.md) para o plano completo.
+> **Status:** ✅ **Up and running** — Ubuntu installed, Tailscale + SSH working. **Project Zomboid migrated and active (Docker, 06/08/2026)**; **`ops` infra stack active** (autoheal, watchtower, glances) and **host on `America/Sao_Paulo`** (07/08/2026); **Sumænimá sae-core MIGRATED AND ACTIVE (07/08/2026)** — kavure is the Swarm manager (role=core) with db, valkey, api (9090), umami-db, backup (NFS → psicopompo) and asciline.
+> **Updated 28/08/2026:** full `apt dist-upgrade` (51 packages) + reboot. Kernel **6.8.0-137 → 6.8.0-138**. Swarm (3 nodes), games and services OK after reboot.
+> **Home Assistant reconfigured on kavure (16/08):** container with `cap_add: [NET_ADMIN, NET_RAW]`; **HACS 2.0.5 installed and configured** (GitHub OAuth OK); Tuya (cloud) and automatic backup pending configuration. **Kavure does NOT have Bluetooth hardware** (integration removed). See [`services/home-assistant.md`](../services/home-assistant.md).
+> **Fix NFS shutdown race (10/09/2026):** 4 `hard` entries → `soft` in fstab (configs, repos, music, books). All mounts now use `soft,nofail,mount-timeout=10s`. Removed `idle-timeout` from the Docker mounts (avoids "device is busy" on shutdown). Created drop-in `/etc/systemd/system/docker.service.d/nfs-ordering.conf` (`After=remote-fs.target`, `TimeoutStopSec=30s`). fstab backup: `/etc/fstab.bak.20260910`. Kernel **6.8.0-138 → 6.8.0-139**. See [`network/nfs.md`](../network/nfs.md).
+> **Fix Boot-Race Tailscale + NFS (25/09/2026):** (1) Updated `/etc/systemd/system/docker.service.d/nfs-ordering.conf` with `After=tailscaled.service remote-fs.target` and `Wants=tailscaled.service remote-fs.target`. Prevents Docker from starting before the NFS mounts are ready (which caused `ExitCode=128` in `calibre` and `navidrome`). (2) Enabled `net.ipv4.ip_nonlocal_bind = 1` via `/etc/sysctl.d/99-tailscale-bind.conf` (kavure and psicopompo), allowing processes such as HAProxy and the Docker daemon to bind on the ports with the specific Tailnet IP before the IP assignment finishes on the interface.
+> See [`kavure-migration-plan`](../network/kavure-migration-plan.md) for the full plan.
 
-## Hardware (confirmado em 05/08/2026)
+## Hardware (confirmed on 05/08/2026)
 
-| Item | Especificação real |
+| Item | Actual Specification |
 |---|---|
-| **Máquina** | Dell OptiPlex 3060 SFF |
+| **Machine** | Dell OptiPlex 3060 SFF |
 | **CPU** | Intel Core i3-8100 4C/4T @ 3.6 GHz |
-| **RAM** | 12 GB (11 GiB) — 2 slots DIMM DDR4, upgrade p/ 32 GB possível |
-| **Disco Sistema** | **Kingston SA400S3 223 GB SATA 2.5"** (LVM: 100 GB em `/`, 120 GB livres no VG) |
-| **Disco Futuro (comprar)** | **M.2 SATA 2280 1 TB** (SO/Docker) + **HDD 3.5" 4–8 TB** (storage) |
-| **GPU** | Quadro P1000 — **FORA DO PLANO: capacitor solto no repaste**, aguardando reparo |
-| **Rede** | Gigabit Ethernet + Wi-Fi |
-| **SO** | **Ubuntu 24.04.4 LTS** (kernel 6.8.0-139) |
+| **RAM** | 12 GB (11 GiB) — 2 DDR4 DIMM slots, upgrade to 32 GB possible |
+| **System Disk** | **Kingston SA400S3 223 GB SATA 2.5"** (LVM: 100 GB on `/`, 120 GB free in the VG) |
+| **Future Disk (to buy)** | **M.2 SATA 2280 1 TB** (OS/Docker) + **HDD 3.5" 4–8 TB** (storage) |
+| **GPU** | Quadro P1000 — **OUT OF PLAN: capacitor came loose during the repaste**, awaiting repair |
+| **Network** | Gigabit Ethernet + Wi-Fi |
+| **OS** | **Ubuntu 24.04.4 LTS** (kernel 6.8.0-139) |
 | **Filesystem** | **LVM + ext4** (subiquity) |
 | **Tailscale** | `100.124.146.77` — `kavure` |
-| **Acesso** | `tailscale ssh kavure@kavure` (usuário `kavure`, sudo NOPASSWD — `/etc/sudoers.d/kavure-nopasswd`, 10/09/2026) |
-| **LAN** | `192.168.3.41/24` via **extensor Wi-Fi** (IP fixo na LAN **desnecessário** — acesso é pela tailnet) |
+| **Access** | `tailscale ssh kavure@kavure` (user `kavure`, sudo NOPASSWD — `/etc/sudoers.d/kavure-nopasswd`, 10/09/2026) |
+| **LAN** | `192.168.3.41/24` via **Wi-Fi extender** (a fixed LAN IP is **unnecessary** — access is via the tailnet) |
 
-> **SSD é SATA 2.5"** — o **slot M.2 2280 está livre** (aceita SATA M.2 ou NVMe). O Kingston 2.5" vira **reserva** quando o M.2 1 TB chegar.
+> **The SSD is SATA 2.5"** — the **M.2 2280 slot is free** (accepts SATA M.2 or NVMe). The Kingston 2.5" becomes the **spare** when the 1 TB M.2 arrives.
 
-## Limitações de Hardware
+## Hardware Limitations
 
-- **RAM 12 GB:** sae-core (~1,5 GB) + Minecraft (G1, `Xmx8G`/soft `5G`) + Zomboid B42 (ZGC, `-Xmx8g`/soft `4g`) **convivem via soft-max heap** (cada JVM só sobe até o soft quando precisa; G1/ZGC devolvem memória ociosa). Validado em 08/08/2026 (6,8G usados / 4,7G livres; swap ~1-3G a monitorar). Jogos simultâneos a 100% dos dois ainda apertam — upgrade 32 GB é a evolução.
-- **SSD 223 GB:** ~80 GB usados na migração; M.2 1 TB resolverá.
-- **Slot M.2:** aceita **SATA M.2** (550 MB/s) ou NVMe (limite PCIe 2.0 x4 ~1,5 GB/s) — decisão: **M.2 SATA 1 TB**.
-- **HDD >4 TB:** validado sem limite de tamanho (UEFI + GPT) — expert comunidade Dell.
-- **PSU 200 W:** M.2 (sem cabo) + HDD 3.5" (~25 W pico) + i3-8100 → **~120 W pico, folga grande** ✅ (sem GPU no momento).
+- **RAM 12 GB:** sae-core (~1.5 GB) + Minecraft (G1, `Xmx8G`/soft `5G`) + Zomboid B42 (ZGC, `-Xmx8g`/soft `4g`) **coexist via soft-max heap** (each JVM only grows to the soft limit when it needs to; G1/ZGC return idle memory). Validated on 08/08/2026 (6.8G used / 4.7G free; swap ~1-3G to monitor). Two games at 100% at the same time is still tight — a 32 GB upgrade is the future step.
+- **SSD 223 GB:** ~80 GB used in the migration; the 1 TB M.2 will solve it.
+- **M.2 slot:** accepts **SATA M.2** (550 MB/s) or NVMe (PCIe 2.0 x4 limit ~1.5 GB/s) — decision: **1 TB SATA M.2**.
+- **HDD >4 TB:** validated with no size limit (UEFI + GPT) — Dell community expert.
+- **PSU 200 W:** M.2 (no cable) + HDD 3.5" (~25 W peak) + i3-8100 → **~120 W peak, plenty of headroom** ✅ (no GPU for now).
 
-## Diagnóstico de Saúde (06/08/2026)
+## Health Diagnostics (06/08/2026)
 
-| Item | Resultado | Status |
+| Item | Result | Status |
 |---|---|---|
-| **CPU (repaste Kryonaut)** | idle **34°C** → carga total **46°C** (limite 80°C) | ✅ Excelente |
-| **RAM** | 4 GB + 8 GB @ 2400 MT/s; stress 4G sem erro; 10 GiB livres | ✅ Saudável |
-| **SSD Kingston SA400** | SMART **PASSED**; 11.125 h ligado; 0 reallocated; 0 uncorrect; 30°C | ✅ Saudável |
-| **SSD velocidade** | 350 MB/s leitura (normal SATA p/ esse modelo) | ✅ Normal |
-| **dmesg** | ACPI `AE_NOT_FOUND` em `\_SB.PCI0.GLAN.GPEH` — bug da Dell, inofensivo (aparece em todo boot) | ✅ Limpo |
+| **CPU (Kryonaut repaste)** | idle **34°C** → full load **46°C** (limit 80°C) | ✅ Excellent |
+| **RAM** | 4 GB + 8 GB @ 2400 MT/s; 4G stress without errors; 10 GiB free | ✅ Healthy |
+| **Kingston SA400 SSD** | SMART **PASSED**; 11.125 h powered on; 0 reallocated; 0 uncorrect; 30°C | ✅ Healthy |
+| **SSD speed** | 350 MB/s read (normal SATA for this model) | ✅ Normal |
+| **dmesg** | ACPI `AE_NOT_FOUND` in `\_SB.PCI0.GLAN.GPEH` — Dell bug, harmless (shows on every boot) | ✅ Clean |
 
-## Papéis (planejados)
+## Roles (planned)
 
-- **Manager do Docker Swarm** (role=core) — sae-core (db, valkey, api, umami-db, backup, asciline)
-- **Standby edge Sumænimá (29/08/2026)** — assumiu o papel que era do kuaray: `sae-edge_{proxy,tunnel,umami}-standby` (replicas=0, escala manual em failover) com constraint **`node.labels.edge_backup == true`** (kavure **mantém** `role=core`). Frontend estático em `/var/www/sumaenima` (sync via `deploy-swarm.sh`). Nginx do standby usa **docker config** (`sae-edge_nginx-conf-standby`, gerado de `templates/nginx.conf.edge.j2`) — o bind `/srv/data/sumaenimahub/nginx-backup/nginx.conf` (que estava corrompido, 63 B, dir root-owned) foi **removido em 29/08**; validado com scale-test `proxy-standby=1` (`nginx -t` OK) e revertido a 0/0.
-- **backup-sentinel health `:9092`** — responde **GET e HEAD 200** desde **29/08/2026** (`do_HEAD` adicionado; antes HEAD → 501 e o widget Homepage/Uptime Kuma mostrava erro). Código em `/srv/data/sumaenimahub/SUMAENIMA-HUB/scripts/backup/backup_health_server.py` (mount `ro` no container).
-- **Agendamento do backup Sumænimá (29/08/2026)** — padrão homelab: **systemd timer `hl-sumaenima-backup.timer` (03:00, `Persistent=true`)** → `/usr/local/bin/sumaenima-backup` (failsafe + ntfy `/backup`) → `docker exec sae-core_backup python3 /app/scripts/backup/sentinel.py` (Borg + pg_dump → NFS psicopompo). O crond dentro do container **foi removido** (29/08): a imagem passou a rodar como `appuser` e o crond não lia `/etc/crontabs/root` (Permission denied) — o run diário teria parado silenciosamente. Marcador `.backup_last_run` é tocado pelo host (root); health file `/srv/health/sumaenima-backup-last-ok`. `.env` do repo lido pelo sentinel como grupo `appuser` (640, gid 1001).
-- Servidor de jogos — **Project Zomboid** (Docker — `danixu86/project-zomboid-dedicated-server`, **ativo** desde 06/08/2026) + **Minecraft Dominium** (Crafty, **ativo** desde 08/08/2026 — ver [`crafty`](../services/crafty.md)) + **Valheim** (Docker — `mbround18/valheim:3`, **ativo** desde 09/09/2026 — ver [`valheim-server`](../services/valheim/valheim-server.md))
-- Painel de gestão do Zomboid (Zomboid Control Panel)
-- Monitoramento — **Glances ativo** (`:61208`, 07/08/2026); **watchtower** (auto-update, schedule 03:00 BRT) e **autoheal** ativos; portainer planejado
-- Streaming — **aiostreams** (`:3000`, funnel `kavure.chimaera-heptatonic.ts.net:8443`) e **comet** (`:8000`), migrados do kuaray em **09/08/2026** (ver [`aiostreams`](../services/aiostreams.md) e [`comet`](../services/comet.md))
-- **Miracena Stack** (10/09/2026) — CMS + Automatização + Sites: Directus (`:8055`), WordPress (`:8085`), n8n (`:5678`), Nginx Proxy Manager (`:81` admin, `:8180` HTTP, `:8445` HTTPS), PostgreSQL (compartilhado: Directus + n8n), Redis, MariaDB. Deployed em `/srv/data/miracena/` com resource limits (~5.6 GB RAM total). **Tailscale Funnel** ativo em `miracena.chimaera-heptatonic.ts.net` (HTTPS público → NPM → WordPress). Ver [`miracena-stack`](../services/miracena-stack.md)
+- **Docker Swarm manager** (role=core) — sae-core (db, valkey, api, umami-db, backup, asciline)
+- **Sumænimá standby edge (29/08/2026)** — took over the role that was kuaray's: `sae-edge_{proxy,tunnel,umami}-standby` (replicas=0, manual scale on failover) with constraint **`node.labels.edge_backup == true`** (kavure **keeps** `role=core`). Static frontend in `/var/www/sumaenima` (synced via `deploy-swarm.sh`). The standby Nginx uses **docker config** (`sae-edge_nginx-conf-standby`, generated from `templates/nginx.conf.edge.j2`) — the `/srv/data/sumaenimahub/nginx-backup/nginx.conf` bind (which was corrupted, 63 B, root-owned dir) was **removed on 29/08**; validated with a `proxy-standby=1` scale test (`nginx -t` OK) and reverted to 0/0.
+- **backup-sentinel health `:9092`** — responds to **GET and HEAD with 200** since **29/08/2026** (`do_HEAD` added; previously HEAD → 501 and the Homepage/Uptime Kuma widget showed an error). Code in `/srv/data/sumaenimahub/SUMAENIMA-HUB/scripts/backup/backup_health_server.py` (`ro` mount in the container).
+- **Sumænimá backup scheduling (29/08/2026)** — homelab standard: **systemd timer `hl-sumaenima-backup.timer` (03:00, `Persistent=true`)** → `/usr/local/bin/sumaenima-backup` (failsafe + ntfy `/backup`) → `docker exec sae-core_backup python3 /app/scripts/backup/sentinel.py` (Borg + pg_dump → psicopompo NFS). The crond inside the container **was removed** (29/08): the image started running as `appuser` and the crond could not read `/etc/crontabs/root` (Permission denied) — the daily run would have stopped silently. The `.backup_last_run` marker is touched by the host (root); health file `/srv/health/sumaenima-backup-last-ok`. The repo `.env` is read by the sentinel as group `appuser` (640, gid 1001).
+- Game server — **Project Zomboid** (Docker — `danixu86/project-zomboid-dedicated-server`, **active** since 06/08/2026) + **Minecraft Dominium** (Crafty, **active** since 08/08/2026 — see [`crafty`](../services/crafty.md)) + **Valheim** (Docker — `mbround18/valheim:3`, **active** since 09/09/2026 — see [`valheim-server`](../services/valheim/valheim-server.md))
+- Zomboid management panel (Zomboid Control Panel)
+- Monitoring — **Glances active** (`:61208`, 07/08/2026); **watchtower** (auto-update, schedule 03:00 BRT) and **autoheal** active; portainer planned
+- Streaming — **aiostreams** (`:3000`, funnel `kavure.chimaera-heptatonic.ts.net:8443`) and **comet** (`:8000`), migrated from kuaray on **09/08/2026** (see [`aiostreams`](../services/aiostreams.md) and [`comet`](../services/comet.md))
+- **Miracena Stack** (10/09/2026) — CMS + Automation + Sites: Directus (`:8055`), WordPress (`:8085`), n8n (`:5678`), Nginx Proxy Manager (`:81` admin, `:8180` HTTP, `:8445` HTTPS), PostgreSQL (shared: Directus + n8n), Redis, MariaDB. Deployed in `/srv/data/miracena/` with resource limits (~5.6 GB RAM total). **Tailscale Funnel** active at `miracena.chimaera-heptatonic.ts.net` (public HTTPS → NPM → WordPress). See [`miracena-stack`](../services/miracena-stack.md)
 
-## Layout de Storage
+## Storage Layout
 
 ```
 Atual (após merge LVM em 06/08/2026):
@@ -73,7 +73,7 @@ Atual (após merge LVM em 06/08/2026):
   sda3 ~220 GB   LVM  → ubuntu-lv (217 GB) → /   ← LV único, todo o espaço
 ```
 
-**Estrutura de pastas (FHS):**
+**Folder structure (FHS):**
 
 ```
 /srv/data/zomboid/    ← Docker Zomboid (danixu86/project-zomboid-dedicated-server)
@@ -92,53 +92,53 @@ Atual (após merge LVM em 06/08/2026):
 /var/lib/docker/     ← volumes Docker
 ```
 
-> **Decisão:** LV único de 217 GB (merge com `lvextend -r -l +100%FREE`), organização por pastas FHS. Mais simples e todo o espaço utilizável; risco de `/` cheio mitigado com monitoramento.
+> **Decision:** single 217 GB LV (merged with `lvextend -r -l +100%FREE`), organized by FHS folders. Simpler and all the space usable; the risk of a full `/` is mitigated with monitoring.
 
-Plano (compras):
-  Slot M.2 2280  → M.2 SATA 1 TB  (SO + Docker + jogos)
-  Porta SATA     → HDD 3.5" 4-8 TB (/srv/data, storage massivo)
-  Kingston 2.5"  → reserva
+Plan (purchases):
+  M.2 2280 slot  → M.2 SATA 1 TB  (OS + Docker + games)
+  SATA port     → HDD 3.5" 4-8 TB (/srv/data, mass storage)
+  Kingston 2.5"  → spare
 
-- **Sem snapshots de SO** — fora do padrão Ubuntu; proteção real vem do backup off-box.
+- **No OS snapshots** — non-standard on Ubuntu; real protection comes from the off-box backup.
 
 ## Backup
 
-### Backups Automáticos (systemd timers)
+### Automatic Backups (systemd timers)
 
-| Timer | Horário | Serviço | Método |
+| Timer | Time | Service | Method |
 |-------|---------|---------|--------|
-| `hl-config-backup.timer` | 05:00 | Configs do host | rsync → NAS |
+| `hl-config-backup.timer` | 05:00 | Host configs | rsync → NAS |
 | `hl-zomboid-backup.timer` | 05:15 | Project Zomboid | rsync → NAS |
 | `hl-n8n-backup.timer` | 05:25 | n8n (PostgreSQL) | pg_dump → NAS |
 | `hl-miracena-backup.timer` | 05:35 | Miracena Stack | pg_dump + mysqldump + rsync → NAS |
 | `hl-sumaenima-backup.timer` | 03:00 | Sumænimá | Borg + pg_dump → NAS |
 | `hl-valheim-backup.timer` | 05:30 | Valheim | rsync → NAS |
 
-### Mount NFS para backups
+### NFS Mount for Backups
 
 ```bash
 # Todos os mounts usam soft (nunca hard) para evitar deadlock no shutdown
 # Padrão: /etc/fstab com x-systemd.automount,x-systemd.mount-timeout=10s,nofail
 ```
 
-- **psicopompo** = NAS da tailnet (NFSv4, 930 GB livres)
-- **rsync incremental** → `--link-dest` para retenção de múltiplos pontos no tempo
+- **psicopompo** = tailnet NAS (NFSv4, 930 GB free)
+- **Incremental rsync** → `--link-dest` for retention of multiple points in time
 
 ## Docker (Ubuntu 24.04)
 
-- Instalação: `docker.io` + `docker-compose-v2` (repo Ubuntu) — trivial.
-- Storage driver: **overlay2** (padrão).
-- AppArmor default (sem fricção com containers, ao contrário do SELinux do openSUSE).
+- Install: `docker.io` + `docker-compose-v2` (Ubuntu repo) — trivial.
+- Storage driver: **overlay2** (default).
+- Default AppArmor (no friction with containers, unlike openSUSE's SELinux).
 
-### Auto-start no boot (07/08/2026)
+### Auto-start on Boot (07/08/2026)
 
-- **`sumaenima-swarm.service`** (systemd, habilitado) → `/usr/local/bin/sumaenima-boot.sh`: deploy do Swarm `sae-core` + `sae-edge` no boot (exporta `.env`, espera docker).
-- **GPU workers** (no psicopompo): `sumaenima-gpu.service` (systemd user, linger ativo) sobe via `sumaenima-ctl start`.
-- Demais serviços do kavure (pz-server, ops, dockerproxy, zomboid-panel) usam `restart: unless-stopped` — sobem com o Docker.
+- **`sumaenima-swarm.service`** (systemd, enabled) → `/usr/local/bin/sumaenima-boot.sh`: deploys the `sae-core` + `sae-edge` Swarm on boot (exports `.env`, waits for docker).
+- **GPU workers** (on psicopompo): `sumaenima-gpu.service` (systemd user, linger enabled) comes up via `sumaenima-ctl start`.
+- The other kavure services (pz-server, ops, dockerproxy, zomboid-panel) use `restart: unless-stopped` — they come up with Docker.
 
 ## See also
-- [[kavure-migration-plan]] — Plano completo de migração
-- [[project-zomboid]] — Servidor Project Zomboid
-- [[zomboid-control-panel]] — Painel web do Zomboid
-- [[crafty]] — Servidor Minecraft (Crafty)
+- [[kavure-migration-plan]] — Full migration plan
+- [[project-zomboid]] — Project Zomboid server
+- [[zomboid-control-panel]] — Zomboid web panel
+- [[crafty]] — Minecraft server (Crafty)
 - [[steniobot]] — Sumænimá (sae-core)

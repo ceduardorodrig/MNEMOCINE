@@ -2,30 +2,30 @@
 tags: [homelab, backup, snapshot, snapper, btrfs, psicopompo]
 ---
 
-# Snapshots btrfs — psicopompo (snapper)
+# btrfs Snapshots — psicopompo (snapper)
 
-> Proteção anti-deleção acidental / "tempestade de deleção" dos discos do psicopompo.
-> **Snapshot NÃO é backup** (mesmo disco) — é "voltar no tempo". O backup real está em `config-backup.md` + restic + Syncthing + off-site.
+> Protection against accidental deletion / "deletion storm" of the psicopompo disks.
+> **A snapshot is NOT a backup** (same disk) — it is "going back in time". The real backup lives in `config-backup.md` + restic + Syncthing + off-site.
 
-## Configs ativas (padronizado 06/09/2026)
+## Active configs (standardized 06/09/2026)
 
-> **Regra de ouro:** disco **reconstruível** → **sem** snapshot (só consome espaço/I/O); disco **não reconstruível** → timeline anti-deleção. Alinhado ao ArchWiki (timeline p/ dados de usuário; **não** p/ cache) e ao CachyOS (root padrão; demais subvolumes só com config explícita).
+> **Golden rule:** **rebuildable** disk → **no** snapshot (it only consumes space/I/O); **non-rebuildable** disk → anti-deletion timeline. Aligned with the ArchWiki (timeline for user data; **not** for cache) and with CachyOS (root by default; other subvolumes only with explicit config).
 
-| Config | Subvolume | Conteúdo | Classificação | Timeline |
+| Config | Subvolume | Content | Classification | Timeline |
 |---|---|---|---|---|
-| `root` | `/` (subvol `@`) | Sistema | Sistema (padrão CachyOS) | desligada (snap-pac) |
-| `nvme` | `/mnt/NVME_PCI` (toplevel) | vault, Docker, games, repos | Misto (**vault** não reconstruível) | ✅ 8/7/4/3 |
-| `backup` | `/mnt/BACKUP` (toplevel) | NAS: mídia, backups, configs | **Não reconstruível** | ✅ 4/7/4/0 |
-| ~~`hdd`~~ | ~~`/mnt/HDD_SATA`~~ | ~~Steam~~ | Reconstruível | ❌ removida 06/09 |
-| _(sem config)_ | `/mnt/SSD_SATA` | cache Scryfall (kavure) | Reconstruível | ❌ sem config |
+| `root` | `/` (subvol `@`) | System | System (CachyOS default) | disabled (snap-pac) |
+| `nvme` | `/mnt/NVME_PCI` (toplevel) | vault, Docker, games, repos | Mixed (**vault** not rebuildable) | ✅ 8/7/4/3 |
+| `backup` | `/mnt/BACKUP` (toplevel) | NAS: media, backups, configs | **Not rebuildable** | ✅ 4/7/4/0 |
+| ~~`hdd`~~ | ~~`/mnt/HDD_SATA`~~ | ~~Steam~~ | Rebuildable | ❌ removed 06/09 |
+| _(no config)_ | `/mnt/SSD_SATA` | Scryfall cache (kavure) | Rebuildable | ❌ no config |
 
-- **`root`**: snapshots pre/post automáticos em todo `pacman -Syu` via **snap-pac** (hooks). Boot/restore pelo menu **Limine** (limine-snapper-sync).
-- **`nvme`/`backup`**: timeline horária (timer `snapper-timeline.timer` ativo) — protege vault, configs espelhadas, backups e dados.
-- **`hdd` removida (06/09):** HDD_SATA = SteamLibrary (306G) — reconstruível, não merece snapshot. Config + 16 snapshots + `.snapshots` apagados (`snapper -c hdd delete-config`).
-- **`ssd` sem config:** SSD_SATA = `@scryfall` (cache Scryfall p/ kavure) — reconstruível.
-- **qgroups**: desabilitadas (sem lentidão). **Swap**: zram (ativo, pri 100) + swapfile `/swap` 48G (hibernação, pri 1) — subvolume `/swap` é **irmão de `/@`** (top-level), fora dos snapshots do `root`. **updatedb**: `.snapshots` em `PRUNENAMES`.
+- **`root`**: automatic pre/post snapshots on every `pacman -Syu` via **snap-pac** (hooks). Boot/restore through the **Limine** menu (limine-snapper-sync).
+- **`nvme`/`backup`**: hourly timeline (timer `snapper-timeline.timer` active) — protects the vault, mirrored configs, backups and data.
+- **`hdd` removed (06/09):** HDD_SATA = SteamLibrary (306G) — rebuildable, does not deserve a snapshot. Config + 16 snapshots + `.snapshots` deleted (`snapper -c hdd delete-config`).
+- **`ssd` with no config:** SSD_SATA = `@scryfall` (scryfall cache for kavure) — rebuildable.
+- **qgroups**: disabled (no slowdown). **Swap**: zram (active, pri 100) + swapfile `/swap` 48G (hibernation, pri 1) — the `/swap` subvolume is a **sibling of `/@`** (top-level), outside the `root` snapshots. **updatedb**: `.snapshots` in `PRUNENAMES`.
 
-## Comandos
+## Commands
 
 ```bash
 sudo snapper list-configs
@@ -38,15 +38,15 @@ sudo btrfs subvolume list -o /mnt/NVME_PCI/.snapshots
 
 ## Restore
 
-- **Arquivo/pasta**: copiar de um snapshot sem derrubar nada:
+- **File/folder**: copy from a snapshot without taking anything down:
   ```bash
   sudo cp -a /mnt/NVME_PCI/.snapshots/<N>/snapshot/<caminho> <destino>
   ```
-- **Subvolume inteiro de dados** (NVMe/BACKUP, em uso): parar serviços que usam → criar snapshot rw a partir do RO → trocar o subvolume → validar → start. Ver ArchWiki Snapper.
-- **Root**: bootar o snapshot pelo menu Limine → diálogo de restore do limine-snapper-sync → reboot. (Cuidado: snapshot de kernel não é bootável — CachyOS wiki.)
+- **Entire data subvolume** (NVMe/BACKUP, in use): stop the services using it → create an rw snapshot from the RO → switch the subvolume → validate → start. See the ArchWiki Snapper page.
+- **Root**: boot the snapshot from the Limine menu → limine-snapper-sync restore dialog → reboot. (Careful: a kernel snapshot is not bootable — CachyOS wiki.)
 
-## Observações
+## Notes
 
-- **O `nvme` pinna dados Docker (importante):** o subvolume `/mnt/NVME_PCI` contém `containerd-data`/`docker-data`. Snapshots timeline **seguram (reflink) os extents** — ao podar o Docker, o espaço só volta ao `df` depois de apagar os snapshots antigos (`snapper -c nvme delete --sync <n>`). Em 06/09/2026 foram apagados 18 snapshots antigos (17 pré-limpeza + `snapshot-inicial-vault` #1) liberando ~110GB; restaram só 2 timeline recentes. Snapshots de dados Docker (reconstruíveis) não têm valor de rollback — deletar sem dó. Ver [`guides/docker-disk-cleanup.md`](../guides/docker-disk-cleanup.md).
-- O mount NFS do kavure pode exibir o path antigo do export no `mountinfo` — é só rótulo cosmético; os dados caem no destino certo.
-- Ajustar retenção: `sudo snapper -c nvme set-config TIMELINE_LIMIT_HOURLY=10 ...` (ver `snapper-configs(5)`).
+- **`nvme` pins Docker data (important):** the `/mnt/NVME_PCI` subvolume contains `containerd-data`/`docker-data`. Timeline snapshots **hold (reflink) the extents** — when you prune Docker, the space only returns to `df` after deleting the old snapshots (`snapper -c nvme delete --sync <n>`). On 06/09/2026, 18 old snapshots were deleted (17 pre-cleanup + `snapshot-inicial-vault` #1), freeing ~110GB; only 2 recent timeline snapshots remained. Snapshots of Docker data (rebuildable) have no rollback value — delete them without mercy. See [`guides/docker-disk-cleanup.md`](../guides/docker-disk-cleanup.md).
+- The kavure NFS mount may show the old export path in `mountinfo` — that is only a cosmetic label; the data lands in the right place.
+- Adjusting retention: `sudo snapper -c nvme set-config TIMELINE_LIMIT_HOURLY=10 ...` (see `snapper-configs(5)`).

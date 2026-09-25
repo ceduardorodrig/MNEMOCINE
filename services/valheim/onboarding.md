@@ -2,89 +2,89 @@
 tags: [homelab, service, valheim, tutorial]
 ---
 
-# Valheim — Onboarding (Jogadores)
+# Valheim — Onboarding (Players)
 
-Guia para entrar no servidor de Valheim **Mnemocine Vikings** (kavure).
+Guide for joining the **Mnemocine Vikings** Valheim server (kavure).
 
-> Acesso só pela tailnet — quem não estiver na Tailscale precisa de acesso manual via IP.
+> Access only over the tailnet — anyone not on Tailscale needs manual access via IP.
 
-## Dados de conexão
+## Connection details
 
-| Item | Valor |
+| Item | Value |
 |---|---|
-| Nome do servidor | `Mnemocine Vikings` |
+| Server name | `Mnemocine Vikings` |
 | IP (Tailscale) | `100.124.146.77` |
-| Porta | `2456` (UDP) |
-| **Senha** | `HalVeim1235` |
-| Mundo | `Fimbulvetr` |
-| Versão | 1.0.12 (Deep North) |
+| Port | `2456` (UDP) |
+| **Password** | `HalVeim1235` |
+| World | `Fimbulvetr` |
+| Version | 1.0.12 (Deep North) |
 
-## Como entrar
+## How to join
 
-1. Aceitar o host `kavure` na sua tailnet (se ainda não tiver).
-2. Abrir Valheim → **Join Game**.
-3. Adicionar servidor manualmente:
+1. Accept the `kavure` host on your tailnet (if you haven't already).
+2. Open Valheim → **Join Game**.
+3. Add the server manually:
    - IP: `100.124.146.77`
-   - Porta: `2456`
-4. Conectar → digitar a senha `HalVeim1235`.
+   - Port: `2456`
+4. Connect → type the password `HalVeim1235`.
 
-> O servidor é **privado** (`public=false`) — não aparece na lista de servidores. Só acessível via IP direto na tailnet.
+> The server is **private** (`public=false`) — it does not appear in the server list. Only reachable via direct IP on the tailnet.
 
 ## Mods
 
-O cliente baixa os mods automaticamente ao conectar (BepInEx + 4 mods QoL). Se o jogo pedir para instalar, aceite — o servidor envia a lista.
+The client downloads the mods automatically when connecting (BepInEx + 4 QoL mods). If the game asks you to install them, accept — the server sends the list.
 
-### Mods instalados (4)
+### Installed mods (4)
 
-| Mod | Função |
+| Mod | Role |
 |---|---|
-| Gizmo | Rotação de construção (Ctrl+scroll) |
-| FuelEternal | Fogo nunca apaga |
-| CameraTweaks | Zoom e FOV customizável |
-| SmoothServer | Performance de rede (Compression desabilitado, mapa não compartilhado) |
+| Gizmo | Building rotation (Ctrl+scroll) |
+| FuelEternal | Fire never goes out |
+| CameraTweaks | Customizable zoom and FOV |
+| SmoothServer | Network performance (Compression disabled, map not shared) |
 
-### Comandos admin (F5)
+### Admin commands (F5)
 
-O Valheim 1.0 tem comandos nativos via console:
+Valheim 1.0 has native commands via the console:
 
-1. Pressionar **F5** para abrir o console.
-2. Digitar `devcommands` → Enter (ativa modo desenvolvedor).
-3. Comandos úteis:
-   - `god` — modo invencível
-   - `fly` — voo livre
-   - `pos` — mostra coordenadas
-   - `freefly` — câmera livre
-   - `event` — eventos aleatórios
-   - `stopevent` — para evento em andamento
+1. Press **F5** to open the console.
+2. Type `devcommands` → Enter (enables developer mode).
+3. Useful commands:
+   - `god` — invincibility mode
+   - `fly` — free flight
+   - `pos` — shows coordinates
+   - `freefly` — free camera
+   - `event` — random events
+   - `stopevent` — stops the current event
 
-> ⚠️ Comandos são **locais** — só afetam quem digitou. Não há admin remoto via RCON como no Zomboid.
+> ⚠️ Commands are **local** — they only affect whoever typed them. There is no remote admin via RCON like in Zomboid.
 
-## Restart remoto pelo celular
+## Remote restart from your phone
 
-Se precisar reiniciar fora de casa:
+If you need to restart while away:
 
-1. Celular conectado na **Tailscale** (MagicDNS).
+1. Phone connected to **Tailscale** (MagicDNS).
 2. SSH: `tailscale ssh kavure@kavure`
-3. Rodar: `valheim-restart`
+3. Run: `valheim-restart`
 
-> O servidor salva automaticamente antes do restart via `AUTO_BACKUP_ON_SHUTDOWN=1`.
+> The server saves automatically before the restart via `AUTO_BACKUP_ON_SHUTDOWN=1`.
 
-## Manutenção automática
+## Automatic maintenance
 
-| Horário | O que acontece |
+| Time | What happens |
 |---|---|
-| 03:00 | Watchtower atualiza a imagem (steamcmd) |
-| 05:00 | Restart diário (timer `hl-valheim-restart`) |
-| 05:30 | Backup off-box (timer `hl-valheim-backup`) |
-| A cada 30 min | Backup automático do container |
+| 03:00 | Watchtower updates the image (steamcmd) |
+| 05:00 | Daily restart (timer `hl-valheim-restart`) |
+| 05:30 | Off-box backup (timer `hl-valheim-backup`) |
+| Every 30 min | Automatic container backup |
 
-## Admin (dono)
+## Admin (owner)
 
 - **SSH:** [`ssh-runbook`](ssh-runbook.md) — start/stop/restart/backup
-- **Console:** `devcommands` no jogo (F5)
+- **Console:** `devcommands` in the game (F5)
 
 ## See also
 
-- [[valheim-server]] — Servidor Valheim (Docker)
-- [[ssh-runbook]] — Operação via SSH
-- [[kavure]] — Servidor de destino
+- [[valheim-server]] — Valheim server (Docker)
+- [[ssh-runbook]] — Operation via SSH
+- [[kavure]] — Target server

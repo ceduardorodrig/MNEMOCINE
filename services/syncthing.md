@@ -4,144 +4,144 @@ tags: [homelab, service, syncthing, storage]
 
 # Syncthing
 
-Sincronização de arquivos entre dispositivos — mantém o vault Obsidian e outros dados sincronizados.
+File sync between devices — keeps the Obsidian vault and other data in sync.
 
-**Servidor:** Malha distribuída (psicopompo ↔ kuaray ↔ ybytu ↔ celulares)
+**Server:** Distributed mesh (psicopompo ↔ kuaray ↔ ybytu ↔ phones)
 
-## Instâncias
+## Instances
 
-| Servidor | Tipo | Usuário | Pasta | Status |
+| Server | Type | User | Folder | Status |
 |---|---|---|---|---|
-| psicopompo | Nativo — systemd user unit `syncthing.service` (config em `~/.local/state/syncthing/config.xml`) | edu | folders abaixo | ✅ **ativo** (10/08) |
-| kuaray | Container (`syncthing/syncthing`) | — | `/config/Sync/...` | ✅ ativo |
+| psicopompo | Native — systemd user unit `syncthing.service` (config in `~/.local/state/syncthing/config.xml`) | edu | folders below | ✅ **active** (10/08) |
+| kuaray | Container (`syncthing/syncthing`) | — | `/config/Sync/...` | ✅ active |
 
-> **Ybytu removido (06/08/2026):** container + pastas do Syncthing deletados (não era necessário). Device Ybytu removido do config do psicopompo.
+> **Ybytu removed (06/08/2026):** Syncthing container + folders deleted (not needed). Ybytu device removed from psicopompo's config.
 
 ## Folders (07/08/2026)
 
-| id | label | psicopompo | kuaray | Conteúdo |
+| id | label | psicopompo | kuaray | Content |
 |---|---|---|---|---|
-| `default` | `default-folder-syncthing` | `/home/edu/Default Folder Syncthing/` (**sendreceive**, fonte) | `/home/kuaray/Default/` (container `/default`, **receiveonly**) | kdbx (KeePass), CNH, docs pessoais |
-| `agentic-ai` | `agentic-ai` | `/mnt/NVME_PCI/agentic-ai/` | `/home/kuaray/agentic-ai/` (container `/agentic-ai`, **receiveonly**) | **Vault Obsidian + pasta de trabalho** |
-| `backup` | `backup` | `/mnt/BACKUP/` (fonte, **sendreceive**) | `/mnt/storage/backup/` (**receiveonly**) | **Espelho frio do backup** — música, books, recovery, dumps |
+| `default` | `default-folder-syncthing` | `/home/edu/Default Folder Syncthing/` (**sendreceive**, source) | `/home/kuaray/Default/` (container `/default`, **receiveonly**) | kdbx (KeePass), CNH, personal docs |
+| `agentic-ai` | `agentic-ai` | `/mnt/NVME_PCI/agentic-ai/` | `/home/kuaray/agentic-ai/` (container `/agentic-ai`, **receiveonly**) | **Obsidian vault + working folder** |
+| `backup` | `backup` | `/mnt/BACKUP/` (source, **sendreceive**) | `/mnt/storage/backup/` (**receiveonly**) | **Cold mirror of the backup** — music, books, recovery, dumps |
 
-> **Folder `default` (10/08/2026):** kuaray passou a ser **espelho receiveonly** do `default` do psicopompo (path movido de `/config/Sync/` → `/home/kuaray/Default/`, fora do config dir). Naming consistente nos dois hosts. Antes disso o `default` do kuaray era um folder **local-only** (não conectado ao psicopompo) e vazio.
+> **Folder `default` (10/08/2026):** kuaray became a **receiveonly mirror** of psicopompo's `default` (path moved from `/config/Sync/` → `/home/kuaray/Default/`, outside the config dir). Consistent naming on both hosts. Before that, kuaray's `default` was a **local-only** folder (not connected to psicopompo) and empty.
 
-> **Folder `music` removido (07/08):** a música NÃO é mais sincronizada para o kuaray — os serviços (Navidrome, Lidarr) leem via **NFS do psicopompo** (`/mnt/storage/data/media/music` = mount NFS). Ver [`network/nfs.md`](../network/nfs.md).
+> **Folder `music` removed (07/08):** music is NO LONGER synced to kuaray — the services (Navidrome, Lidarr) read via **psicopompo NFS** (`/mnt/storage/data/media/music` = NFS mount). See [`network/nfs.md`](../network/nfs.md).
 
-> **Labels padronizados** (06/08): iguais nos dois lados — `default-folder-syncthing`, `music`, `agentic-ai`.
+> **Standardized labels** (06/08): identical on both sides — `default-folder-syncthing`, `music`, `agentic-ai`.
 >
-> **Kuaray:** folder `agentic-ai` fica em `/DATA/AppData/agentic-ai/` (**SSD do sistema**, `/dev/sda2`) — fora de `/config/Sync` para evitar aninhamento com o folder `default`.
+> **Kuaray:** the `agentic-ai` folder lives in `/DATA/AppData/agentic-ai/` (**system SSD**, `/dev/sda2`) — outside `/config/Sync` to avoid nesting with the `default` folder.
 
-> **⚠️ Folder `agentic-ai` (crítico):** aponta para a **raiz da pasta de trabalho** (que é a vault Obsidian). Configuração especial:
-> - `.stignore` na raiz exclui `.venv/`, caches, backups → não sincronizam.
-> - **Espelho real + versioning (06/08):** `ignoreDelete=false` (deleções propagam — qualquer device pode deletar) + **`versioning` `simple`** (keep 5 no psicopompo / keep 3 no kuaray) → arquivos deletados vão para `.stversions/` local em vez de sumir. Protege contra "tempestade de deleção" de disco defeituoso.
-> - **Aula 06/08:** sem `ignoreDelete`, o syncthing propagou deleções do kuaray e apagou arquivos do antigo repo git (recuperados via `git checkout`). Com versioning, deleções viram histórico recuperável.
-> - `.obsidian`/`.pandoc` (config do Obsidian) sincronizam; `.smart-env`/`.SMART CHATS` (caches) são ignorados.
+> **⚠️ Folder `agentic-ai` (critical):** points at the **root of the working folder** (which is the Obsidian vault). Special configuration:
+> - The root `.stignore` excludes `.venv/`, caches, backups → they do not sync.
+> - **Real mirror + versioning (06/08):** `ignoreDelete=false` (deletions propagate — any device can delete) + **`versioning` `simple`** (keep 5 on psicopompo / keep 3 on kuaray) → deleted files go to the local `.stversions/` instead of vanishing. Protects against a "deletion storm" from a faulty disk.
+> - **Lesson 06/08:** without `ignoreDelete`, syncthing propagated deletions from kuaray and wiped files from the old git repo (recovered via `git checkout`). With versioning, deletions become recoverable history.
+> - `.obsidian`/`.pandoc` (Obsidian config) sync; `.smart-env`/`.SMART CHATS` (caches) are ignored.
 
-## Portas
+## Ports
 
-| Porta | Protocolo | Função |
+| Port | Protocol | Role |
 |---|---|---|
-| `8384` | TCP | Interface web (apenas Tailscale) — **bind `127.0.0.1:8384` + exposta via `tailscale serve --tcp 8384`** (10/08) |
-| `22000` | TCP/UDP | Transferência de dados |
-| `21027` | UDP | Descoberta local |
+| `8384` | TCP | Web interface (Tailscale only) — **bound to `127.0.0.1:8384` + exposed via `tailscale serve --tcp 8384`** (10/08) |
+| `22000` | TCP/UDP | Data transfer |
+| `21027` | UDP | Local discovery |
 
-## Acesso
+## Access
 
-Interface web (apenas na tailnet):
-- **psicopompo:** `http://100.82.51.112:8384` (via `tailscale serve`, que faz proxy TCP → `127.0.0.1:8384`)
+Web interface (tailnet only):
+- **psicopompo:** `http://100.82.51.112:8384` (via `tailscale serve`, which proxies TCP → `127.0.0.1:8384`)
 - **kuaray:** `http://100.94.209.99:8384`
 
-## Histórico (06/08/2026)
+## History (06/08/2026)
 
-1. **Fix IP:** `syncthing@edu` falhava no boot — `config.xml` apontava p/ IP antigo. Corrigido p/ `100.82.51.112`.
-2. **Reorganização:** Default Folder movida p/ `/home/edu/Default Folder Syncthing/`; MUSIC p/ `/mnt/BACKUP/media/music/` (migração em andamento); Calibre Ingest deletada.
-3. **Vault Obsidian:** migrada de `~/Syncthing/Default Folder/OBSIDIAN/Mnemocine` para a **raiz do agentic-ai** (vault = pasta inteira).
-4. **Repos git consolidados:** `git [SUMAENIMA-INFRA]` e `git [CURRICULUM-VITAE]` incorporados à **pasta única agentic-ai** (removidos `.git` aninhados, backup em `.backup-git-nested/`). Pastas renomeadas para `mnemocine/` e `curriculum-vitae/` (06/08). **agentic-ai deixou de ser repo git** (07/08) — é pasta de trabalho/vault sincronizada via Syncthing. Repos originais continuam no GitHub.
-5. **Folder id/label:** `obsidian` → **`agentic-ai`** (re-aceitar em todos os devices).
-6. **Paridade kuaray:** folder `agentic-ai` movido de `/config/Sync/obsidian` (aninhado no default) → **`/DATA/AppData/agentic-ai/`** (SSD, fora do default). Lixo `obsidian` (3.2G, cópia duplicada) removido do Default Folder do psicopompo. **Labels padronizados** nos dois lados. Ocultos `.obsidian`/`.pandoc` re-sincronizados.
-7. **Encoding:** 3 nomes de arquivo NFD→NFC (git via `git checkout`); `core.precomposeunicode=true`.
-8. **Crise HDD kuaray (06/08):** folder `music` do kuaray dava `Bad message` — causa raiz foi **double-mount** do `/dev/sdb` (loop0 stale + loop100, ambos rw) que corrompeu o ext4. Folder `music` **removido** do kuaray (mídia consolidada no psicopompo). Device Ybyra órfão removido do config do psicopompo. Ver `servers/kuaray.md`. Detalhe: no kuaray, `ignoreDelete=true` também aplicado no folder `agentic-ai`.
-9. **Restauração música (06/08, noite):** HDD reformatado (MBR/LBA2048, fs saudável — `mnt-storage.service` removido). Folder `music` (`gtuwj-mspep`) **recriado** no syncthing do kuaray → `/mnt/storage/data/media/music`. Prompt "adicionar pasta música" resolvido.
-10. **Storm de deleção (06/08, noite):** recriar o folder `music` do kuaray **vazio** fez o índice do kuaray reportar a biblioteca como deletada → psicopompo (espelho) começou a aplicar deleções. **Perdeu ~18 arquivos reais (~465MB)** antes dos erros "directory not empty" protegerem; restaurados de `/mnt/HDD_SATA/Music` (fonte original intacta). **Solução aplicada:** folder `music` do kuaray → **`receiveonly`** (espelho recebe tudo, mas nunca envia estado → um HD defeituoso/folder recriado não consegue disparar storm). Aplicável até migrar o Lidarr/arr-stack do kuaray. Lixo `.syncthing.*.tmp` (445) removido do HDD_SATA.
+1. **IP fix:** `syncthing@edu` failed on boot — `config.xml` pointed at the old IP. Fixed to `100.82.51.112`.
+2. **Reorganization:** Default Folder moved to `/home/edu/Default Folder Syncthing/`; MUSIC to `/mnt/BACKUP/media/music/` (migration in progress); Calibre Ingest deleted.
+3. **Obsidian vault:** migrated from `~/Syncthing/Default Folder/OBSIDIAN/Mnemocine` to the **root of agentic-ai** (vault = the whole folder).
+4. **Git repos consolidated:** `git [SUMAENIMA-INFRA]` and `git [CURRICULUM-VITAE]` merged into the **single agentic-ai folder** (nested `.git` removed, backup in `.backup-git-nested/`). Folders renamed to `mnemocine/` and `curriculum-vitae/` (06/08). **agentic-ai is no longer a git repo** (07/08) — it is a working folder/vault synced via Syncthing. The original repos stay on GitHub.
+5. **Folder id/label:** `obsidian` → **`agentic-ai`** (re-accept on all devices).
+6. **kuaray parity:** the `agentic-ai` folder moved from `/config/Sync/obsidian` (nested in default) → **`/DATA/AppData/agentic-ai/`** (SSD, outside default). The leftover `obsidian` junk (3.2G, duplicate copy) removed from psicopompo's Default Folder. **Labels standardized** on both sides. Hidden `.obsidian`/`.pandoc` re-synced.
+7. **Encoding:** 3 filenames NFD→NFC (git via `git checkout`); `core.precomposeunicode=true`.
+8. **kuaray HDD crisis (06/08):** kuaray's `music` folder threw `Bad message` — the root cause was a **double-mount** of `/dev/sdb` (stale loop0 + loop100, both rw) that corrupted ext4. The `music` folder was **removed** from kuaray (media consolidated on psicopompo). Orphan Ybyra device removed from psicopompo's config. See `servers/kuaray.md`. Detail: on kuaray, `ignoreDelete=true` was also applied to the `agentic-ai` folder.
+9. **Music restore (06/08, night):** HDD reformatted (MBR/LBA2048, healthy fs — `mnt-storage.service` removed). The `music` folder (`gtuwj-mspep`) was **recreated** in kuaray's syncthing → `/mnt/storage/data/media/music`. "Add music folder" prompt resolved.
+10. **Deletion storm (06/08, night):** recreating kuaray's `music` folder **empty** made kuaray's index report the library as deleted → psicopompo (mirror) started applying deletions. **~18 real files (~465MB) were lost** before the "directory not empty" errors stopped it; restored from `/mnt/HDD_SATA/Music` (original source intact). **Solution applied:** kuaray's `music` folder → **`receiveonly`** (the mirror receives everything but never sends state → a faulty HDD/recreated folder cannot trigger a storm). Applies until kuaray's Lidarr/arr-stack is migrated. `.syncthing.*.tmp` junk (445) removed from HDD_SATA.
 
-## Histórico (07/08/2026) — "tudo 100%"
+## History (07/08/2026) — "everything at 100%"
 
-1. **Limpeza de tombstones `agentic-ai`:** os folders `.venv`/`.smart-env` (ignorados) tinham tombstones de deleção registrados pelo kuaray em 06/08 → o syncthing local recusava deletá-los (contêm arquivos ignorados) → **2 erros + completion 95%** no psicopompo (e 95% nos celulares). **Solução:** folder `agentic-ai` **removido e recriado** (mesma config) no kuaray e no psicopompo via API → índice re-scaneado, tombstones sumiram. Resultado: **100% em todos os devices** (psicopompo, kuaray, Pira-Nuya, Anansi), 0 erros, caches preservados.
-2. **`.stignore` kuaray limpo:** removidas refs da era git (`.git/`, `.gitignore`, `.backup-*`) e adicionados padrões de segurança (`.env`, `*.key`, `*.pem`, `*.cert`, `secrets/`) + lixo de SO/editor.
-3. **Fix `.env.template`:** no Syncthing vale "1ª regra que casa decide" — `!.env.template` tinha que vir **antes** de `.env.*`. Corrigida a ordem no `.stignore` de ambos (comentário explicativo incluído).
-4. **Música kuaray — espelho exato ABANDONADO:** o resgate do disco deixou ~975 itens "receive only changed" (duplicatas da biblioteca antiga) → completion 92,5%. Backup dos 582 arquivos reais (19G, depois removido — conteúdo confirmado duplicado no source) + `db/override` → reverteu parcialmente, mas o disco recuperado tem **versões diferentes do source em ~5500 itens** → forçar espelho exato exigiria baixar **~134 GiB** de volta. **Decisão (07/08):** transferência inviável no HD moribundo → folder `music` **removido** (ver item 5). kuaray = pihole "glorificado".
-5. **Nova arquitetura (07/08) — psicopompo = NAS + backup frio via Syncthing:**
-   - **Folder `music` removido** do syncthing (psicopompo + kuaray). HD do kuaray limpo (lixo divergente apagado, 864G livres).
-   - **NFS:** psicopompo exporta `/mnt/BACKUP/media/music` e `/media/books` (NFSv4, `all_squash,anonuid=1000`); kuaray monta em `/mnt/storage/data/media/music` (mesmo caminho dos binds dos containers) → Navidrome/Lidarr lêem a biblioteca do psicopompo **sem sync**. Ver [`network/nfs.md`](../network/nfs.md).
-   - **Folder `backup` (frio):** `/mnt/BACKUP` inteiro (fonte, sendreceive) → `/mnt/storage/backup` no kuaray (**receiveonly**, **sem versioning** — decisão: espelho simples; disco moribundo + 2 cópias já existem no psicopompo). Primeira transferência ~179G em background; depois incremental. `.stignore` do backup exclui `.syncthing.*.tmp`/lixo.
-   - **Fix permissão (07/08):** o daemon do syncthing do kuaray roda como **`kuaray` (uid 1000)** (container `linuxserver/syncthing`, PUID=1000) — não como root. A pasta `/mnt/storage/backup` (criada via `docker exec` como root) impedia a escrita → **`chown -R kuaray:kuaray /mnt/storage/backup`** (mesmo dono de `/mnt/storage/data`). Transferência então iniciou normalmente.
+1. **`agentic-ai` tombstone cleanup:** the `.venv`/`.smart-env` folders (ignored) had deletion tombstones registered by kuaray on 06/08 → local syncthing refused to delete them (they contain ignored files) → **2 errors + 95% completion** on psicopompo (and 95% on the phones). **Solution:** the `agentic-ai` folder was **removed and recreated** (same config) on kuaray and on psicopompo via the API → index re-scanned, tombstones gone. Result: **100% on all devices** (psicopompo, kuaray, Pira-Nuya, Anansi), 0 errors, caches preserved.
+2. **kuaray `.stignore` cleanup:** removed git-era refs (`.git/`, `.gitignore`, `.backup-*`) and added security patterns (`.env`, `*.key`, `*.pem`, `*.cert`, `secrets/`) + OS/editor junk.
+3. **`.env.template` fix:** in Syncthing "the first matching rule wins" — `!.env.template` has to come **before** `.env.*`. Fixed the order in both `.stignore` files (with an explanatory comment included).
+4. **kuaray music — exact mirror ABANDONED:** the disk rescue left ~975 items "receive only changed" (duplicates of the old library) → 92.5% completion. Backup of the 582 real files (19G, later removed — content confirmed duplicated in the source) + `db/override` → partially reverted it, but the recovered disk has **different versions from the source in ~5500 items** → forcing an exact mirror would require downloading **~134 GiB** again. **Decision (07/08):** transfer unviable on the dying disk → the `music` folder was **removed** (see item 5). kuaray = a "glorified" pihole.
+5. **New architecture (07/08) — psicopompo = NAS + cold backup via Syncthing:**
+   - **`music` folder removed** from syncthing (psicopompo + kuaray). kuaray's HDD cleaned (divergent junk deleted, 864G free).
+   - **NFS:** psicopompo exports `/mnt/BACKUP/media/music` and `/media/books` (NFSv4, `all_squash,anonuid=1000`); kuaray mounts it at `/mnt/storage/data/media/music` (the same path as the container binds) → Navidrome/Lidarr read the library from psicopompo **without sync**. See [`network/nfs.md`](../network/nfs.md).
+   - **`backup` folder (cold):** the whole of `/mnt/BACKUP` (source, sendreceive) → `/mnt/storage/backup` on kuaray (**receiveonly**, **no versioning** — decision: a simple mirror; the disk is dying + 2 copies already exist on psicopompo). First transfer ~179G in the background; incremental afterwards. The backup's `.stignore` excludes `.syncthing.*.tmp`/junk.
+   - **Permission fix (07/08):** kuaray's syncthing daemon runs as **`kuaray` (uid 1000)** (container `linuxserver/syncthing`, PUID=1000) — not as root. The `/mnt/storage/backup` folder (created via `docker exec` as root) prevented writing → **`chown -R kuaray:kuaray /mnt/storage/backup`** (same owner as `/mnt/storage/data`). The transfer then started normally.
 
 ## Cluster (09/08/2026)
-- **kuaray device ID (novo):** `MYBTGZG-W6AMRCA-CRBXOVE-OLBIUCS-4MED42G-LDDYJ7D-6MTMAPI-Y4GV6AO` (identidade antiga `XC3YRZ6-...` perdida 08/08).
-- Re-pareado 09/08 via API: kuaray = **receiveonly** em `backup` (/mnt/storage/backup) e `agentic-ai` (/home/kuaray/agentic-ai).
-- psicopompo (master) removeu o device antigo e adicionou o novo.
+- **kuaray device ID (new):** `MYBTGZG-W6AMRCA-CRBXOVE-OLBIUCS-4MED42G-LDDYJ7D-6MTMAPI-Y4GV6AO` (old identity `XC3YRZ6-...` lost on 08/08).
+- Re-paired on 09/08 via the API: kuaray = **receiveonly** on `backup` (/mnt/storage/backup) and `agentic-ai` (/home/kuaray/agentic-ai).
+- psicopompo (master) removed the old device and added the new one.
 
-## Histórico (10/08/2026) — erros do watcher/scan resolvidos
+## History (10/08/2026) — watcher/scan errors resolved
 
-1. **Erro no psicopompo — `backup` (fonte):** watcher + rescan falhavam em `/mnt/BACKUP/.snapshots` (`permission denied`) — o `.snapshots` é o **subvol de snapshots do snapper** (`root:root`, `drwxr-x---`). **Solução:** adicionado ao `/mnt/BACKUP/.stignore` os padrões `(?d).snapshots` e `(?d).Trash-*/`. A doc de ignoring do Syncthing confirma: padrão sem `!` (negação) faz o scan E o watcher **pular** o diretório. Após o edit: 0 erros novos, folder `backup` em `idle` (152774/152774).
-2. **Erro no kuaray — `backup` (receiveonly):** "Failed to sync 12 items / directory not empty" — o `.Trash-1000` local (23G, lixo da recuperação do HDD 06/08) divergia do global (`.Trash-1000` do psicopompo vazio); receiveonly preserva arquivos locais → não conseguia deletar. **Solução:** removidos manualmente `/mnt/storage/backup/.Trash-1000` (23G liberados) e `/mnt/storage/backup/.snapshots` (leftover) → folder `backup` em `idle`, `needFiles=0`.
-3. **Folder `default` — consistência:** kuaray não tinha o `default` conectado ao psicopompo (era local-only em `/config/Sync`, dentro do config dir — prática ruim). Reconectado via API: path `/home/kuaray/Default` (volume novo no compose), **receiveonly**, device psicopompo adicionado (e vice-versa). `ignorePerms=true` alinhado com o master. **Label corrigido (10/08):** `Default Folder` → `default-folder-syncthing` (igual ao psicopompo).
-4. **`ignorePerms`:** kuaray agora `true` nos 3 folders (padrão = psicopompo).
-5. **Tailscale SSH:** `ssh kuaray` (via Tailscale SSH) pediu o "additional check" do dono (re-verificação periódica) — aprovado pelo owner; sem mudança de config.
-6. **Local Additions no `backup` do kuaray (10/08):** o mirror mostrava 5 "local additions" em `sumaenima-server-kavure/sumaenima_borg/` — 2 `*.sync-conflict-*-KSNJAZU` (conflitos do período sendreceive) + 3 versões obsoletas do repo Borg (`hints.9`/`index.9`/`integrity.9`; o master está em `.17`). Removidos manualmente (folder receiveonly, sem borg ativo no kuaray) → `local = global` (153030/153030).
-7. **`.stignore` no mirror kuaray (10/08):** criado `/mnt/storage/backup/.stignore` com os mesmos padrões do master (`(?d).snapshots`, `(?d).Trash-*/`, temp, lixo de SO) — boa prática: mirror receiveonly honra os mesmos ignores. Pendência de `receiveOnlyChangedDeletes=1` (item `.snapshots`) resolvida com **Revert Local Changes** (`POST /db/revert`) → `receiveOnlyChanged = 0/0/0`.
+1. **Error on psicopompo — `backup` (source):** watcher + rescan failed on `/mnt/BACKUP/.snapshots` (`permission denied`) — `.snapshots` is the **snapper snapshots subvolume** (`root:root`, `drwxr-x---`). **Solution:** added to `/mnt/BACKUP/.stignore` the `(?d).snapshots` and `(?d).Trash-*/` patterns. Syncthing's ignoring docs confirm: a pattern without `!` (negation) makes both the scan AND the watcher **skip** the directory. After the edit: 0 new errors, `backup` folder in `idle` (152774/152774).
+2. **Error on kuaray — `backup` (receiveonly):** "Failed to sync 12 items / directory not empty" — the local `.Trash-1000` (23G, junk from the 06/08 HDD recovery) diverged from the global one (psicopompo's `.Trash-1000` was empty); receiveonly preserves local files → it could not delete. **Solution:** manually removed `/mnt/storage/backup/.Trash-1000` (23G freed) and `/mnt/storage/backup/.snapshots` (leftover) → `backup` folder in `idle`, `needFiles=0`.
+3. **`default` folder — consistency:** kuaray did not have `default` connected to psicopompo (it was local-only in `/config/Sync`, inside the config dir — bad practice). Reconnected via the API: path `/home/kuaray/Default` (new volume in the compose), **receiveonly**, psicopompo device added (and vice versa). `ignorePerms=true` aligned with the master. **Label fixed (10/08):** `Default Folder` → `default-folder-syncthing` (same as psicopompo).
+4. **`ignorePerms`:** kuaray is now `true` on all 3 folders (default = psicopompo).
+5. **Tailscale SSH:** `ssh kuaray` (via Tailscale SSH) asked for the owner's "additional check" (periodic re-verification) — approved by the owner; no config change.
+6. **Local additions on kuaray's `backup` (10/08):** the mirror showed 5 "local additions" in `sumaenima-server-kavure/sumaenima_borg/` — 2 `*.sync-conflict-*-KSNJAZU` (conflicts from the sendreceive period) + 3 obsolete versions of the Borg repo (`hints.9`/`index.9`/`integrity.9`; the master is at `.17`). Removed manually (receiveonly folder, no borg running on kuaray) → `local = global` (153030/153030).
+7. **`.stignore` on the kuaray mirror (10/08):** created `/mnt/storage/backup/.stignore` with the same patterns as the master (`(?d).snapshots`, `(?d).Trash-*/`, temp, OS junk) — good practice: a receiveonly mirror honors the same ignores. The `receiveOnlyChangedDeletes=1` pending item (the `.snapshots` entry) was resolved with **Revert Local Changes** (`POST /db/revert`) → `receiveOnlyChanged = 0/0/0`.
 
-## Histórico (10/08/2026, noite) — boot race do GUI + fix definitivo
+## History (10/08/2026, night) — GUI boot race + definitive fix
 
-**Sintoma:** após o reboot de ~15:46, o `syncthing.service` (user) ficou **morto** (`start-limit-hit`) e o vault não sincronizava mais do psicopompo.
+**Symptom:** after the ~15:46 reboot, `syncthing.service` (user) was **dead** (`start-limit-hit`) and the vault no longer synced from psicopompo.
 
-**Causa raiz:** o GUI estava fixo em **`100.82.51.112:8384`** (IP Tailscale). O syncthing subiu 4s após o tailscaled, antes do IP TS ser atribuído → `bind: cannot assign requested address` → 4 tentativas em 60s → `start-limit-hit`. **Mesma classe de bug de 06/08** ("IP antigo") — hardcodar bind em IP da tailnet é frágil no boot.
+**Root cause:** the GUI was pinned to **`100.82.51.112:8384`** (Tailscale IP). Syncthing came up 4s after tailscaled, before the TS IP was assigned → `bind: cannot assign requested address` → 4 attempts in 60s → `start-limit-hit`. **Same class of bug as 06/08** ("old IP") — hardcoding the bind to a tailnet IP is fragile on boot.
 
-**Fix aplicado (Opção A — localhost + Tailscale Serve):**
-1. GUI → **`127.0.0.1:8384`** no `config.xml` (não depende mais do IP TS no boot).
-2. **`tailscale serve --bg --tcp 8384 tcp://127.0.0.1:8384`** → o tailscaled (dono do IP TS) expõe `http://100.82.51.112:8384` na tailnet; persiste entre reboots (estado do serve fica no tailscaled).
-3. **Host check do GUI** (`Host check error` 403 ao acessar via `100.82.51.112`): na **v2.1.3** o campo é **elemento-filho** `<insecureSkipHostcheck>true</insecureSkipHostcheck>` dentro de `<gui>` (atributo XML é **ignorado**). Setado via `POST /rest/system/config` (PUT dá 405).
+**Fix applied (Option A — localhost + Tailscale Serve):**
+1. GUI → **`127.0.0.1:8384`** in `config.xml` (no longer depends on the TS IP at boot).
+2. **`tailscale serve --bg --tcp 8384 tcp://127.0.0.1:8384`** → tailscaled (owner of the TS IP) exposes `http://100.82.51.112:8384` on the tailnet; it persists across reboots (the serve state lives in tailscaled).
+3. **GUI host check** (`Host check error` 403 when accessing via `100.82.51.112`): in **v2.1.3** the field is a **child element** `<insecureSkipHostcheck>true</insecureSkipHostcheck>` inside `<gui>` (the XML attribute is **ignored**). Set via `POST /rest/system/config` (PUT returns 405).
 4. `systemctl --user reset-failed syncthing.service` + start.
 
-**Validação:** restart preserva o setting (runtime `insecureSkipHostcheck=true`), GUI 200 via `100.82.51.112:8384` e via MagicDNS, serve ativo, folders `agentic-ai`/`backup`/`default` em sync (`need=0`).
+**Validation:** restart preserves the setting (runtime `insecureSkipHostcheck=true`), GUI 200 via `100.82.51.112:8384` and via MagicDNS, serve active, `agentic-ai`/`backup`/`default` folders in sync (`need=0`).
 
-> **Lição:** serviço com GUI "apenas tailnet" **não** deve dar bind no IP TS — usar `127.0.0.1` + `tailscale serve` (ou firewall). Reboot-safe.
+> **Lesson:** a service with a "tailnet only" GUI **must not** bind to the TS IP — use `127.0.0.1` + `tailscale serve` (or a firewall). Reboot-safe.
 
-## Histórico (28/08/2026) — HDD não montou no boot → folder `backup` em erro
+## History (28/08/2026) — HDD did not mount on boot → `backup` folder in error
 
-**Sintoma:** folder `backup` do kuaray em estado **erro "folder path missing"** (o "stopped" na GUI).
+**Symptom:** kuaray's `backup` folder in the **"folder path missing" error state** (the "stopped" in the GUI).
 
-**Causa raiz:** após reboot (kernel 7.0.0-30), o HDD `/dev/sdb1` **não montou** — `systemd-fsck` falhou (dependency) → `mnt-storage.mount` `dead`. O disco degradou além do documentado: **`Current_Pending_Sector` 3 → 37**, **novo erro de leitura em ~464 GB** (sector 973545360, dmesg) e o `e2fsck -fn` reportava **erros no filesystem** (inode 7 / group descriptors, "Illegal block"). O fsck de boot bateu nos setores ruins e abortou o mount. Sem o mount, o caminho `/mnt/storage/backup` não existia → erro no folder.
+**Root cause:** after the reboot (kernel 7.0.0-30), the `/dev/sdb1` HDD **did not mount** — `systemd-fsck` failed (dependency) → `mnt-storage.mount` `dead`. The disk degraded beyond what was documented: **`Current_Pending_Sector` 3 → 37**, **new read error at ~464 GB** (sector 973545360, dmesg), and `e2fsck -fn` reported **filesystem errors** (inode 7 / group descriptors, "Illegal block"). The boot fsck hit the bad sectors and aborted the mount. Without the mount, the path `/mnt/storage/backup` did not exist → folder error.
 
-**Efeito colateral:** o mount NFS de música (`/mnt/storage/data/media/music`) ficava **aninhado sob o mountpoint do HDD** → também caiu → **Lidarr sem biblioteca** (música segura no NAS, mas caminho local sumiu).
+**Side effect:** the music NFS mount (`/mnt/storage/data/media/music`) was **nested under the HDD mountpoint** → it went down too → **Lidarr with no library** (music safe on the NAS, but the local path vanished).
 
-**Resolução (28/08):**
-1. `e2fsck -fy /dev/sdb1` — reparado (diretórios, bitmaps, contadores, inodes órfãos). Não bateu de novo no setor ruim (~464 GB parece estar fora da região usada).
-2. `/etc/fstab`: `/mnt/storage` com **`nofail,errors=continue`** (boot não trava com disco doente). Backup em `/etc/fstab.bak-20260828`.
-3. `mount /mnt/storage` → mirror `backup/` + `data/` acessíveis.
-4. **`docker restart syncthing`** — o bind `/mnt/storage:/mnt/storage` foi criado antes do HDD montar e apontava para a pasta vazia do SSD (mesma regra `rprivate` da `nfs.md:69`); sem o restart o container não via o mount.
-5. Scan + **`POST /rest/db/revert?folder=backup`** — o e2fsck deixou **2334 itens "receive only changed"**; revert alinhou o mirror com o master. Folder `backup` → **`idle`, local = global = 155628**.
-6. **NFS de música desacoplado do HDD** (ver [`network/nfs.md`](../network/nfs.md)): mount movido para `/mnt/nas/media/music`; bind do Lidarr ajustado. HDD nunca mais derruba a biblioteca.
+**Resolution (28/08):**
+1. `e2fsck -fy /dev/sdb1` — repaired (directories, bitmaps, counters, orphan inodes). It did not hit the bad sector again (~464 GB seems to be outside the used region).
+2. `/etc/fstab`: `/mnt/storage` with **`nofail,errors=continue`** (boot does not hang on a sick disk). Backup in `/etc/fstab.bak-20260828`.
+3. `mount /mnt/storage` → `backup/` + `data/` mirrors accessible.
+4. **`docker restart syncthing`** — the `/mnt/storage:/mnt/storage` bind was created before the HDD mounted and pointed at the SSD's empty folder (same `rprivate` rule as in `nfs.md:69`); without the restart the container did not see the mount.
+5. Scan + **`POST /rest/db/revert?folder=backup`** — e2fsck left **2334 "receive only changed" items**; the revert aligned the mirror with the master. `backup` folder → **`idle`, local = global = 155628**.
+6. **Music NFS decoupled from the HDD** (see [`network/nfs.md`](../network/nfs.md)): mount moved to `/mnt/nas/media/music`; Lidarr's bind adjusted. The HDD can no longer take the library down.
 
-> **Estado (28/08):** folders `agentic-ai` (1482) e `default` (4) **idle**; `backup` **idle** (155628/155628). Disco segue degradado (37 pending) — recomendação de troca do HDD mantida (`servers/kuaray.md`).
+> **State (28/08):** `agentic-ai` (1482) and `default` (4) folders **idle**; `backup` **idle** (155628/155628). The disk remains degraded (37 pending) — the HDD replacement recommendation stands (`servers/kuaray.md`).
 
-## Histórico (22/09/2026) — conflito de unidades (duplicação de 06/08) + 40 erros do repo restic
+## History (22/09/2026) — unit conflict (06/08 duplication) + 40 errors in the restic repo
 
-**Sintomas:**
-1. `syncthing.service` (user) terminava o boot em **`start-limit-hit`** ("is another Syncthing instance already running") — a `syncthing@edu.service` (system) ganhava a corrida do lock.
-2. Folder `backup` com **40 `pullErrors`** por boot: `permission denied` em `/mnt/BACKUP/repos/restic/configs/data/*`.
+**Symptoms:**
+1. `syncthing.service` (user) ended the boot at **`start-limit-hit`** ("is another Syncthing instance already running") — the `syncthing@edu.service` (system) won the lock race.
+2. `backup` folder with **40 `pullErrors`** per boot: `permission denied` on `/mnt/BACKUP/repos/restic/configs/data/*`.
 
-**Causas raiz:**
-1. **Unidades duplicadas:** a `syncthing@edu` (system) foi habilitada em **06/08 15:00** (symlink criado naquele dia) durante o "Fix IP" (histórico 06/08) — junto com a user canônica (preset padrão desde 28/05) → corrida em todo boot. A doc contradizia a si mesma (seção Instâncias declara a **user** como canônica).
-2. **Repo restic dentro do folder `backup`:** o timer do restic (05:45) cria packs como **`root:root` modo 400** — o syncthing (edu) não lê → falha de scan/hash (40 erros neste boot; 321 via instância system antes de desabilitar).
+**Root causes:**
+1. **Duplicate units:** the `syncthing@edu` (system) was enabled on **06/08 15:00** (symlink created that day) during the "IP fix" (06/08 history) — alongside the canonical user unit (default preset since 28/05) → a race on every boot. The doc contradicted itself (the Instances section declares the **user** unit as canonical).
+2. **restic repo inside the `backup` folder:** the restic timer (05:45) creates packs as **`root:root` mode 400** — syncthing (edu) cannot read them → scan/hash failure (40 errors this boot; 321 via the system instance before disabling it).
 
 **Fix:**
-1. `sudo systemctl disable --now syncthing@edu` — remove a duplicação de 06/08.
-2. `systemctl --user reset-failed syncthing` + `start` — user unit canônica assume.
-3. `/mnt/BACKUP/.stignore` += **`repos/restic/`** — scan/watcher pulam (mesma receita do `(?d).snapshots` de 10/08; o `.stignore` precisa de folder restart/novo scan p/ recarregar).
+1. `sudo systemctl disable --now syncthing@edu` — removes the 06/08 duplication.
+2. `systemctl --user reset-failed syncthing` + `start` — the canonical user unit takes over.
+3. `/mnt/BACKUP/.stignore` += **`repos/restic/`** — scan/watcher skip it (same recipe as the 10/08 `(?d).snapshots`; the `.stignore` needs a folder restart/new scan to reload).
 
-**Validação (22/09):** `syncthing.service` (user) **active+enabled**; `syncthing@edu` **disabled**; folders `backup`/`agentic-ai`/`default` **`idle`, `need=0`, `errors=0`**, zero `permission denied` após o fix (scan de controle 12:29+).
+**Validation (22/09):** `syncthing.service` (user) **active+enabled**; `syncthing@edu` **disabled**; `backup`/`agentic-ai`/`default` folders **`idle`, `need=0`, `errors=0`**, zero `permission denied` after the fix (control scan at 12:29+).
 
-> **Lições:** (1) o Arch oferece user unit E system template — habilitar as duas = corrida de lock em todo boot; manter só a canônica declarada na doc. (2) repos com permissão root-only (restic/git) dentro de um folder syncthing devem ir para `.stignore` — o syncthing nunca deve escanear conteúdo que não pode ler (o `.stignore` é recarregado no restart do folder/serviço, não em scan quente).
+> **Lessons:** (1) Arch offers both a user unit AND a system template — enabling both = a lock race on every boot; keep only the one declared canonical in the doc. (2) repos with root-only permissions (restic/git) inside a syncthing folder must go into `.stignore` — syncthing should never scan content it cannot read (the `.stignore` is reloaded on folder/service restart, not on a hot scan).

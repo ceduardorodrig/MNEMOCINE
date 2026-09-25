@@ -4,19 +4,19 @@ tags: [homelab, service, soularr, slskd, lidarr, media, download, kuaray]
 
 # Soularr + Slskd
 
-Download de música via Soulseek — alternativa para músicas não encontradas em torrents públicos (Prowlarr/Transmission).
+Music download via Soulseek — an alternative for music not found in public torrents (Prowlarr/Transmission).
 
-**Servidor:** kuaray
+**Server:** kuaray
 **URL:** `http://kuaray.chimaera-heptatonic.ts.net:5030` (slskd) · `:8265` (soularr)
 
 ## Stack
 
-| Container | Imagem | Porta | Função |
+| Container | Image | Port | Role |
 |---|---|---|---|
-| slskd | slskd/slskd:latest | `5030` | Cliente Soulseek (baixa arquivos) |
-| soularr | mrusse08/soularr:latest | `8265` | Ponte Lidarr → Soulseek (a cada 5 min) |
+| slskd | slskd/slskd:latest | `5030` | Soulseek client (downloads files) |
+| soularr | mrusse08/soularr:latest | `8265` | Lidarr → Soulseek bridge (every 5 min) |
 
-## Fluxo (como a música chega no Lidarr)
+## Flow (how the music reaches Lidarr)
 
 ```
 Lidarr (wanted/missing)
@@ -31,37 +31,37 @@ Lidarr importa de /data/downloads/soulseek/<álbum>
 /data/media/music  (root folder = NFS → psicopompo /mnt/BACKUP/media/music)
 ```
 
-1. Soularr lê o wanted/missing do Lidarr (porta `8686`, api_key do `config.xml`).
-2. Busca no Soulseek via API do slskd (`:5030`, api_key da bridge).
-3. Slskd baixa para `/app/downloads/` = `/mnt/storage/data/downloads/soulseek/` (bind).
-4. Ao completar, soularr aciona o **DownloadedAlbumsScan** do Lidarr apontando a pasta.
-5. Lidarr importa para o root folder `/data/media/music` (NFS → psicopompo) e o Navidrome consome.
+1. Soularr reads Lidarr's wanted/missing (port `8686`, api_key from `config.xml`).
+2. Searches Soulseek via slskd's API (`:5030`, the bridge's api_key).
+3. Slskd downloads to `/app/downloads/` = `/mnt/storage/data/downloads/soulseek/` (bind).
+4. On completion, soularr triggers Lidarr's **DownloadedAlbumsScan** pointing at the folder.
+5. Lidarr imports to the root folder `/data/media/music` (NFS → psicopompo) and Navidrome consumes it.
 
-## Paths e mounts
+## Paths and mounts
 
 | Container | Mount | Host (kuaray) |
 |---|---|---|
 | slskd | `/app/downloads` | `/mnt/storage/data/downloads/soulseek` |
 | soularr | `/downloads` | `/mnt/storage/data/downloads/soulseek` |
-| lidarr | `/data` | `/mnt/storage/data` (enxerga a mesma pasta como `/data/downloads/soulseek`) |
+| lidarr | `/data` | `/mnt/storage/data` (sees the same folder as `/data/downloads/soulseek`) |
 
 Configs:
 - slskd: `/DATA/AppData/slskd/slskd.yml` + `/DATA/AppData/slskd/data/`
 - soularr: `/DATA/AppData/soularr/config/config.ini` (hosts, api_keys, `rename_tracks`) + `soularr.log` + `failed_imports.json`
 
-## Denylist de imports falhados (`failed_imports.json`)
+## Denylist of failed imports (`failed_imports.json`)
 
-- Quando o import automático falha, soularr **move a pasta** para `failed_imports/` e **denylista** o álbum (não tenta de novo automaticamente).
-- Falhas comuns (download do Soulseek não casa exato com o álbum):
-  - **`Has missing tracks`** — download incompleto (faltam tracks do álbum).
-  - **`Has unmatched tracks`** — arquivos extras/duplicados que não casam (discos múltiplos, bonus).
-  - **Álbum errado** — download que não é a obra (ex: "Flying Lotus - 1983" continha o álbum *Pooh - Tropico del nord*).
-- Para destravar: remover a entrada do `failed_imports.json` (o soularr volta a tentar) e apagar a pasta de `failed_imports/`.
-- Limpar o denylist inteiro é seguro: álbuns completos saem do wanted (soularr não re-busca) e álbuns parciais voltam a ser re-buscados para completar.
+- When the automatic import fails, soularr **moves the folder** to `failed_imports/` and **denylists** the album (it does not retry automatically).
+- Common failures (the Soulseek download does not match the album exactly):
+  - **`Has missing tracks`** — incomplete download (album tracks are missing).
+  - **`Has unmatched tracks`** — extra/duplicate files that do not match (multi-disc, bonus tracks).
+  - **Wrong album** — a download that is not the work (e.g. "Flying Lotus - 1983" contained the album *Pooh - Tropico del nord*).
+- To unblock: remove the entry from `failed_imports.json` (soularr will try again) and delete the folder from `failed_imports/`.
+- Clearing the whole denylist is safe: complete albums drop out of wanted (soularr does not re-search) and partial albums get re-searched to complete.
 
-## Import manual via API (referência)
+## Manual import via API (reference)
 
-O comando `ManualImport` do Lidarr exige **todos** os campos por arquivo — omitir causa `Artist with ID 0 does not exist`:
+Lidarr's `ManualImport` command requires **all** fields per file — omitting any causes `Artist with ID 0 does not exist`:
 
 ```json
 POST /api/v1/command
@@ -82,19 +82,19 @@ POST /api/v1/command
 }
 ```
 
-- Preview (leitura, sem importar): `GET /api/v1/manualimport?folder=/data/downloads/soulseek/<álbum>` — retorna arquivos, `tracks` casadas, `quality` e `rejections`.
-- Usar `trackIds` explícitos permite import **parcial** (álbum continua monitored → soularr completa depois).
-- Arquivos sem `tracks` no preview (duplicatas) devem ser **pulados** — não incluir no payload.
-- Import via API pode ser **lento** (cópia para o NFS): comandar e aguardar o status (`GET /api/v1/command/{id}`) até `completed`.
+- Preview (read-only, no import): `GET /api/v1/manualimport?folder=/data/downloads/soulseek/<álbum>` — returns files, matched `tracks`, `quality` and `rejections`.
+- Using explicit `trackIds` allows a **partial** import (the album stays monitored → soularr completes it later).
+- Files with no `tracks` in the preview (duplicates) must be **skipped** — do not include them in the payload.
+- API import can be **slow** (copy to the NFS): issue it and wait for the status (`GET /api/v1/command/{id}`) until `completed`.
 
 ## Troubleshooting
 
-- **"Indexer disabled till ... 429"** no log do Lidarr: limite de requisições do Prowlarr (TPB/Knaben). Disable automático; volta sozinho.
-- **"Artists' root folder (/data/media/music) doesn't exist"**: se a pasta realmente existe, é aviso transiente (NFS). Verificar com `docker exec lidarr ls /data/media/music`.
-- **Transmission "No data found"**: torrents a 100% cujos dados foram limpos do HD (já importados). Remover do Transmission.
-- **Pastas presas na raiz do soulseek**: downloads órfãos que soularr ignora (álbum denylisted ou download não-iniciado por soularr). Mover para `failed_imports/` ou importar manualmente.
-- **⚠️ Nunca apagar uma pasta de download enquanto o Lidarr está importando** — o import usa `move` + `replaceExistingFiles` e pode deletar arquivos da biblioteca no meio (lição do incidente do 2ª Via em 07/08/2026).
+- **"Indexer disabled till ... 429"** in the Lidarr log: Prowlarr request rate limit (TPB/Knaben). Automatic disable; it comes back on its own.
+- **"Artists' root folder (/data/media/music) doesn't exist"**: if the folder really exists, it is a transient warning (NFS). Check with `docker exec lidarr ls /data/media/music`.
+- **Transmission "No data found"**: torrents at 100% whose data was wiped from the disk (already imported). Remove them from Transmission.
+- **Folders stuck in the soularr root**: orphan downloads that soularr ignores (denylisted album, or a download not started by soularr). Move to `failed_imports/` or import manually.
+- **⚠️ Never delete a download folder while Lidarr is importing** — the import uses `move` + `replaceExistingFiles` and can delete library files midway (lesson from the 2ª Via incident on 07/08/2026).
 
-## Histórico relevante
+## Relevant history
 
-- **2026-08-07**: limpeza geral — duplicatas removidas do `failed_imports/`; imports manuais via API de Damien Rice 9 (11/11) e Pink Floyd A Saucerful of Secrets (7/7); denylist limpo e soularr reiniciado (destravou fila). Álbuns parciais (Massive Attack Collected, Gorillaz Demon Days) re-baixados automaticamente pelo soularr para completar.
+- **2026-08-07**: general cleanup — duplicates removed from `failed_imports/`; manual API imports of Damien Rice 9 (11/11) and Pink Floyd A Saucerful of Secrets (7/7); denylist cleared and soularr restarted (unstuck the queue). Partial albums (Massive Attack Collected, Gorillaz Demon Days) re-downloaded automatically by soularr to complete.

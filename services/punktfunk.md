@@ -4,46 +4,46 @@ tags: [homelab, service, punktfunk, gaming, psicopompo]
 
 # Punktfunk
 
-Streaming de jogos/desktop de baixa latência — host + clientes nativos.
+Low-latency game/desktop streaming — host + native clients.
 
-**Servidor:** psicopompo
-**Porta Host:** `UDP 9777` (punktfunk/1 QUIC)
-**Porta Console:** `TCP 47992, 47993` (web console)
-**URL Console:** `https://psicopompo:47992`
+**Server:** psicopompo
+**Host Port:** `UDP 9777` (punktfunk/1 QUIC)
+**Console Port:** `TCP 47992, 47993` (web console)
+**Console URL:** `https://psicopompo:47992`
 
 ## Stack
 
-| Componente | Tipo | Função |
+| Component | Type | Role |
 |---|---|---|
-| punktfunk-host | Serviço systemd user | Host de streaming (NVENC, virtual displays) |
-| punktfunk-web | Serviço systemd user | Console web (TanStack, gerenciamento) |
-| punktfunk-scripting | Serviço systemd user | Runner de plugins/scripts (bun) |
+| punktfunk-host | systemd user service | Streaming host (NVENC, virtual displays) |
+| punktfunk-web | systemd user service | Web console (TanStack, management) |
+| punktfunk-scripting | systemd user service | Plugin/script runner (bun) |
 
-## Portas
+## Ports
 
-| Porta | Protocolo | Função |
+| Port | Protocol | Role |
 |---|---|---|
-| 9777 | UDP | punktfunk/1 QUIC (controle nativo) |
+| 9777 | UDP | punktfunk/1 QUIC (native control) |
 | 5353 | UDP | mDNS discovery |
 | 47990 | TCP | Management API (HTTPS, mTLS/bearer) |
 | 47992 | TCP | Web console (HTTPS, login-gated) |
 | 47993 | TCP | Plugin interfaces |
 
-## Acesso
+## Access
 
-- **Console:** `https://psicopompo:47992` (via LAN ou Tailscale)
-- **Primeiro acesso:** Gerar PIN de pareamento no console
-- **Cliente Android:** Google Play → "Punktfunk" → descobrir host → parear com PIN
-- **Cliente Linux:** `sudo pacman -Syu punktfunk-client` ou Flatpak
-- **Moonlight:** Compatível (ativar `PUNKTFUNK_GAMESTREAM=1` em `host.env`)
+- **Console:** `https://psicopompo:47992` (over LAN or Tailscale)
+- **First access:** generate a pairing PIN in the console
+- **Android client:** Google Play → "Punktfunk" → discover the host → pair with the PIN
+- **Linux client:** `sudo pacman -Syu punktfunk-client` or Flatpak
+- **Moonlight:** compatible (enable `PUNKTFUNK_GAMESTREAM=1` in `host.env`)
 
-## Configuração
+## Configuration
 
 - **host.env:** `~/.config/punktfunk/host.env`
-- **GameStream:** Desativado por padrão (ativar com `PUNKTFUNK_GAMESTREAM=1`)
-- **HDR:** Indisponível com KDE Plasma (SDR 8-bit apenas; HDR requer gamescope ou GNOME 50+)
-- **Linger:** Ativo (serviços rodam sem sessão de login)
-- **Grupo input:** Adicionado (gamepads virtuais via `/dev/uinput`)
+- **GameStream:** disabled by default (enable with `PUNKTFUNK_GAMESTREAM=1`)
+- **HDR:** unavailable with KDE Plasma (SDR 8-bit only; HDR requires gamescope or GNOME 50+)
+- **Linger:** enabled (services run without a login session)
+- **Input group:** added (virtual gamepads via `/dev/uinput`)
 
 ## Firewall
 
@@ -52,7 +52,7 @@ sudo ufw allow punktfunk-native   # UDP 9777, 5353, TCP 47990
 sudo ufw allow punktfunk-web      # TCP 47992, 47993
 ```
 
-## Manutenção
+## Maintenance
 
 - **Update:** `sudo pacman -Syu punktfunk-host punktfunk-web punktfunk-scripting`
 - **Restart:** `systemctl --user restart punktfunk-host punktfunk-web`
@@ -61,11 +61,11 @@ sudo ufw allow punktfunk-web      # TCP 47992, 47993
 
 ## See also
 
-- [[psicopompo]] — servidor host
-- [[psicopompo-gaming]] — configuração Steam/Proton no Linux
-- [Documentação oficial](https://docs.punktfunk.unom.io)
+- [[psicopompo]] — host server
+- [[psicopompo-gaming]] — Steam/Proton setup on Linux
+- [Official documentation](https://docs.punktfunk.unom.io)
 - [GitHub](https://git.unom.io/unom/punktfunk)
 
-## Nota: sinks HDMI duplicados (GB207)
+## Note: duplicated HDMI sinks (GB207)
 
-A placa de áudio NVIDIA GB207 do psicopompo gera 6 sinks HDMI duplicados no PipeWire (todos para o mesmo monitor C24F390). **Não é bug do Punktfunk** — comportamento do driver NVIDIA. Resolvido desabilitando a placa via WirePlumber (ver [[psicopompo#Áudio — GB207 HDMI desabilitado]]). O Punktfunk usa dispositivos virtuais próprios (`punktfunk-speaker-*`, `punktfunk-mic`) e não é afetado.
+psicopompo's NVIDIA GB207 audio card produces 6 duplicated HDMI sinks in PipeWire (all to the same C24F390 monitor). This is **not a Punktfunk bug** — it is NVIDIA driver behavior. Fixed by disabling the card via WirePlumber (see [[psicopompo#Audio — GB207 HDMI Disabled (01/09/2026)]]). Punktfunk uses its own virtual devices (`punktfunk-speaker-*`, `punktfunk-mic`) and is unaffected.

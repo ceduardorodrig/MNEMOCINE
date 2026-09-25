@@ -4,21 +4,21 @@ tags: [meta, agents, governance, homelab]
 
 # AGENTS.md — Mnemocine Homelab Governance Rules
 
-Este repositório contém a documentação pública, manifestos arquiteturais e topologias de rede do **Homelab Mnemocine**.
+This repository contains the public documentation, architectural manifests, and network topologies of the **Mnemocine Homelab**.
 
-Ao modificar qualquer arquivo deste repositório, siga estas regras obrigatórias de governança:
+When modifying any file in this repository, follow these mandatory governance rules:
 
-## 🔒 Regras de Segurança & Proteção de Segredos
+## 🔒 Security Rules & Secret Protection
 
-1. **PROIBIÇÃO TOTAL DE SEGREDO EM CLARO (`SEC-SECRETS`)** — Nenhum arquivo contendo chaves privadas, senhas, tokens de API ou credenciais de produção deve ser commitado. Todos os exemplos devem usar valores fictícios ou referências a variáveis de ambiente (`.env.template`).
+1. **ABSOLUTE PROHIBITION OF PLAINTEXT SECRETS (`SEC-SECRETS`)** — No file containing private keys, passwords, API tokens, or production credentials may be committed. All examples must use fictional values or environment variable references (`.env.template`).
 
-2. **PROIBIÇÃO DE ARQUIVOS ENCRIPTADOS REAIS NO PÚBLICO** — O arquivo `secrets.enc.env` do cofre SOPS/Age é estritamente proibido neste repositório público. Apenas `.env.template` deve estar presente.
+2. **PROHIBITION OF REAL ENCRYPTED FILES IN PUBLIC** — The `secrets.enc.env` file from the SOPS/Age vault is strictly forbidden in this public repository. Only `.env.template` may be present.
 
-3. **VERIFICAÇÃO OBRIGATÓRIA DO STÊNIOSENTINEL (REGRA 0)** — Antes de qualquer commit, é obrigatório executar `stenio --scope homelab --path .`. O Quality Gate deve aprovar com zero erros bloqueantes.
+3. **MANDATORY STÊNIOSENTINEL CHECK (RULE 0)** — Before any commit, it is mandatory to run `stenio --scope homelab --path .`. The Quality Gate must approve with zero blocking errors.
 
-4. **INTEGRIDADE DE LINKS E NOMENCLATURA** — Todos os links markdown relativos devem apontar para documentos existentes. Arquivos de serviço devem residir em `services/`, servidores em `servers/`, e guias em `guides/`.
+4. **LINK AND NAMING INTEGRITY** — All relative markdown links must point to existing documents. Service files must live in `services/`, servers in `servers/`, and guides in `guides/`.
 
-5. **DISCLAIMER PADRONIZADO NO README** — O `README.md` raiz deve manter o disclaimer padronizado de governança humana-IA:
+5. **STANDARD DISCLAIMER IN THE README** — The root `README.md` must keep the standardized human-AI governance disclaimer:
    ```markdown
    <div align="center">
 

@@ -1,3 +1,7 @@
+---
+tags: [homelab, meta]
+---
+
 # 🏛️ Mnemocine Homelab — Distributed Sovereign Infrastructure
 
 [![Nodes](https://img.shields.io/badge/nodes-5%20Active%20Nodes-blue?style=flat-square&logo=serverfault)](servers/psicopompo.md)

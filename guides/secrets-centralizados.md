@@ -2,11 +2,11 @@
 tags: [homelab, env, sops, backup, secrets]
 ---
 
-# Centralização de Segredos (.env) com sops/age
+# Centralized Secrets (.env) with sops/age
 
-Convenção para centralizar os `.env`/segredos espalhados do homelab num **store único criptografado** (sops/age), com geração dos `.env` por serviço. Estabelecido em **09/08/2026**.
+Convention for centralizing the `.env`/secrets scattered across the homelab into a **single encrypted store** (sops/age), with per-service generation of the `.env` files. Established on **09/08/2026**.
 
-## Arquitetura
+## Architecture
 
 ```
 Chave privada age (psicopompo, NÃO sincroniza)
@@ -23,26 +23,26 @@ Helpers (psicopompo, 0700)
   /mnt/NVME_PCI/secrets/gen-envs.sh       # gera .env por serviço em secrets/generated/
 ```
 
-> ⚠️ **Chave privada age = acesso a TODOS os segredos.** Não sai do psicopompo; o backup em `age-keys-backup.txt` é local. Se perder, o store criptografado fica ilegível (o plaintext `secrets.env` é o fallback).
+> ⚠️ **age private key = access to ALL secrets.** It never leaves psicopompo; the backup in `age-keys-backup.txt` is local. If you lose it, the encrypted store becomes unreadable (the plaintext `secrets.env` is the fallback).
 
 ## Workflow
 
-**Extrair um valor** (ex: para o deploy):
+**Extract a value** (e.g.: for the deploy):
 ```bash
 /mnt/NVME_PCI/secrets/sops-decrypt.sh CRAFTY_API_KEY
 ```
 
-**Adicionar/editar um segredo:**
-1. Editar `/mnt/NVME_PCI/secrets/secrets.env` (plaintext, 0600).
-2. Re-criptografar:
+**Adding/editing a secret:**
+1. Edit `/mnt/NVME_PCI/secrets/secrets.env` (plaintext, 0600).
+2. Re-encrypt:
    ```bash
    AGE_KEY=$(grep -oE "age1[a-z0-9]+" ~/.config/sops/age/keys.txt | head -1)
    sops --encrypt --age "$AGE_KEY" --input-type dotenv --output-type dotenv \
      /mnt/NVME_PCI/secrets/secrets.env > /mnt/NVME_PCI/agentic-ai/mnemocine/secrets.enc.env
    ```
-3. Rodar `/mnt/NVME_PCI/secrets/gen-envs.sh` → gera os `.env` por serviço.
+3. Run `/mnt/NVME_PCI/secrets/gen-envs.sh` → generates the per-service `.env` files.
 
-**Deploy dos .env gerados** (documentado no gen-envs.sh):
+**Deploying the generated .env files** (documented in gen-envs.sh):
 ```bash
 scp secrets/generated/zomboid.env   kavure:/srv/data/zomboid/.env        # + chown kavure:kavure
 scp secrets/generated/homepage.env  ybytu:/home/ubuntu/homelab/homepage/config/.env
@@ -51,43 +51,43 @@ cp  secrets/generated/sumaenima.env /mnt/NVME_PCI/homelab/sumaenimahub/sumaenima
 scp secrets/generated/sumaenima.env ybyra:/home/ubuntu/homelab/sumaenima/.env   # subset Sumænimá (edge/SPA)
 ```
 
-## Inventário
+## Inventory
 
-| Serviço | Arquivo | No store? | Prefixo |
+| Service | File | In the store? | Prefix |
 |---|---|---|---|
-| Sumænimá sae-core | `SUMAENIMA-HUB/.env` (psicopompo + kavure) | ✅ | (direto) |
-| Sumænimá edge/SPA | `/home/ubuntu/homelab/sumaenima/.env` (ybyra) | ✅ subset coberto | (direto) |
+| Sumænimá sae-core | `SUMAENIMA-HUB/.env` (psicopompo + kavure) | ✅ | (direct) |
+| Sumænimá edge/SPA | `/home/ubuntu/homelab/sumaenima/.env` (ybyra) | ✅ subset covered | (direct) |
 | Zomboid | `/srv/data/zomboid/.env` (kavure) | ✅ | `ZOMBOID_*` |
 | Homepage | `config/.env` (ybytu) | ✅ | `CRAFTY_API_KEY` |
-| Zomboid Panel | `/srv/data/zomboid-panel/.env` (kavure) | ⚠️ só config (sem segredos) | — |
-| Minecraft (crafty) | config em `crafty.sqlite` | n/a (DB, não .env) | — |
+| Zomboid Panel | `/srv/data/zomboid-panel/.env` (kavure) | ⚠️ config only (no secrets) | — |
+| Minecraft (crafty) | config in `crafty.sqlite` | n/a (DB, not .env) | — |
 | n8n | `/srv/data/n8n/.env` (kavure) | ✅ | `N8N_*` |
 | SearXNG | `/srv/data/searxng/.env` (kavure) | ✅ | `SEARXNG_*` |
 | Monitoring | `/srv/data/monitoring/.env` (kavure) | ✅ | `GRAFANA_ADMIN_PASSWORD` |
-| Git push GitHub (espelho configs) | `~/.git-credentials` (edu, 0600) | ✅ 21/09 | `GH_PUSH_TOKEN` |
-| Backup de migração | `zomboid-server-kavure/archive/migration-20260805/.env` | n/a (histórico em archive) | — |
+| Git push to GitHub (config mirror) | `~/.git-credentials` (edu, 0600) | ✅ 21/09 | `GH_PUSH_TOKEN` |
+| Migration backup | `zomboid-server-kavure/archive/migration-20260805/.env` | n/a (history in archive) | — |
 
-## Segredos NÃO-.env (28/08/2026 — migrados para o store)
+## Non-.env Secrets (28/08/2026 — migrated to the store)
 
-Segredos em configs não-`.env` (XML/JSON/YAML) agora **capturados no store** com restauração via
-`inject-secrets.sh` (helper em `/mnt/NVME_PCI/secrets/`):
+Secrets sitting in non-`.env` configs (XML/JSON/YAML) are now **captured in the store** with restoration via
+`inject-secrets.sh` (helper in `/mnt/NVME_PCI/secrets/`):
 
-| Segredo | Var no store | Origem (config do host) | Restore |
+| Secret | Var in the store | Source (host config) | Restore |
 |---|---|---|---|
 | Lidarr API key | `LIDARR_API_KEY` | kuaray `config.xml` (`<ApiKey>`) | `inject-secrets.sh` |
 | Prowlarr API key | `PROWLARR_API_KEY` | kuaray `config.xml` (`<ApiKey>`) | `inject-secrets.sh` |
-| Transmission RPC | `TRANSMISSION_RPC_PASSWORD` | kuaray `settings.json` (`rpc-password`, **hash+salt** — restaurar verbatim preserva a senha) | `inject-secrets.sh` |
+| Transmission RPC | `TRANSMISSION_RPC_PASSWORD` | kuaray `settings.json` (`rpc-password`, **hash+salt** — restoring verbatim preserves the password) | `inject-secrets.sh` |
 | Home Assistant | `HA_SOME_PASSWORD` | kavure `secrets.yaml` (`some_password`) | `inject-secrets.sh` |
 
-**Não são lacunas (verificado 28/08/2026):**
-- **slskd.yml** (kuaray) — **vazio** (0 linhas), sem segredo real.
-- **soularr/config.ini** (kuaray) — **inexistente** (só `compose.yml`).
-- **Uptime Kuma / AdGuard** (ybytu) — senhas são **hash** (bcrypt/sha) em DB/yaml, **não reutilizáveis** → não vão ao store; tratar com **reset de senha** (ver docs dos serviços).
+**These are not gaps (verified 28/08/2026):**
+- **slskd.yml** (kuaray) — **empty** (0 lines), no real secret.
+- **soularr/config.ini** (kuaray) — **nonexistent** (only `compose.yml`).
+- **Uptime Kuma / AdGuard** (ybytu) — passwords are **hashes** (bcrypt/sha) in DB/yaml, **not reusable** → they do not go into the store; handle them with a **password reset** (see the service docs).
 
-> **Uso do helper:** `inject-secrets.sh` (dry-run: `--dry-run`) lê do store e injeta os valores de
-> volta nos configs dos hosts com backup `.bak` — roda **apenas em restore** (nunca em operação normal).
+> **Using the helper:** `inject-secrets.sh` (dry-run: `--dry-run`) reads from the store and injects the values
+> back into the host configs with a `.bak` backup — it runs **only on restore** (never in normal operation).
 
-## Segurança
+## Security
 
-- `.stignore` do vault já exclui `.env`, `.env.*`, `secrets/` — **nunca** incluir segredos em notas do vault (só o `secrets.enc.env` criptografado + `.env.template`).
-- O `BORG_PASSPHRASE` do Sumænimá foi trocado do placeholder (`CHANGE_ME_STRONG_PASSWORD`) para uma passphrase forte (09/08/2026) — repo re-keyed, sentinel re-deployado.
+- The vault `.stignore` already excludes `.env`, `.env.*`, `secrets/` — **never** include secrets in vault notes (only the encrypted `secrets.enc.env` + `.env.template`).
+- The Sumænimá `BORG_PASSPHRASE` was changed from the placeholder (`CHANGE_ME_STRONG_PASSWORD`) to a strong passphrase (09/08/2026) — repo re-keyed, sentinel re-deployed.

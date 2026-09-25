@@ -2,12 +2,12 @@
 tags: [homelab, backup, config, docker, compose]
 ---
 
-# Backup Canônico de Configs — `config-backup`
+# Canonical Config Backup — `config-backup`
 
-> Espelho central das CONFIGURAÇÕES de todos os hosts no NAS (psicopompo `/mnt/BACKUP/configs-homelab`).
-> Nasceu da lição do CasaOS (08/08/2026): configs de ~12 containers apagadas sem backup porque **não havia código nem espelho**.
+> Central mirror of the CONFIGURATIONS of all hosts on the NAS (psicopompo `/mnt/BACKUP/configs-homelab`).
+> It came out of the CasaOS lesson (08/08/2026): configs of ~12 containers deleted with no backup because **there was neither code nor mirror**.
 
-## Arquitetura
+## Architecture
 
 ```
 Cada host (05:00) → /usr/local/bin/config-backup (systemd timer hl-config-backup.timer)
@@ -22,64 +22,64 @@ Cada host (05:00) → /usr/local/bin/config-backup (systemd timer hl-config-back
          └─ snapper (config `backup`) — anti-deleção do próprio espelho
 ```
 
-**Horário padronizado (janela 05:00–06:00 BRT; VPS em 08:00 UTC):**
+**Standard schedule (05:00–06:00 BRT window; VPS at 08:00 UTC):**
 
-| Hora | Job |
+| Time | Job |
 |---|---|
-| 04:55 | **noctalia-config-export (psicopompo, user)** — `noctalia config export` → `~/.config/noctalia/merged-config.toml` (camada efetiva: declarativa + overrides GUI) |
-| 05:00 | config-backup (todos) |
-| 05:00 | zomboid-restart (kavure, inalterado) |
+| 04:55 | **noctalia-config-export (psicopompo, user)** — `noctalia config export` → `~/.config/noctalia/merged-config.toml` (effective layer: declarative + GUI overrides) |
+| 05:00 | config-backup (all) |
+| 05:00 | zomboid-restart (kavure, unchanged) |
 | 05:15 | zomboid-backup (kavure) |
 | 05:20 | agentic-ai-backup (psicopompo) |
 | 05:40 | restic-configs-backup |
 | 05:55 | etckeeper-push + configs-git-push |
-| dom 06:00 | restic check |
+| Sun 06:00 | restic check |
 
-> **Nota de política (24/09/2026):** o override `~/.local/state/noctalia/settings.toml` contém a política de idle do desktop Hyprland/Noctalia (lock 900 s; screen off desativado enquanto desbloqueado e 60 s quando bloqueado; lock+suspend desativado). Esse arquivo é espelhado junto com `~/.config/noctalia`; `merged-config.toml` é somente saída gerada e não deve ser editado manualmente.
+> **Policy note (24/09/2026):** the `~/.local/state/noctalia/settings.toml` override holds the idle policy of the Hyprland/Noctalia desktop (lock 900 s; screen off disabled while unlocked and 60 s when locked; lock+suspend disabled). That file is mirrored along with `~/.config/noctalia`; `merged-config.toml` is generated output only and must not be edited by hand.
 
-## Componentes
+## Components
 
-| Peça | Onde |
+| Piece | Where |
 |---|---|
-| Script | `/usr/local/bin/config-backup` (idêntico em todos) |
-| Config por host | `/etc/config-backup.conf` (`SRC_DIRS`, `EXCLUDES`, `GOLDEN_FILES`, `MOUNT`, `HOST`, `POST_CMD`) |
-| Export NFS | `/mnt/BACKUP/configs-homelab` (rw, all_squash, anonuid=1000) + `/mnt/BACKUP/repos/git` |
-| Mounts | `/srv/backup-configs` (configs), `/srv/backup-gitrepos` (git bare) — fstab `nofail` |
-| Agendamento | systemd timer `hl-config-backup.timer` (05:00, `Persistent=true`) — migrado do cron em 10/08 |
-| **Autenticação git push (GitHub)** | `hl-configs-git-push.service` roda como `User=edu`; usa **credential store** do git (`~/.git-credentials`, 0600, dono `edu`) com token PAT escopo `repo` do repo privado `MNEMOCINE`. O token **NUNCA** vai em claro pro vault/NAS — backup no **store sops** como `GH_PUSH_TOKEN` (`guides/secrets-centralizados.md`; restore: `sops-decrypt.sh GH_PUSH_TOKEN` → recriar `~/.git-credentials`). Canonizado 21/09/2026 — antes o helper era `gh auth git-credential` (token vazio → push falhava silenciosamente desde ~09/2026) |
+| Script | `/usr/local/bin/config-backup` (identical everywhere) |
+| Per-host config | `/etc/config-backup.conf` (`SRC_DIRS`, `EXCLUDES`, `GOLDEN_FILES`, `MOUNT`, `HOST`, `POST_CMD`) |
+| NFS export | `/mnt/BACKUP/configs-homelab` (rw, all_squash, anonuid=1000) + `/mnt/BACKUP/repos/git` |
+| Mounts | `/srv/backup-configs` (configs), `/srv/backup-gitrepos` (bare git) — fstab `nofail` |
+| Scheduling | systemd timer `hl-config-backup.timer` (05:00, `Persistent=true`) — migrated from cron on 10/08 |
+| **Git push authentication (GitHub)** | `hl-configs-git-push.service` runs as `User=edu`; it uses git's **credential store** (`~/.git-credentials`, 0600, owner `edu`) with a PAT scoped to `repo` on the private `MNEMOCINE` repo. The token **NEVER** goes plaintext into the vault/NAS — backup in the **sops store** as `GH_PUSH_TOKEN` (`guides/secrets-centralizados.md`; restore: `sops-decrypt.sh GH_PUSH_TOKEN` → recreate `~/.git-credentials`). Canonized 21/09/2026 — before that the helper was `gh auth git-credential` (empty token → push had been failing silently since ~09/2026) |
 
-> **Guarda de root (10/08/2026):** o script **deve rodar como root** (o timer roda como root). Execução manual como não-root aborta imediatamente (`exit 1`, sem rsync/ntfy) — evita alerta "FALHOU" falso. O script lê configs root e escreve em `/var/log` + `/srv/health`. Para rodar manualmente: `sudo /usr/local/bin/config-backup` (ou `pkexec`).
+> **Root guard (10/08/2026):** the script **must run as root** (the timer runs as root). Manual execution as non-root aborts immediately (`exit 1`, no rsync/ntfy) — this avoids a false "FAILED" alert. The script reads root-owned configs and writes to `/var/log` + `/srv/health`. To run it manually: `sudo /usr/local/bin/config-backup` (or `pkexec`).
 | Health | `/srv/health/config-backup-{host}-last-ok` |
 
-## Fontes por host (o que é espelhado)
+## Sources per host (what is mirrored)
 
-| Host | SRC_DIRS | Excludes principais |
+| Host | SRC_DIRS | Main excludes |
 |---|---|---|
-| psicopompo | `/home/edu/homelab`, `/usr/local/bin`, syncthing state, **desktop configs** (`~/.config/hypr`, `~/.config/noctalia`, `~/.config/uwsm` — env: cursor McMojave + NVIDIA, `~/.config/environment.d`, `~/.config/steam-launch-options`, `~/.local/state/noctalia`, `~/.config/gtk-3.0`, `~/.config/gtk-4.0`, `~/.config/qt6ct`), rclone, wallpapers. **GOLDEN FILES:** `/var/lib/noctalia-greeter/greeter.toml`, `/etc/greetd/config.toml`, `/etc/systemd/sleep.conf.d/60-freeze.conf`, `/etc/systemd/system/tailscaled-wait.service`, `/etc/systemd/system/nfs-server.service.d/10-tailscaled-wait.conf`, `/etc/smartd.conf`, `/etc/sudoers.d/99-edu-homelab`, `/etc/ufw/user{,6}.rules`, `~/.gtkrc-2.0`, fstab, exports, pacman, snapper configs. | `ollama`, `index-v2`, `*.log`, **`target`** (build Rust), **state Noctalia** (`clipboard`, `notification_history*`, `recently_used.json`, `usage_counts.json`, `wallpaper_shuffle.json`, `plugin-cache`, `community-*`, `plugins/materialized`, `plugins/sources`, `plugins/data`) |
+| psicopompo | `/home/edu/homelab`, `/usr/local/bin`, syncthing state, **desktop configs** (`~/.config/hypr`, `~/.config/noctalia`, `~/.config/uwsm` — env: McMojave cursor + NVIDIA, `~/.config/environment.d`, `~/.config/steam-launch-options`, `~/.local/state/noctalia`, `~/.config/gtk-3.0`, `~/.config/gtk-4.0`, `~/.config/qt6ct`), rclone, wallpapers. **GOLDEN FILES:** `/var/lib/noctalia-greeter/greeter.toml`, `/etc/greetd/config.toml`, `/etc/systemd/sleep.conf.d/60-freeze.conf`, `/etc/systemd/system/tailscaled-wait.service`, `/etc/systemd/system/nfs-server.service.d/10-tailscaled-wait.conf`, `/etc/smartd.conf`, `/etc/sudoers.d/99-edu-homelab`, `/etc/ufw/user{,6}.rules`, `~/.gtkrc-2.0`, fstab, exports, pacman, snapper configs. | `ollama`, `index-v2`, `*.log`, **`target`** (Rust build), **Noctalia state** (`clipboard`, `notification_history*`, `recently_used.json`, `usage_counts.json`, `wallpaper_shuffle.json`, `plugin-cache`, `community-*`, `plugins/materialized`, `plugins/sources`, `plugins/data`) |
 | kavure | `/srv/data` | `zomboid/data`, `pz-dedicated`, `workshop-mods`, `minecraft`, `sumaenimahub/SUMAENIMA-HUB`, `volumes`, `backup`, `aiostreams/anime-database` |
-| kuaray | `/home/kuaray/docker`, `/home/kuaray/homelab` | (genéricos) |
-| ybytu | `/home/ubuntu/homelab` | (genéricos) |
+| kuaray | `/home/kuaray/docker`, `/home/kuaray/homelab` | (generic) |
+| ybytu | `/home/ubuntu/homelab` | (generic) |
 | ybyra | `/home/ubuntu/homelab`, `docker-compose.ybyra.yml` | `*.tar.gz`/`*.zip`/`*.tgz`/`*.tar` |
 
-**Excluídos globalmente (segredos — NUNCA vão pro espelho):** `.env`, `secrets.yaml`, `slskd.yml`, `passwd`, `config.xml` (API keys), `*.db`, `*.log`, `*.lock`, `.venv`, `node_modules`, `.git`, `.cache`, `.stversions`. Segredos vivem no **store sops/age** (`/mnt/NVME_PCI/secrets/`), que sincroniza criptografado via Syncthing.
+**Globally excluded (secrets — they NEVER go into the mirror):** `.env`, `secrets.yaml`, `slskd.yml`, `passwd`, `config.xml` (API keys), `*.db`, `*.log`, `*.lock`, `.venv`, `node_modules`, `.git`, `.cache`, `.stversions`. Secrets live in the **sops/age store** (`/mnt/NVME_PCI/secrets/`), which syncs encrypted via Syncthing.
 
-## Como adicionar um serviço/host novo
+## How to add a new service/host
 
-1. No host: criar/confirmar o compose em `/home/{user}/homelab/{serviço}/`.
-2. Incluir a pasta em `SRC_DIRS` do `/etc/config-backup.conf` (e `EXCLUDES` p/ dados pesados).
-3. `docker compose config --quiet` para validar o compose.
-4. Rodar `sudo /usr/local/bin/config-backup` → conferir no NAS + `git log`/`restic snapshots`.
-5. Documentar no vault + README-INDEX.
+1. On the host: create/confirm the compose in `/home/{user}/homelab/{serviço}/`.
+2. Add the folder to `SRC_DIRS` in `/etc/config-backup.conf` (and `EXCLUDES` for heavy data).
+3. `docker compose config --quiet` to validate the compose.
+4. Run `sudo /usr/local/bin/config-backup` → check on the NAS + `git log`/`restic snapshots`.
+5. Document in the vault + README-INDEX.
 
 ## Restore
 
-- **Espelho (NAS):** copiar do `/mnt/BACKUP/configs-homelab/{host}/` de volta pro host.
-- **Versões:** `restic -r /mnt/BACKUP/repos/restic/configs --insecure-no-password snapshots` + `restore`.
-- **Anti-deleção:** `sudo snapper -c backup list` (snapshot do próprio espelho).
-- **Etckeeper (/etc):** `git --git-dir=/srv/backup-gitrepos/etckeeper-{host}.git log` (NAS) ou no host `git -C /etc log`.
+- **Mirror (NAS):** copy from `/mnt/BACKUP/configs-homelab/{host}/` back onto the host.
+- **Versions:** `restic -r /mnt/BACKUP/repos/restic/configs --insecure-no-password snapshots` + `restore`.
+- **Anti-deletion:** `sudo snapper -c backup list` (snapshot of the mirror itself).
+- **Etckeeper (/etc):** `git --git-dir=/srv/backup-gitrepos/etckeeper-{host}.git log` (NAS) or on the host `git -C /etc log`.
 
-## Segurança
+## Security
 
-- `--delete-excluded`: espelho fica EXATO (não acumula lixo/segredos). Risco limitado ao espelho (protegido por snapper + refeito da fonte toda noite).
-- Fontes dos hosts são **apenas lidas**; o script nunca escreve/apaga nos hosts.
-- `-x` impede cruzar mounts NFS (evita varrer 62G de offbox — lição do kavure).
+- `--delete-excluded`: the mirror stays EXACT (it does not accumulate junk/secrets). Risk is limited to the mirror (protected by snapper + rebuilt from the source every night).
+- Host sources are **read-only**; the script never writes/deletes on the hosts.
+- `-x` prevents crossing NFS mounts (avoids scanning 62G of offbox — the kavure lesson).

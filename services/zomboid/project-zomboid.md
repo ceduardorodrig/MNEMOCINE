@@ -4,40 +4,40 @@ tags: [homelab, service, zomboid, gaming]
 
 # Project Zomboid
 
-Servidor dedicado de **Project Zomboid (Build 42)**.
+Dedicated **Project Zomboid (Build 42)** server.
 
-**Servidor atual:** kavure (**Docker** — `danixu86/project-zomboid-dedicated-server`)
-**Servidor anterior:** psicopompo (LinuxGSM) — **DESLIGADO** (service/timers/user desativados em 06/08/2026; dados quietos no disco — ver [[zomboid-psicopompo-handoff]])
+**Current server:** kavure (**Docker** — `danixu86/project-zomboid-dedicated-server`)
+**Previous server:** psicopompo (LinuxGSM) — **SHUT DOWN** (service/timers/user disabled on 06/08/2026; data left untouched on disk — see [[zomboid-psicopompo-handoff]])
 
-## Resumo
+## Summary
 
-- **Versão:** Build 42 (**stable**)
-- **Gerenciamento:** **Docker Compose** no kavure (antes: LinuxGSM)
-- **Portas:** `16261` (game), `16262` (direct connection) — UDP; `27015` — TCP (RCON)
-- **Máx. players:** 15
-- **Mods:** **125 Workshop + 148 Mod IDs** (15/08: **coleção completa KI5 B42 MP** adicionada — 39 itens novos; collection ID `3652192243` é inválido em `WorkshopItems=` e foi removido; total inclui packs multi-mod: Mini Mk2 → 4, Jeep YJ → 2, Cadillac Miller-Meteor → `59meteor`+`ECTO1`)
-- **Admin/Painel:** Zomboid Control Panel (ver [`zomboid-control-panel`](zomboid-control-panel.md))
+- **Version:** Build 42 (**stable**)
+- **Management:** **Docker Compose** on kavure (before: LinuxGSM)
+- **Ports:** `16261` (game), `16262` (direct connection) — UDP; `27015` — TCP (RCON)
+- **Max players:** 15
+- **Mods:** **125 Workshop + 148 Mod IDs** (15/08: **full KI5 B42 MP collection** added — 39 new items; collection ID `3652192243` is invalid in `WorkshopItems=` and was removed; the total includes multi-mod packs: Mini Mk2 → 4, Jeep YJ → 2, Cadillac Miller-Meteor → `59meteor`+`ECTO1`)
+- **Admin/Panel:** Zomboid Control Panel (see [`zomboid-control-panel`](zomboid-control-panel.md))
 
-## Localização atual (kavure — Docker)
+## Current location (kavure — Docker)
 
-| Item | Caminho |
+| Item | Path |
 |---|---|
 | Stack | `/srv/data/zomboid/` (docker-compose.yml + .env) |
-| Dados (saves/config) | `/srv/data/zomboid/data/` (volume → `/home/steam/Zomboid`) |
-| Mods Workshop | `/srv/data/zomboid/workshop-mods/` (volume → `/home/steam/pz-dedicated/steamapps/workshop`) |
-| Container | `pz-server` (imagem `danixu86/...`) |
+| Data (saves/config) | `/srv/data/zomboid/data/` (volume → `/home/steam/Zomboid`) |
+| Workshop Mods | `/srv/data/zomboid/workshop-mods/` (volume → `/home/steam/pz-dedicated/steamapps/workshop`) |
+| Container | `pz-server` (image `danixu86/...`) |
 
-> **⚠️ Mods do Workshop ficam em `linuxgsm/serverfiles/steamapps/workshop/`** no LinuxGSM, **não** em `Zomboid/Workshop/` (que fica vazio). Na migração, esse path foi mapeado para `workshop-mods/`.
+> **⚠️ Workshop mods live in `linuxgsm/serverfiles/steamapps/workshop/`** on LinuxGSM, **not** in `Zomboid/Workshop/` (which stays empty). In the migration, that path was mapped to `workshop-mods/`.
 
-> **Instalar novos mods (10/08/2026):** basta adicionar o ID em `WorkshopItems=` + o `id=` do mod.info em `Mods=` no `pzserver.ini` e reiniciar (o jogo baixa do Workshop no boot; pode precisar de 2 restarts). **Staircast e ZombieBuddy foram removidos em 10/08** (Staircast exigia o framework Java ZombieBuddy, que por sua vez exigia instalação manual no cliente de cada jogador — descartado). Ver [`onboarding`](onboarding.md).
+> **Installing new mods (10/08/2026):** just add the ID in `WorkshopItems=` + the mod.info `id=` in `Mods=` on `pzserver.ini` and restart (the game downloads from Workshop on boot; it may need 2 restarts). **Staircast and ZombieBuddy were removed on 10/08** (Staircast required the ZombieBuddy Java framework, which in turn required manual installation on every player's client — dropped). See [`onboarding`](onboarding.md).
 
-> **⚠️ Collections do Workshop NÃO funcionam em `WorkshopItems=`** (só IDs de itens individuais, semicolon-separados). Em 15/08/2026 a collection KI5 (`3652192243`) foi removida e os 39 itens dela que faltavam foram adicionados individualmente (`pzserver.ini.bak-20260815` tem o estado anterior). Para instalar uma collection: extrair os IDs individuais → `WorkshopItems=`, reiniciar (download), ler `mod.info`/`id=` de cada item novo → `Mods=`, reiniciar de novo.
+> **⚠️ Workshop collections do NOT work in `WorkshopItems=`** (only individual item IDs, semicolon-separated). On 15/08/2026 the KI5 collection (`3652192243`) was removed and its 39 missing items were added individually (`pzserver.ini.bak-20260815` has the previous state). To install a collection: extract the individual IDs → `WorkshopItems=`, restart (download), read `mod.info`/`id=` of each new item → `Mods=`, restart again.
 
-> **Painel e workshop (07/08/2026):** o Zomboid Control Panel lê os mods via bind de `workshop-mods/` em `/pz-server/steamapps/workshop` (overlay no compose do painel). A cópia velha em `pz-dedicated/steamapps/workshop/` — que causava "Mod update available" eterno — foi **removida** (1.3G). Ver [`zomboid-control-panel`](zomboid-control-panel.md).
+> **Panel and workshop (07/08/2026):** Zomboid Control Panel reads the mods via a bind of `workshop-mods/` at `/pz-server/steamapps/workshop` (overlay in the panel's compose). The old copy at `pz-dedicated/steamapps/workshop/` — which caused a permanent "Mod update available" — was **removed** (1.3G). See [`zomboid-control-panel`](zomboid-control-panel.md).
 
-## Gerenciamento (Docker)
+## Management (Docker)
 
-**Comandos rápidos (scripts no kavure):**
+**Quick commands (scripts on kavure):**
 
 ```bash
 zomboid-start      # inicia o servidor
@@ -47,9 +47,9 @@ zomboid-status     # mostra status + porta
 zomboid-save       # envia comando RCON "save" (client Source RCON em Python)
 ```
 
-> **`zomboid-restart` é gracioso:** faz `save` via RCON antes do restart, pois o entry.sh do container **não trap SIGTERM** (PID1 = bash → hard-kill do java se usar `docker compose restart` direto). O log fica em `/var/log/zomboid-restart.log`.
+> **`zomboid-restart` is graceful:** it runs `save` via RCON before the restart, because the container's entry.sh **does not trap SIGTERM** (PID1 = bash → java gets hard-killed if you use `docker compose restart` directly). The log is at `/var/log/zomboid-restart.log`.
 
-Equivalente manual (em `/srv/data/zomboid`):
+Manual equivalent (in `/srv/data/zomboid`):
 
 ```bash
 cd /srv/data/zomboid
@@ -60,54 +60,54 @@ docker compose logs -f          # console
 docker compose ps               # status
 ```
 
-> **⚠️ O painel (Zomboid Control Panel) NÃO controla start/stop** — PZ roda em container separado, e o painel não vê processos de outros containers (status sempre "stopped" é falso negativo). O lifecycle é gerenciado pelo Docker via `zomboid-*`. O painel serve para RCON/console/players/mods/backup.
+> **⚠️ The panel (Zomboid Control Panel) does NOT control start/stop** — PZ runs in a separate container, and the panel cannot see processes from other containers (a constant "stopped" status is a false negative). The lifecycle is managed by Docker via `zomboid-*`. The panel is for RCON/console/players/mods/backup.
 
-## Limitações da Arquitetura (PZ em container separado)
+## Architecture Limitations (PZ in a separate container)
 
-> **Contexto:** o painel controla o servidor spawnando `start-server.sh` como processo do host. Com o PZ em container Docker separado, há uma divisão de responsabilidades:
+> **Context:** the panel controls the server by spawning `start-server.sh` as a host process. With PZ in a separate Docker container, there is a split of responsibilities:
 
-| Capacidade | Painel | Docker | Como fazer |
+| Capability | Panel | Docker | How to do it |
 |---|---|---|---|
-| RCON / console / comandos admin | ✅ | — | painel (RCON conectado) |
-| Players online / mapa / mods / config / backup | ✅ | — | painel (RCON + PanelBridge) |
+| RCON / console / admin commands | ✅ | — | panel (RCON connected) |
+| Online players / map / mods / config / backup | ✅ | — | panel (RCON + PanelBridge) |
 | **Start / Stop / Restart** | ❌ | ✅ | `zomboid-start/stop/restart` |
-| **Status real (running/stopped)** | ❌ (falso "stopped") | ✅ | `zomboid-status` |
-| **Update do jogo (Build)** | ❌ | ✅ | `zomboid-update` |
-| **Restart agendado (Scheduler)** | ❌ | ✅ | systemd timer `hl-zomboid-restart.timer` (kavure) |
-| **Install novo servidor (wizard)** | ❌ | ✅ | via Docker |
+| **Real status (running/stopped)** | ❌ (false "stopped") | ✅ | `zomboid-status` |
+| **Game update (Build)** | ❌ | ✅ | `zomboid-update` |
+| **Scheduled restart (Scheduler)** | ❌ | ✅ | systemd timer `hl-zomboid-restart.timer` (kavure) |
+| **Install a new server (wizard)** | ❌ | ✅ | via Docker |
 
-**Leitura:** o painel administra **o jogo** (players, mapa, mods, config, backups, comandos); o **Docker gerencia o processo** (start/stop/status/update). O indicador "stopped" do painel é esperado e não indica falha.
+**Reading:** the panel administers **the game** (players, map, mods, config, backups, commands); **Docker manages the process** (start/stop/status/update). The panel's "stopped" indicator is expected and does not signal a failure.
 
-**Para atualizar mods:** basta `zomboid-restart` (o PZ baixa updates do Workshop no startup — confirmado na doc do LinuxGSM original e no container Danixu).
+**To update mods:** just `zomboid-restart` (PZ downloads Workshop updates on startup — confirmed in the original LinuxGSM docs and the Danixu container).
 
-## Configuração (`.env` — LOCAL, não versionar)
+## Configuration (`.env` — LOCAL, do not commit)
 
-| Variável | Valor | Nota |
+| Variable | Value | Note |
 |---|---|---|
-| `STEAMAPPBRANCH` | `public` | Build 42 (estável — renomeada de `stable` para `public` pela Valve em 08/2026) |
-| `SERVERNAME` | `pzserver` | Deve casar com o `pzserver.ini` migrado |
-| `PUBLIC` | `true` | Visível no browser |
-| `MAX_MEMORY` | `6144m` | Teto do heap (Xmx) |
-| `MIN_MEMORY` | `1024m` | Heap inicial (Xms) — **crescimento dinâmico** (1G→6G sob demanda) |
-| `RCONPASSWORD` | (gerada) | RCON p/ painel + `zomboid-save` |
-| `SELF_MANAGED_MODS` | `true` | Não sobrescreve `Mods=`/`WorkshopItems=` |
+| `STEAMAPPBRANCH` | `public` | Build 42 (stable — renamed from `stable` to `public` by Valve in 08/2026) |
+| `SERVERNAME` | `pzserver` | Must match the migrated `pzserver.ini` |
+| `PUBLIC` | `true` | Visible in the browser |
+| `MAX_MEMORY` | `6144m` | Heap ceiling (Xmx) |
+| `MIN_MEMORY` | `1024m` | Initial heap (Xms) — **dynamic growth** (1G→6G on demand) |
+| `RCONPASSWORD` | (generated) | RCON for the panel + `zomboid-save` |
+| `SELF_MANAGED_MODS` | `true` | Does not overwrite `Mods=`/`WorkshopItems=` |
 
-### Memória (JVM)
+### Memory (JVM)
 
-- `-Xms${MIN_MEMORY} -Xmx${MAX_MEMORY}` aplicados pelo entry.sh → `-Xms1024m -Xmx6144m` (confirmado no `ps`).
-- **Dinâmico:** o JVM começa em ~1 GB e só "comita" RAM conforme o heap cresce — não reserva 6 GB em idle.
-- **Flags ZGC** (no `ProjectZomboid64.json`, volume do host `/srv/data/zomboid/pz-dedicated/`):
-  - `-XX:+ZUncommit` — devolve RAM ao SO (default ON, explícito por clareza)
-  - `-XX:ZUncommitDelay=60` — acelera a devolução (default 300s)
-  - `-XX:SoftMaxHeapSize=4g` — **alvo "soft" de 4 GB**: o ZGC tenta manter o heap ≤ 4 GB (GC mais ativo), crescendo até 6 GB (Xmx) só se necessário para não travar. É o knob nativo do ZGC para "usar o mínimo com teto de segurança".
-  - ⚠️ **`-XX:Min/MaxHeapFreeRatio` NÃO são knobs do ZGC** (são de Parallel/G1) — não têm efeito comprovado aqui (fonte: doc Oracle ZGC + análise openjdk/zgc).
-  - ⚠️ **`zomboid-update` (steamcmd `validate`) sobrescreve o JSON** → **reaplicar as flags após qualquer update**. O backup do estado sem flags fica em `ProjectZomboid64.json.bak`.
-- **Expectativa realista:** o mundo carregado + 65 mods puxam ~5–7 GB RSS em pico; o `SoftMaxHeapSize=4g` incentiva usar menos em idle, mas com `PauseEmpty=true` o mundo fica pausado porém **residente** — o ganho em idle é modesto (a memória é live set, não desperdício). Para zerar RAM em idle, `zomboid-stop` é a única forma real.
-- **⚠️ A memória só muda via `.env` + `docker compose up -d`** (recreate) p/ Xms/Xmx; flags JVM no `ProjectZomboid64.json` + `zomboid-restart`. `docker compose restart` **não relê** o `.env`. O campo de memória do painel **não afeta o container**.
+- `-Xms${MIN_MEMORY} -Xmx${MAX_MEMORY}` applied by entry.sh → `-Xms1024m -Xmx6144m` (confirmed in `ps`).
+- **Dynamic:** the JVM starts at ~1 GB and only "commits" RAM as the heap grows — it does not reserve 6 GB while idle.
+- **ZGC flags** (in `ProjectZomboid64.json`, host volume `/srv/data/zomboid/pz-dedicated/`):
+  - `-XX:+ZUncommit` — returns RAM to the OS (ON by default, explicit for clarity)
+  - `-XX:ZUncommitDelay=60` — speeds up the return (default 300s)
+  - `-XX:SoftMaxHeapSize=4g` — **4 GB "soft" target**: ZGC tries to keep the heap ≤ 4 GB (more active GC), growing up to 6 GB (Xmx) only if needed to avoid stalling. It is ZGC's native knob for "use the minimum with a safety ceiling".
+  - ⚠️ **`-XX:Min/MaxHeapFreeRatio` are NOT ZGC knobs** (they belong to Parallel/G1) — no proven effect here (source: Oracle ZGC docs + openjdk/zgc analysis).
+  - ⚠️ **`zomboid-update` (steamcmd `validate`) overwrites the JSON** → **reapply the flags after any update**. The backup of the flagless state is kept in `ProjectZomboid64.json.bak`.
+- **Realistic expectation:** the loaded world + 65 mods pull ~5–7 GB RSS at peak; `SoftMaxHeapSize=4g` encourages using less while idle, but with `PauseEmpty=true` the world stays paused yet **resident** — the idle gain is modest (the memory is live set, not waste). To zero out RAM while idle, `zomboid-stop` is the only real way.
+- **⚠️ Memory only changes via `.env` + `docker compose up -d`** (recreate) for Xms/Xmx; JVM flags in `ProjectZomboid64.json` + `zomboid-restart`. `docker compose restart` does **not re-read** the `.env`. The panel's memory field **does not affect the container**.
 
-## Manutenção agendada (restart 4x/dia)
+## Scheduled maintenance (restart 4x/day)
 
-Restart **05:00, 11:00, 17:00 e 23:00** (6h exatos — 4x/dia, mais oportunidades de checar/atualizar mods) via systemd timer **`hl-zomboid-restart.timer`** (4× `OnCalendar`, `Persistent=true`):
+Restart at **05:00, 11:00, 17:00 and 23:00** (exactly 6h apart — 4x/day, more chances to check/update mods) via systemd timer **`hl-zomboid-restart.timer`** (4× `OnCalendar`, `Persistent=true`):
 
 ```ini
 # /etc/systemd/system/hl-zomboid-restart.timer
@@ -119,103 +119,102 @@ OnCalendar=*-*-* 23:00:00
 Persistent=true
 ```
 
-> **Fuso (07/08/2026):** o host kavure está em **`America/Sao_Paulo`** — o timer dispara em horário de Brasília. Antes disso o host estava em **UTC** e os restarts rodavam 3h mais cedo (04:00/16:00 BRT), o que parecia "restart perdido" às 19h. O `zomboid-backup` (05:15) também segue o fuso.
+> **Timezone (07/08/2026):** the kavure host is on **`America/Sao_Paulo`** — the timer fires on Brasília time. Before that the host was on **UTC** and the restarts ran 3h earlier (04:00/16:00 BRT), which looked like a "missing restart" at 19h. `zomboid-backup` (05:15) also follows the timezone.
 
-**Efeitos:**
-- **Mods atualizados:** cada restart re-executa o entry.sh → o PZ re-baixa/atualiza Workshop items no startup.
-- **Mundo fresco + RAM:** reinicia o heap e limpa o estado acumulado.
-- **Aviso aos players:** ~20s antes, um `servermsg` (banner) avisa `"[SERVER] Reinício em ~20s - servidor fica fora ~1 min para salvar o mundo e atualizar os mods"` (⚠️ sempre com **aspas** — sem aspas o PZ mostra só o primeiro token; fix 10/08/2026). Mesmo padrão em `zomboid-stop` (10s) e `zomboid-update`.
-- **Respeita players (10/08/2026):** o `hl-zomboid-restart.service` roda com `Environment=RESPECT_PLAYERS=1` — se houver player online no horário, o restart é **pulado** ("players online - restart ADIADO"). Contagem via helper `zomboid-playercount` (+ sudoers NOPASSWD, lê `performance_history.playerCount` do painel, ~1 min de atraso).
-- **Seguro:** `PauseEmpty=true` já pausa o mundo sem players; o `zomboid-restart` faz `save` RCON antes.
-- **Build do jogo não muda** no restart normal (só com `zomboid-update`/`FORCEUPDATE` **ou** quando o watchtower puxa imagem nova — ver abaixo).
+**Effects:**
+- **Mods updated:** every restart re-executes entry.sh → PZ re-downloads/updates Workshop items on startup.
+- **Fresh world + RAM:** resets the heap and clears accumulated state.
+- **Player warning:** ~20s beforehand, a `servermsg` (banner) warns `"[SERVER] Reinício em ~20s - servidor fica fora ~1 min para salvar o mundo e atualizar os mods"` (⚠️ always with **quotes** — without quotes PZ only shows the first token; fixed 10/08/2026). Same pattern in `zomboid-stop` (10s) and `zomboid-update`.
+- **Respect players (10/08/2026):** `hl-zomboid-restart.service` runs with `Environment=RESPECT_PLAYERS=1` — if a player is online at that time, the restart is **skipped** ("players online - restart ADIADO"). Counted by the `zomboid-playercount` helper (+ NOPASSWD sudoers, reads the panel's `performance_history.playerCount`, ~1 min of lag).
+- **Safe:** `PauseEmpty=true` already pauses the world when there are no players; `zomboid-restart` runs an RCON `save` first.
+- **Game build does not change** on a normal restart (only with `zomboid-update`/`FORCEUPDATE` **or** when watchtower pulls a new image — see below).
 
-## Auto-update de imagens (watchtower)
+## Image auto-update (watchtower)
 
-> Desde **07/08/2026** o watchtower (`/srv/data/ops/`) checa imagens **diariamente às 03:00 (BRT)** e atualiza **todos** os containers — **incluindo `pz-server`** (decisão do usuário: servidor sempre atualizado).
+> Since **07/08/2026** watchtower (`/srv/data/ops/`) checks images **daily at 03:00 (BRT)** and updates **all** containers — **including `pz-server`** (user's decision: the server is always up to date).
 
-- Quando a imagem `danixu86/project-zomboid-dedicated-server` tiver build novo, o container é recriado **sem save RCON** (stop-timeout 30s) — o mundo fica protegido por autosave + backup do painel (00:00) + off-box (05:15).
-- O `STEAMAPPBRANCH=stable` do `.env` é respeitado → mesmo com imagem nova, o build instalado é o **stable**, não unstable.
-- O `.env` **é relido** na recriação do container (diferente de `docker compose restart`), e o volume `pz-dedicated/` persiste (flags ZGC no `ProjectZomboid64.json` não são apagadas pelo watchtower).
+- When the `danixu86/project-zomboid-dedicated-server` image has a new build, the container is recreated **without an RCON save** (stop-timeout 30s) — the world is protected by autosave + panel backup (00:00) + off-box (05:15).
+- The `STEAMAPPBRANCH=stable` in `.env` is honored → even with a new image, the installed build is **stable**, not unstable.
+- The `.env` **is re-read** on container recreation (unlike `docker compose restart`), and the `pz-dedicated/` volume persists (ZGC flags in `ProjectZomboid64.json` are not wiped by watchtower).
 
-## zram (swap comprimido em RAM)
+## zram (swap compressed in RAM)
 
-Kavure usa **zram** como único swap (sem swapfile lento):
+Kavure uses **zram** as its only swap (no slow swapfile):
 
-| Item | Valor |
+| Item | Value |
 |---|---|
-| Dispositivo | `/dev/zram0` (zram-tools) |
-| Tamanho | 11.5 GB (**100% da RAM** física) |
-| Algoritmo | `zstd` |
-| Prioridade | 100 |
+| Device | `/dev/zram0` (zram-tools) |
+| Size | 11.5 GB (**100% of physical RAM**) |
+| Algorithm | `zstd` |
+| Priority | 100 |
 | Config | `/etc/default/zramswap` (`ALGO=zstd`, `PERCENT=100`, `PRIORITY=100`) |
-| Serviço | `zramswap.service` (enabled) |
+| Service | `zramswap.service` (enabled) |
 
-- O `/swap.img` (4 GB em disco) foi **removido** (swapoff + fstab + delete) em 06/08/2026 — decidido p/ não usar swap lento em disco.
-- O zram é comprimido: 11.5 GB de swap físico ocupam menos RAM de verdade (compressão zstd).
+- The `/swap.img` (4 GB on disk) was **removed** (swapoff + fstab + delete) on 06/08/2026 — decided not to use slow disk swap.
+- zram is compressed: 11.5 GB of physical swap takes up less real RAM (zstd compression).
 
-## Migração (concluída 06/08/2026)
+## Migration (completed 06/08/2026)
 
-1. ✅ Backup de segurança em psicopompo `/mnt/BACKUP/zomboid-server-kavure/archive/migration-20260805/`
-2. ✅ Servidor local parado (`zomboid.service` inactive — world consistente)
-3. ✅ `rsync -aHAX` do `Zomboid/` → `data/` e do `workshop/` → `workshop-mods/`
-4. ✅ **Verificação de integridade:** `rsync -n --checksum` → 0 diferenças
-5. ✅ Container `pz-server` up — **`SERVER STARTED`**, mundo carregado (`isNewGame=false`), portas 16261/16262/27015
-6. ✅ RCON habilitado + **corrigido no painel** (`rconHost=pz-server`)
-7. ✅ **PanelBridge ativo** (`PanelBridge.lua` instalado, `Mod connected`)
-8. ✅ Zomboid Control Panel configurado (auto-scan) + autobackup ativado
-9. ✅ Scripts de operação `zomboid-{start,stop,restart,status,update}` + `zomboid-save`
-10. ✅ **Ajustes pós-migração (06/08):** `STEAMAPPBRANCH=stable` (prevenir upgrade p/ unstable), `MIN_MEMORY=1024m` (heap dinâmico), `zomboid-restart` gracioso (RCON save), timer restart (desde 07/08: **4x/dia** 05/11/17/23, `hl-zomboid-restart.timer`) + **backup off-box 01:15** (`zomboid-backup`), **zram 100% RAM** (swapfile removido), **flags ZGC** (`ZUncommit`, `ZUncommitDelay=60`, `SoftMaxHeapSize=4g`), build `42.20.2` em paridade com o original
+1. ✅ Safety backup on psicopompo at `/mnt/BACKUP/zomboid-server-kavure/archive/migration-20260805/`
+2. ✅ Local server stopped (`zomboid.service` inactive — consistent world)
+3. ✅ `rsync -aHAX` of `Zomboid/` → `data/` and of `workshop/` → `workshop-mods/`
+4. ✅ **Integrity check:** `rsync -n --checksum` → 0 differences
+5. ✅ Container `pz-server` up — **`SERVER STARTED`**, world loaded (`isNewGame=false`), ports 16261/16262/27015
+6. ✅ RCON enabled + **fixed in the panel** (`rconHost=pz-server`)
+7. ✅ **PanelBridge active** (`PanelBridge.lua` installed, `Mod connected`)
+8. ✅ Zomboid Control Panel configured (auto-scan) + autobackup enabled
+9. ✅ Operation scripts `zomboid-{start,stop,restart,status,update}` + `zomboid-save`
+10. ✅ **Post-migration tweaks (06/08):** `STEAMAPPBRANCH=stable` (prevent upgrade to unstable), `MIN_MEMORY=1024m` (dynamic heap), graceful `zomboid-restart` (RCON save), restart timer (since 07/08: **4x/day** 05/11/17/23, `hl-zomboid-restart.timer`) + **off-box backup 01:15** (`zomboid-backup`), **zram 100% RAM** (swapfile removed), **ZGC flags** (`ZUncommit`, `ZUncommitDelay=60`, `SoftMaxHeapSize=4g`), build `42.20.2` at parity with the original
 
-### Players após a migração
+### Players after the migration
 
-- **Nada se perde:** personagens, inventário, base, `players.db` (contas e **permissões de admin**), config — tudo migrado com checksum 0 diferenças.
-- **O que os players precisam fazer (só):** aceitar o kavure no Tailscale + atualizar o IP do servidor no jogo para `100.124.146.77` (ou achar pelo browser).
-- **Admins:** status vinculado à conta no `players.db` (migrado) — **continuam admins** sem reconfiguração.
-- **Limpeza do psicopompo:** pode apagar o `zomboid.service`/serverfiles **mantendo o backup** `/mnt/BACKUP/zomboid-server-kavure/archive/migration-20260805/` + o espelho `daily/` como rede de segurança.
+- **Nothing is lost:** characters, inventory, base, `players.db` (accounts and **admin permissions**), config — everything migrated with checksum, 0 differences.
+- **What players need to do (only):** accept kavure on Tailscale + update the server IP in the game to `100.124.146.77` (or find it in the browser).
+- **Admins:** status tied to the account in `players.db` (migrated) — **they remain admins** with no reconfiguration.
+- **Cleanup on psicopompo:** you can delete `zomboid.service`/serverfiles **while keeping the backup** `/mnt/BACKUP/zomboid-server-kavure/archive/migration-20260805/` + the `daily/` mirror as a safety net.
 
 ## Backup
 
-**Padrão de nomenclatura (AGENTS.md):** `/mnt/BACKUP/{servico}-server-{host}/` → `zomboid-server-kavure/`.
+**Naming convention (AGENTS.md):** `/mnt/BACKUP/{servico}-server-{host}/` → `zomboid-server-kavure/`.
 
-- **Off-box (principal):** **`zomboid-backup`** (timer **05:15** no kavure, `hl-zomboid-backup.timer`) espelha os zips do painel → **NAS via NFS**: `/srv/data/zomboid/offbox/` = psicopompo `/mnt/BACKUP/zomboid-server-kavure/` (mount NFSv4 via `autofs`/systemd — ver [`network/nfs`](../../network/nfs.md)).
-  - ⚠️ **Checagem de montagem NFS:** no kavure o ponto `/srv/data/zomboid/offbox` usa `autofs`. `findmnt -n -o FSTYPE` retorna `autofs` e `nfs4`. Scripts devem usar `findmnt -n -o FSTYPE "$MNT" | grep -q "nfs"` para evitar falso-positivo de desmontado e erro de permissão ao tentar `mount` manual sem root.
-  - `rsync -a --delete` (local → NFS) = **espelho real**: novos zips chegam, mais antigos caem (retenção herdada = 7).
-  - **Failsafe (07/08/2026):** reachability check (TCP 2049) → **fail-fast** se o NAS estiver off; **3 tentativas** com backoff 2 min; `timeout` (rsync 15 min / service 30 min) p/ nunca pendurar; **ntfy** (`/backup`) no fail final; erros logados em `/var/log/zomboid-backup.log`.
-  - Protege contra perda total do disco do kavure.
-- **Antes de updates:** `zomboid-update` faz backup comprimido automático do save via `tar` + `zstd -3 -T0` (~15s) → `offbox/archive/pre-update-<data>.tar.zst` (NFS).
-- **Backup do painel (autobackup):** **diário à meia-noite** (`backupSchedule: 0 0 * * *`), **retenção 7** (`backupMaxCount: 7`), local `/srv/data/zomboid/data/backups/*.zip`.
-  - ⚠️ É **local** (mesmo disco do servidor) → é proteção contra *erro humano/rollback*, não contra *falha de disco*. A proteção real de disco é o off-box.
-  - Nota: `backups/` também contém `startup/` (snapshot completo a cada boot, ~921 MB × 5 rotativo) e `version/` (configs) — espelhados junto no off-box.
-- **Snapshot pré-migração:** `/mnt/BACKUP/zomboid-server-kavure/archive/migration-20260805/` (1.2G) — arquivado, manter.
-- Saves ficam em `/srv/data/zomboid/data/Saves/Multiplayer/pzserver`
+- **Off-box (primary):** **`zomboid-backup`** (timer **05:15** on kavure, `hl-zomboid-backup.timer`) mirrors the panel's zips → **NAS over NFS**: `/srv/data/zomboid/offbox/` = psicopompo `/mnt/BACKUP/zomboid-server-kavure/` (NFSv4 mount via `autofs`/systemd — see [`network/nfs`](../../network/nfs.md)).
+  - ⚠️ **NFS mount check:** on kavure the point `/srv/data/zomboid/offbox` uses `autofs`. `findmnt -n -o FSTYPE` returns `autofs` and `nfs4`. Scripts should use `findmnt -n -o FSTYPE "$MNT" | grep -q "nfs"` to avoid a false positive on an unmounted filesystem and a permission error when trying to `mount` manually without root.
+  - `rsync -a --delete` (local → NFS) = **real mirror**: new zips arrive, older ones are dropped (inherited retention = 7).
+  - **Failsafe (07/08/2026):** reachability check (TCP 2049) → **fail-fast** if the NAS is off; **3 attempts** with 2 min backoff; `timeout` (rsync 15 min / service 30 min) so it never hangs; **ntfy** (`/backup`) on the final failure; errors logged to `/var/log/zomboid-backup.log`.
+  - Protects against total loss of the kavure disk.
+- **Before updates:** `zomboid-update` takes an automatic compressed backup of the save via `tar` + `zstd -3 -T0` (~15s) → `offbox/archive/pre-update-<data>.tar.zst` (NFS).
+- **Panel backup (autobackup):** **daily at midnight** (`backupSchedule: 0 0 * * *`), **retention 7** (`backupMaxCount: 7`), local `/srv/data/zomboid/data/backups/*.zip`.
+  - ⚠️ It is **local** (same disk as the server) → it protects against *human error/rollback*, not against *disk failure*. The real disk protection is the off-box.
+  - Note: `backups/` also contains `startup/` (full snapshot on every boot, ~921 MB × 5 rotating) and `version/` (configs) — mirrored along with it to the off-box.
+- **Pre-migration snapshot:** `/mnt/BACKUP/zomboid-server-kavure/archive/migration-20260805/` (1.2G) — archived, keep.
+- Saves live in `/srv/data/zomboid/data/Saves/Multiplayer/pzserver`
 
-## Decisões
+## Decisions
 
-### Sem painel web de controle do container (07/08/2026)
+### No web panel for container control (07/08/2026)
 
-Avaliado criar um painel web (`zomboid-ctl`) com botões para ligar/desligar/reiniciar/atualizar o container — em Rust + systemd, Portainer, ou container dedicado. **REJEITADA** (canhão para matar mosca).
+Considered building a web panel (`zomboid-ctl`) with buttons to start/stop/restart/update the container — in Rust + systemd, Portainer, or a dedicated container. **REJECTED** (a cannon to kill a fly).
 
-- O controle real já existe: scripts `zomboid-{start,stop,restart,update,save,status}` (SSH) + restart agendado (4x/dia: 05:00/11:00/17:00/23:00) + **Zomboid Control Panel** (RCON, players, mods, backup, scheduler de saves/broadcast).
-- Único gap real do painel: **não faz start/stop do container** (falso "stopped" — ver "Limitações da Arquitetura") — decisão: aceitar, controlando via scripts/SSH.
-- Custo de uma UI extra: manter código/imagem/unit + token + superfície de segurança — para repetir o que o timer já faz.
-- Se no futuro precisar de controle web, avaliar primeiro opções simples (Portainer genérico ou scheduler do painel) antes de construir UI própria.
+- Real control already exists: scripts `zomboid-{start,stop,restart,update,save,status}` (SSH) + scheduled restart (4x/day: 05:00/11:00/17:00/23:00) + **Zomboid Control Panel** (RCON, players, mods, backup, saves/broadcast scheduler).
+- The panel's only real gap: **it does not start/stop the container** (false "stopped" — see "Architecture Limitations") — decision: accept it, controlling via scripts/SSH.
+- Cost of an extra UI: maintaining code/image/unit + token + security surface — just to repeat what the timer already does.
+- If web control is ever needed, evaluate the simple options first (generic Portainer or the panel's scheduler) before building a custom UI.
 
-## Observações
+## Observations
 
-- **Warning `tsarslib` (não-bloqueante):** o log mostra `PZXmlParserException: FileNotFoundException` de um XML de animação ausente do mod `tsarslib` (`mods/tsarslib/common/media/animsets/...`). Não impede o servidor de subir (`SERVER STARTED` OK) — é um mod que referencia anims não baixadas/desatualizadas. Monitorar se causar problema.
+- **`tsarslib` warning (non-blocking):** the log shows `PZXmlParserException: FileNotFoundException` from a missing animation XML in the `tsarslib` mod (`mods/tsarslib/common/media/animsets/...`). It does not prevent the server from coming up (`SERVER STARTED` OK) — it is a mod that references animations that were not downloaded/outdated. Watch it in case it causes problems.
 
-- **Soft-lock em 15/08/2026 (resolvido com restart):** servidor travou às 21:35:55 UTC (log parou; RCON aceitava TCP mas abandonava o handshake de auth → painel mostrava "host unreachable"/"connection closed"). Processo Java vivo mas sem processar (soft-lock), sem OOM/hs_err. **Causa provável: bug vanilla do jogo** — ao construir/reparar moldura de parede (`MOWoodenWallFrame.lua`, arquivo base `media/lua/server/Map/MapObjects/`, não sobrescrito por mod), o servidor dispara 43× `replacing isoObject` + 206× `ERROR: IsoThumpable not found on square` (conhecido em MP dedicado). Não foi causado pelos 39 mods KI5 novos (que estavam ativos). Recuperação: `zomboid-restart` (RCON falha por timeout — ok, mundo salvo). Boot novo sem erros, RCON/painel OK. Se repetir, testar subir sem os 39 mods novos para isolar; mitigação para o bug: evitar reconstruir molduras de parede em MP.
+- **Soft-lock on 15/08/2026 (resolved with a restart):** the server froze at 21:35:55 UTC (log stopped; RCON accepted TCP but abandoned the auth handshake → the panel showed "host unreachable"/"connection closed"). Java process alive but not processing (soft-lock), no OOM/hs_err. **Likely cause: a vanilla game bug** — when building/repairing a wall frame (`MOWoodenWallFrame.lua`, base file `media/lua/server/Map/MapObjects/`, not overridden by a mod), the server fires 43× `replacing isoObject` + 206× `ERROR: IsoThumpable not found on square` (known in dedicated MP). It was not caused by the 39 new KI5 mods (which were active). Recovery: `zomboid-restart` (RCON fails by timeout — ok, world saved). Fresh boot with no errors, RCON/panel OK. If it recurs, try booting without the 39 new mods to isolate; mitigation for the bug: avoid rebuilding wall frames in MP.
 
-- **"Joining Game" infinito / Build Mismatch (resolvido 18/08/2026):**
-  - **Sintoma:** Jogador fica travado indefinidamente na tela *"Joining game"*. No log do cliente (`console.txt`), aparece `java.nio.BufferUnderflowException` em `ChunkNotReadyPacket.parse`.
-  - **Causa Raiz:** Mismatch entre a versão/build dos binários Java do cliente Steam (`psicopompo` na 42.20.3) e os arquivos do servidor no volume montado (`kavure` na 42.20.2). As permissões `root:root` do bind mount `/srv/data/zomboid/pz-dedicated/` impediam a atualização direta e a variável `ADMINPASSWORD` vazia no `.env` causava `NoSuchElementException` no `entry.sh`.
-  - **Resolução:**
-    1. Garantir `ADMINPASSWORD=adminpz123` e `STEAMAPPBRANCH=public` (ou `stable`) em `/srv/data/zomboid/.env`.
-    2. Rodar `zomboid-update` ou atualizar os binários (`projectzomboid.jar`) com permissão adequada.
-    3. Validar checksum MD5 entre cliente e servidor (`md5sum projectzomboid.jar`).
+- **Endless "Joining Game" / Build Mismatch (resolved 18/08/2026):**
+  - **Symptom:** the player hangs indefinitely on the *"Joining game"* screen. In the client log (`console.txt`), `java.nio.BufferUnderflowException` appears in `ChunkNotReadyPacket.parse`.
+  - **Root cause:** mismatch between the version/build of the Steam client Java binaries (`psicopompo` on 42.20.3) and the server files on the mounted volume (`kavure` on 42.20.2). The `root:root` permissions on the bind mount `/srv/data/zomboid/pz-dedicated/` prevented a direct update, and the empty `ADMINPASSWORD` variable in `.env` caused `NoSuchElementException` in `entry.sh`.
+  - **Resolution:**
+    1. Make sure `ADMINPASSWORD=adminpz123` and `STEAMAPPBRANCH=public` (or `stable`) are set in `/srv/data/zomboid/.env`.
+    2. Run `zomboid-update` or update the binaries (`projectzomboid.jar`) with proper permissions.
+    3. Validate the MD5 checksum between client and server (`md5sum projectzomboid.jar`).
 
 ## See also
-- [[kavure]] — Servidor de destino
-- [[zomboid-control-panel]] — Painel web de administração
-- [[kavure-migration-plan]] — Plano de migração
-
+- [[kavure]] — Target server
+- [[zomboid-control-panel]] — Web admin panel
+- [[kavure-migration-plan]] — Migration plan

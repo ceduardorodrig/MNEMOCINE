@@ -4,37 +4,37 @@ tags: [homelab, service, pihole, dns]
 
 # Pi-hole
 
-DNS com bloqueio de anúncios — **container Docker no kavure** (migrado 09/08/2026, antes era kuaray).
+DNS with ad blocking — **Docker container on kavure** (migrated 09/08/2026, previously on kuaray).
 
-**Servidor:** kavure
-**Porta:** `53` (TCP/UDP, tailnet) · **Admin:** `http://100.124.146.77/admin`
+**Server:** kavure
+**Port:** `53` (TCP/UDP, tailnet) · **Admin:** `http://100.124.146.77/admin`
 **URL:** `http://kavure.chimaera-heptatonic.ts.net/admin`
-**Senha admin:** `PI_HOLE_ADMIN_PASSWORD` no store sops (`/mnt/NVME_PCI/secrets/secrets.env`).
+**Admin password:** `PI_HOLE_ADMIN_PASSWORD` in the sops store (`/mnt/NVME_PCI/secrets/secrets.env`).
 
-> **Config "ver IPs reais dos devices"** (recriada 09/08): `network_mode: host` + `FTLCONF_dns_listeningMode: BIND` + `FTLCONF_dns_interface: tailscale0` — escuta só na interface tailscale e enxerga o IP de cada device (não conflita com o systemd-resolved do kavure em `127.0.0.53`).
-> **Resolver global da tailnet:** aponta para `100.124.146.77` (kavure). Upstream: Google `8.8.8.8/8.8.4.4`.
+> **Config "see the real device IPs"** (recreated 09/08): `network_mode: host` + `FTLCONF_dns_listeningMode: BIND` + `FTLCONF_dns_interface: tailscale0` — listens only on the tailscale interface and sees each device's IP (does not conflict with kavure's systemd-resolved on `127.0.0.53`).
+> **Tailnet global resolver:** points to `100.124.146.77` (kavure). Upstream: Google `8.8.8.8/8.8.4.4`.
 
-## Listas de bloqueio (18/08/2026 — revisado)
+## Blocklists (18/08/2026 — revised)
 
-> **Nota importante:** Pi-hole v6 **parseia sim** listas ABP-style (`||domínio^`)? — o OISD big é distribuído em ABP e foi corretamente consumido como "ABP-style domains". Para listas em formato hosts/domain, também funciona.
-> **Gerenciamento:** a v6 armazena as adlists no **gravity.db** (não no `adlists.list`). Inserir via:
+> **Important note:** Pi-hole v6 **does** parse ABP-style lists (`||domínio^`)? — the OISD big is distributed in ABP and was correctly consumed as "ABP-style domains". It also works for lists in hosts/domain format.
+> **Management:** v6 stores the adlists in **gravity.db** (not in `adlists.list`). Insert via:
 > `sqlite3 /srv/data/pihole/etc-pihole/gravity.db "INSERT OR IGNORE INTO adlist (address,enabled,comment) VALUES ('<url>',1,'');"` + `docker exec pihole pihole -g`.
-> ⚠️ gravity.db é **excluído** do config-backup (`*.db`) — a fonte da verdade das listas é ESTE DOC.
+> ⚠️ gravity.db is **excluded** from the config-backup (`*.db`) — THIS DOC is the source of truth for the lists.
 
-**6 listas (gravity ~512.000 domínios):**
+**6 lists (gravity ~512,000 domains):**
 
-1. StevenBlack hosts — ads/malware base
+1. StevenBlack hosts — base ads/malware
 2. AdAway (registry `filter_2.txt`) — ads
 3. Phishing Army (registry `filter_18.txt`) — phishing
 4. NoCoin (registry `filter_8.txt`) — crypto-mining
-5. WindowsSpyBlocker (`data/hosts/spy.txt`) — telemetria Windows (parcial)
-6. **OISD big** (`https://big.oisd.nl`) — **substituiu a 1Hosts Xtra em 18/08**: cobertura grande (~1.4M hosts equivalentes) com **prioridade em funcionalidade e baixo falso positivo** ("Block. Don't break.")
+5. WindowsSpyBlocker (`data/hosts/spy.txt`) — Windows telemetry (partial)
+6. **OISD big** (`https://big.oisd.nl`) — **replaced 1Hosts Xtra on 18/08**: large coverage (~1.4M equivalent hosts) with **a focus on functionality and low false positives** ("Block. Don't break.")
 
-> **Histórico — por que saiu a 1Hosts Xtra:** em 18/08 a Xtra (~1.1M hosts) gerou uma cascata de falsos positivos que quebravam sites funcionais (pzwiki.net, CDNs do turbo.cr, backend do Darktide `fatsharkgames.com`/`atoma.cloud`). Foi substituída pelo OISD big, que bloqueia volume similar sem derrubar serviços legítimos. **As whitelists manuais criadas para contornar a Xtra foram todas removidas** — com o OISD os domínios voltaram a resolver sem allow.
+> **History — why 1Hosts Xtra was dropped:** on 18/08 Xtra (~1.1M hosts) caused a cascade of false positives that broke working sites (pzwiki.net, turbo.cr CDNs, the Darktide backend `fatsharkgames.com`/`atoma.cloud`). It was replaced by OISD big, which blocks a similar volume without taking down legitimate services. **All the manual whitelists created to work around Xtra were removed** — with OISD the domains resolved again without an allow.
 
-## Telemetria Microsoft (denylist exata — prioridade)
+## Microsoft Telemetry (exact denylist — priority)
 
-Adicionados como **exact deny** (não dependem de lista):
+Added as **exact deny** (they do not depend on a list):
 
 - `telemetry.microsoft.com`, `telemetry.microsoft.us`
 - `settings-win.data.microsoft.com`, `vortex.data.microsoft.com`
@@ -42,26 +42,26 @@ Adicionados como **exact deny** (não dependem de lista):
 - `settings-ios.events.data.microsoft.com`, `diagnostics.support.microsoft.com`
 - Wildcard: `events.data.microsoft.com` (`*.events.data.microsoft.com`)
 
-Validado 09/08: todos → `0.0.0.0` (bloqueado) na tailnet inteira.
+Validated 09/08: all → `0.0.0.0` (blocked) across the whole tailnet.
 
-## Whitelist manual (histórico — REMOVIDA em 18/08/2026)
+## Manual whitelist (history — REMOVED on 18/08/2026)
 
-A tabela abaixo documenta o que **já foi** whitelistado e **removido** em 18/08 junto com a troca Xtra → OISD. Sem a 1Hosts Xtra, nenhum destes domínios precisa de allow — todos resolvem normalmente via OISD:
+The table below documents what **was already** whitelisted and **removed** on 18/08 along with the Xtra → OISD swap. Without 1Hosts Xtra, none of these domains needs an allow — they all resolve normally via OISD:
 
 - `static.licdn.com`, `static.es.lnkdns.net`, `platform.linkedin.com` (LinkedIn)
-- `log.tailscale.com` (admin console Tailscale)
-- `pzwiki.net` (wiki Project Zomboid)
-- `static.scdn.st` (CDN turbo.cr)
-- `bunnyfonts.b-cdn.net` (fontes Bunny)
-- `fatsharkgames.com`, `telemetry-global.fatsharkgames.com` (backend Darktide)
-- `atoma-discovery.com`, `bsp-sup-sd.atoma-discovery.com` (discovery Darktide)
-- `atoma.cloud`, `bsp-auth-prod.atoma.cloud`, `bsp-td-prod.atoma.cloud`, `bsp-cdn-prod.atoma.cloud` (serviços Atoma Darktide)
+- `log.tailscale.com` (Tailscale admin console)
+- `pzwiki.net` (Project Zomboid wiki)
+- `static.scdn.st` (turbo.cr CDN)
+- `bunnyfonts.b-cdn.net` (Bunny fonts)
+- `fatsharkgames.com`, `telemetry-global.fatsharkgames.com` (Darktide backend)
+- `atoma-discovery.com`, `bsp-sup-sd.atoma-discovery.com` (Darktide discovery)
+- `atoma.cloud`, `bsp-auth-prod.atoma.cloud`, `bsp-td-prod.atoma.cloud`, `bsp-cdn-prod.atoma.cloud` (Atoma Darktide services)
 
-> Se um domínio funcional voltar a quebrar com o OISD, aí sim criar um allow pontual e documentar aqui — mas com o OISD isso deve ser raro.
-> Aplicar allow (se necessário no futuro): `docker exec pihole pihole allow <domínio>` (recarrega o DNS automaticamente).
+> If a working domain starts breaking with OISD, only then create a targeted allow and document it here — with OISD that should be rare.
+> Applying an allow (if ever needed in the future): `docker exec pihole pihole allow <domínio>` (reloads DNS automatically).
 
-## Instância
+## Instance
 
 - Compose: `/srv/data/pihole/compose.yml` (`network_mode: host`).
-- Config: `/srv/data/pihole/etc-pihole/` (espelhada no NAS via `config-backup` do kavure).
-- Atualizar gravity: `docker exec pihole pihole -g`.
+- Config: `/srv/data/pihole/etc-pihole/` (mirrored to the NAS via kavure's `config-backup`).
+- Update gravity: `docker exec pihole pihole -g`.

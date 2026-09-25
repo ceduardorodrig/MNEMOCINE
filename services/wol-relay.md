@@ -4,21 +4,21 @@ tags: [homelab, service, wake-on-lan, wol, power, psicopompo, kavure]
 
 # Wake-on-LAN Relay
 
-Serviço leve que acorda servidores remotamente via Magic Packet (WoL), acessível via Tailscale.
+Lightweight service that wakes servers remotely via Magic Packet (WoL), reachable over Tailscale.
 
-**Servidor:** kavure / psicopompo
+**Server:** kavure / psicopompo
 
 ## Stack
 
-| Componente | Tecnologia |
+| Component | Technology |
 |---|---|
-| Servidor HTTP | Python `http.server` (padrão homelab) |
+| HTTP server | Python `http.server` (homelab standard) |
 | WoL CLI | `wakeonlan` (perl, Arch extra / Ubuntu apt) |
 | Systemd | `wol-relay.service` |
-| Segurança | Tailscale ACL (só hosts da tailnet alcançam) |
-| Porta | `9096` |
+| Security | Tailscale ACL (only tailnet hosts can reach it) |
+| Port | `9096` |
 
-## Arquitetura
+## Architecture
 
 ```
 ybytu (Homepage:3001)
@@ -26,23 +26,23 @@ ybytu (Homepage:3001)
   └─ "Ligar Psicopompo" → Tailscale → kavure:9096/wake     → wakeonlan <MAC-psicopompo>
 ```
 
-Cada host roda um relay que acorda o **outro** host da LAN local.
+Each host runs a relay that wakes the **other** host on the local LAN.
 
-## Hosts e MACs
+## Hosts and MACs
 
-| Host | Interface | MAC | IP Tailscale | Relay acorda |
+| Host | Interface | MAC | Tailscale IP | Relay wakes |
 |---|---|---|---|---|
 | psicopompo | `eno1` | `d0:94:66:de:8b:58` | `100.82.51.112` | kavure |
 | kavure | `enp1s0` | `d0:94:66:ad:f3:c4` | `100.124.146.77` | psicopompo |
 
-## Arquivos
+## Files
 
-| Arquivo | Caminho | Hosts |
+| File | Path | Hosts |
 |---|---|---|
 | Script | `/usr/local/bin/wol-relay.py` | psicopompo + kavure |
 | Service | `/etc/systemd/system/wol-relay.service` | psicopompo + kavure |
 | Env | `/etc/wol-relay.env` | psicopompo + kavure |
-| Deploy script | `/tmp/opencode/deploy-wol-relay.sh` | temporário (remover após uso) |
+| Deploy script | `/tmp/opencode/deploy-wol-relay.sh` | temporary (remove after use) |
 
 ### Env files
 
@@ -62,21 +62,21 @@ WOL_PORT=9096
 
 ## API
 
-| Endpoint | Método | Resposta |
+| Endpoint | Method | Response |
 |---|---|---|
-| `GET /wake` | Envia Magic Packet | `200 {"status":"sent","target":"<host>","mac":"<mac>"}` |
+| `GET /wake` | Sends Magic Packet | `200 {"status":"sent","target":"<host>","mac":"<mac>"}` |
 | `GET /health` | Health check | `200 {"status":"ok"}` |
 
 ## Homepage
 
-Entradas no `services.yaml` do Homepage (ybytu):
+Entries in Homepage's `services.yaml` (ybytu):
 
-- **Grupo Psicopompo** → "Ligar Kavure": `href: http://100.82.51.112:9096/wake`
-- **Grupo Kavure** → "Ligar Psicopompo": `href: http://100.124.146.77:9096/wake`
+- **Psicopompo group** → "Ligar Kavure": `href: http://100.82.51.112:9096/wake`
+- **Kavure group** → "Ligar Psicopompo": `href: http://100.124.146.77:9096/wake`
 
-Ambos usam `siteMonitor` pro chip de saúde.
+Both use `siteMonitor` for the health chip.
 
-## Manutenção
+## Maintenance
 
 ```bash
 # Status
@@ -97,12 +97,12 @@ curl http://100.82.51.112:9096/health
 curl http://100.124.146.77:9096/health
 ```
 
-## Pré-requisitos WoL
+## WoL Prerequisites
 
-Para o WoL funcionar, a máquina alvo precisa ter:
+For WoL to work, the target machine needs:
 
-1. **WoL habilitado na BIOS** (já feito em psicopompo e kavure)
-2. **WoL habilitado na interface de rede:**
+1. **WoL enabled in the BIOS** (already done on psicopompo and kavure)
+2. **WoL enabled on the network interface:**
    ```bash
    # Verificar
    ethtool eno1 | grep "Wake-on"
@@ -111,21 +111,21 @@ Para o WoL funcionar, a máquina alvo precisa ter:
    # Habilitar (persistente via systemd-networkd ou /etc/conf.d/network)
    sudo ethtool -s eno1 wol g
    ```
-3. **Interface cabeada conectada** (WoL não funciona via Wi-Fi)
+3. **Wired interface connected** (WoL does not work over Wi-Fi)
 
-## Deploy inicial (01/09/2026)
+## Initial deploy (01/09/2026)
 
-1. `wakeonlan` instalado via pacman (psicopompo) e apt (kavure)
-2. Script + service + env deployados via SCP/SSH
-3. Kavure: porta 9096 (9093 ocupada por docker-proxy)
-4. Homepage atualizado com entradas de WoL
+1. `wakeonlan` installed via pacman (psicopompo) and apt (kavure)
+2. Script + service + env deployed via SCP/SSH
+3. Kavure: port 9096 (9093 taken by docker-proxy)
+4. Homepage updated with WoL entries
 
 ## Boot-race fix (22/09/2026)
 
-**Problema:** `wol-relay` falhava no boot com `bind: Cannot assign requested address` — `WOL_LISTEN_ADDR=100.82.51.112` (IP TS) subia antes do tailscaled atribuir o IP. Além disso, o unit tinha `Restart=unless-stopped` (**sintaxe docker, inválida no systemd** → ignorada, sem auto-restart).
+**Problem:** `wol-relay` failed on boot with `bind: Cannot assign requested address` — `WOL_LISTEN_ADDR=100.82.51.112` (TS IP) came up before tailscaled assigned the IP. On top of that, the unit had `Restart=unless-stopped` (**docker syntax, invalid in systemd** → ignored, no auto-restart).
 
-**Fix (padrão canônico do homelab — mesmo do syncthing 10/08):**
-1. `/etc/wol-relay.env` → `WOL_LISTEN_ADDR=127.0.0.1` (bind local, nunca 0.0.0.0 nem IP TS volátil)
-2. `tailscale serve --bg --tcp 9096 tcp://127.0.0.1:9096` — tailscaled expõe `100.82.51.112:9096` na tailnet (estado persiste no tailscaled)
+**Fix (homelab canonical standard — same as the 10/08 syncthing fix):**
+1. `/etc/wol-relay.env` → `WOL_LISTEN_ADDR=127.0.0.1` (local bind, never 0.0.0.0 nor the volatile TS IP)
+2. `tailscale serve --bg --tcp 9096 tcp://127.0.0.1:9096` — tailscaled exposes `100.82.51.112:9096` on the tailnet (state persists in tailscaled)
 3. `Restart=on-failure` (systemd-correct) + drop-in `After/Wants=tailscaled-wait.service`
-4. Validação: `curl http://100.82.51.112:9096/health` → `{"status":"ok"}` ✅
+4. Validation: `curl http://100.82.51.112:9096/health` → `{"status":"ok"}` ✅

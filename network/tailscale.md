@@ -6,20 +6,20 @@ tags: [homelab, network, tailscale]
 
 **Tailnet:** chimaera-heptatonic.ts.net
 
-## Máquinas na Tailnet
+## Machines on the Tailnet
 
-| Máquina | IP Tailscale | Papel |
+| Machine | Tailscale IP | Role |
 |---|---|---|
 | psicopompo | `100.82.51.112` | Dev + GPU workers (StênioBOT) |
 | ybytu | `100.115.253.109` | Exit Node, DNS |
-| ybyra | `100.66.224.34` | Cloud — borda primária |
-| kuaray | `100.94.209.99` | Multimídia — Funnel Home Assistant |
-| kavure | `100.124.146.77` | Servidor de serviços dedicado (Project Zomboid, painel, aiostreams, comet) |
+| ybyra | `100.66.224.34` | Cloud — primary edge |
+| kuaray | `100.94.209.99` | Media — Funnel Home Assistant |
+| kavure | `100.124.146.77` | Dedicated services server (Project Zomboid, panel, aiostreams, comet) |
 | anansi | `100.71.232.79` | Android |
 
-## Padrão de Acesso (Tailscale SSH)
+## Access Pattern (Tailscale SSH)
 
-**Método padrão de acesso aos servidores: Tailscale SSH** — usa autenticação da tailnet (WireGuard), sem expor porta 22 à internet.
+**Default method to access the servers: Tailscale SSH** — uses tailnet authentication (WireGuard), without exposing port 22 to the internet.
 
 ```bash
 tailscale ssh kavure@kavure
@@ -27,12 +27,12 @@ tailscale ssh root@kuaray
 tailscale ssh ubuntu@ybyra
 ```
 
-### Check mode (reauth periódica)
+### Check mode (periodic reauth)
 
-A **ACL padrão** do Tailscale usa `action: check` para conectar aos **próprios dispositivos** → pede **reautenticação no navegador a cada 12h** (`checkPeriod` default). É comportamento esperado.
+The Tailscale **default ACL** uses `action: check` to connect to **your own devices** → it asks for **browser reauthentication every 12h** (`checkPeriod` default). This is expected behavior.
 
-- **Para usuários:** ok (confirmar no navegador a cada 12h).
-- **Para agentes de IA/automação headless:** não conseguem clicar no link → resolver com regra **`action: accept`** na ACL (sem check) para o host do agente → `dst`. Ex:
+- **For users:** fine (confirm in the browser every 12h).
+- **For AI agents/headless automation:** they cannot click the link → fix with an **`action: accept`** rule in the ACL (no check) for the agent's host → `dst`. E.g.:
 
 ```json
 "ssh": [
@@ -45,9 +45,9 @@ A **ACL padrão** do Tailscale usa `action: check` para conectar aos **próprios
 ]
 ```
 
-### Fallback: SSH clássico com chave
+### Fallback: classic SSH with key
 
-Quando o Tailscale SSH não for viável (ex: automação, ferramenta que precisa de chave), usar **SSH clássico com chave por host** — padrão do repo (`~/.ssh/config` no psicopompo):
+When Tailscale SSH is not viable (e.g. automation, a tool that needs a key), use **classic SSH with a per-host key** — repo standard (`~/.ssh/config` on psicopompo):
 
 ```
 Host kavure
@@ -57,18 +57,18 @@ Host kavure
     PreferredAuthentications publickey
 ```
 
-> **IP fixo na LAN não é necessário** — o IP da tailnet (100.x) é fixo e estável, independente de DHCP.
+> **A fixed LAN IP is not needed** — the tailnet IP (100.x) is fixed and stable, independent of DHCP.
 
 ## Exit Nodes
 
-| Servidor | Status | Tráfego |
+| Server | Status | Traffic |
 |---|---|---|
-| psicopompo | ❌ (não oferece) | — |
-| ybytu | ✅ Ativo (**único** exit node) | Tráfego da tailnet |
+| psicopompo | ❌ (does not offer) | — |
+| ybytu | ✅ Active (**only** exit node) | Tailnet traffic |
 
-### Uso
+### Usage
 
-Em qualquer máquina cliente da tailnet:
+On any client machine on the tailnet:
 
 ```bash
 # Listar exit nodes disponíveis
@@ -83,17 +83,17 @@ tailscale set --exit-node=
 
 ## Funnels
 
-Funnels expõem serviços locais publicamente (via Tailscale) sem precisar abrir portas no roteador.
+Funnels expose local services publicly (via Tailscale) without needing to open ports on the router.
 
-| Servidor | Funnel | Serviço Interno |
+| Server | Funnel | Internal Service |
 |---|---|---|
 | kavure | `kavure.chimaera-heptatonic.ts.net:10000` | AioStreams (`kavure:3000`) |
-| sumaenima (tunnel) | `sumaenima.chimaera-heptatonic.ts.net` | StênioBOT (via tunnel `sae-edge_tunnel`, proxy p/ `api:9090` no kavure) |
-| miracena (tunnel) | `miracena.chimaera-heptatonic.ts.net` | WordPress (via tunnel `miracena-tunnel`, proxy p/ NPM `:80` → WordPress `:8085`) |
+| sumaenima (tunnel) | `sumaenima.chimaera-heptatonic.ts.net` | StênioBOT (via tunnel `sae-edge_tunnel`, proxy to `api:9090` on kavure) |
+| miracena (tunnel) | `miracena.chimaera-heptatonic.ts.net` | WordPress (via tunnel `miracena-tunnel`, proxy to NPM `:80` → WordPress `:8085`) |
 
-> **Home Assistant** é acesso **tailnet-only**: `http://100.124.146.77:8123`. Sem Funnel público — acesso restrito à tailnet por segurança.
+> **Home Assistant** is **tailnet-only** access: `http://100.124.146.77:8123`. No public Funnel — access restricted to the tailnet for security.
 
-### Configurar um Funnel
+### Configuring a Funnel
 
 ```bash
 # Expor serviço local via funnel
@@ -106,9 +106,9 @@ tailscale funnel status
 tailscale funnel off
 ```
 
-### Tailscale Tunnel (container Docker)
+### Tailscale Tunnel (Docker container)
 
-Para serviços que precisam de um hostname próprio no Tailscale (ex: `miracena.chimaera-heptatonic.ts.net`), criar um container Tailscale dedicado:
+For services that need their own hostname on Tailscale (e.g. `miracena.chimaera-heptatonic.ts.net`), create a dedicated Tailscale container:
 
 ```yaml
 # Exemplo: miracena-tunnel
@@ -131,7 +131,7 @@ tunnel:
     - net.ipv6.conf.all.forwarding=1
 ```
 
-O `serve.json` define como o Funnel roteia o tráfego:
+The `serve.json` defines how the Funnel routes traffic:
 
 ```json
 {
@@ -145,17 +145,17 @@ O `serve.json` define como o Funnel roteia o tráfego:
 }
 ```
 
-**Limitação:** Tailscale MagicDNS não suporta subdomínios (`site.miracena.xxx` não resolve). Cada tunnel só registra um hostname. Para múltiplos serviços públicos, usar NPM como reverse proxy no destino do Funnel.
+**Limitation:** Tailscale MagicDNS does not support subdomains (`site.miracena.xxx` does not resolve). Each tunnel only registers one hostname. For multiple public services, use NPM as a reverse proxy at the Funnel destination.
 
-## Serve (rede interna)
+## Serve (internal network)
 
-Nenhum serve configurado atualmente (apenas funnels para exposição externa).
+No serve configured currently (only funnels for external exposure).
 
-## Configuração dos Servidores
+## Server Configuration
 
-### IP Forwarding (para Exit Nodes)
+### IP Forwarding (for Exit Nodes)
 
-Ativado em **ybytu** (único exit node):
+Enabled on **ybytu** (only exit node):
 
 ```bash
 echo 'net.ipv4.ip_forward=1' | sudo tee /etc/sysctl.d/99-tailscale.conf
@@ -165,4 +165,4 @@ sudo sysctl -p /etc/sysctl.d/99-tailscale.conf
 
 ### Key Expiry
 
-Desabilitado nos servidores via admin console do Tailscale.
+Disabled on the servers via the Tailscale admin console.

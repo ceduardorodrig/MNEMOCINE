@@ -4,45 +4,45 @@ tags: [homelab, tutorial, docker, compose, btrfs, snapper, snapshot, storage, ps
 
 # Docker Disk Cleanup — psicopompo
 
-Guia de diagnóstico e manutenção do espaço usado por Docker (`containerd-data` + `docker-data`) no psicopompo. Canonizado em **06/09/2026** após a limpeza que recuperou ~330GB.
+Diagnostic and maintenance guide for the space used by Docker (`containerd-data` + `docker-data`) on psicopompo. Canonized on **06/09/2026** after the cleanup that reclaimed ~330GB.
 
-## Arquitetura (por que os dados ficam onde ficam)
+## Architecture (why the data lives where it lives)
 
-O Docker 29.x usa o **containerd snapshotter**. Os dados ficam em dois lugares físicos:
+Docker 29.x uses the **containerd snapshotter**. The data lives in two physical places:
 
-| Pasta | Conteúdo | O que ocupa espaço |
+| Directory | Contents | What takes up space |
 |---|---|---|
-| `/mnt/NVME_PCI/containerd-data` | `io.containerd.snapshotter.v1.overlayfs/snapshots/` (camadas descompactadas) + `io.containerd.content.v1.content/` (blobs) | Camadas de todas as imagens + resíduo de builds |
-| `/mnt/NVME_PCI/docker-data` | `rootfs/overlayfs/` (mount points dos containers), `buildkit/` (cache do builder `default`), `volumes/` | Cache de build + volumes nomeados |
+| `/mnt/NVME_PCI/containerd-data` | `io.containerd.snapshotter.v1.overlayfs/snapshots/` (uncompressed layers) + `io.containerd.content.v1.content/` (blobs) | Layers of all images + build leftovers |
+| `/mnt/NVME_PCI/docker-data` | `rootfs/overlayfs/` (container mount points), `buildkit/` (cache of the `default` builder), `volumes/` | Build cache + named volumes |
 
-> ⚠️ `du -sh /mnt/NVME_PCI/docker-data/rootfs` **superconta**: são mount points de overlay cujos dados físicos vivem no `containerd-data` (ex.: ~94GB "aparentes" quando o real é ~1GB).
+> ⚠️ `du -sh /mnt/NVME_PCI/docker-data/rootfs` **overcounts**: these are overlay mount points whose physical data lives in `containerd-data` (e.g. ~94GB "apparent" when the real size is ~1GB).
 
-### Dois builders (06/09: padronizado para UM)
+### Two builders (06/09: standardized to ONE)
 
-- **`default`** (docker driver) — embutido no daemon, **não pode ser removido**. Cache vive em `docker-data/buildkit`. Foi onde ~247GB de cache acumularam (builds antigos / `docker build`).
-- ~~`default-builder`~~ (docker-container) — container BuildKit separado via `docker buildx create`. **Removido em 06/09** — builds aqui são locais/single-arch (amd64) e o `default` é suficiente e mais simples.
-- ~~`kavure`~~ — builder remoto morto (endpoint `docker.example.com`, inexistente) derivado do docker context `kavure`. **Removido em 06/09** (`docker context rm kavure`); `sumaenima-ctl` usa SSH direto e não depende disso.
+- **`default`** (docker driver) — built into the daemon, **cannot be removed**. The cache lives in `docker-data/buildkit`. That is where ~247GB of cache piled up (old builds / `docker build`).
+- ~~`default-builder`~~ (docker-container) — separate BuildKit container created via `docker buildx create`. **Removed on 06/09** — builds here are local/single-arch (amd64) and `default` is sufficient and simpler.
+- ~~`kavure`~~ — dead remote builder (endpoint `docker.example.com`, nonexistent) derived from the `kavure` docker context. **Removed on 06/09** (`docker context rm kavure`); `sumaenima-ctl` uses SSH directly and does not depend on it.
 
-## O problema: acúmulo silencioso (~500GB)
+## The problem: silent accumulation (~500GB)
 
-O psicopompo é o **build-node** do Sumænimá (todas as imagens GPU são buildadas aqui). Isso gera:
+psicopompo is the Sumænimá **build node** (all GPU images are built here). This generates:
 
-1. **Build cache** do builder `default` + do container BuildKit (chegou a ~247GB + ~99GB).
-2. **Imagens órfãs `<none>`** de rebuilds (chegou a ~97GB reclamáveis) — cada `docker compose build` deixa as camadas velhas.
-3. **Snapshots do snapper** pinnando os extents — ver abaixo.
+1. **Build cache** from the `default` builder + the BuildKit container (reached ~247GB + ~99GB).
+2. **Orphaned `<none>` images** from rebuilds (reached ~97GB reclaimable) — every `docker compose build` leaves the old layers behind.
+3. **Snapper snapshots** pinning the extents — see below.
 
-## O detalhe crítico: btrfs + snapper pregam o espaço
+## The critical detail: btrfs + snapper pin the space
 
-O snapper `nvme` faz **timeline por hora do subvolume inteiro `/mnt/NVME_PCI`** (que contém os dados Docker). Snapshot btrfs = cópia **reflink**: **deletar arquivo não libera espaço enquanto um snapshot o referenciar**. Por isso o `df`/`btrfs usage` NÃO mostra o espaço liberado após podar o Docker — só sobe depois de **deletar os snapshots antigos**:
+The `nvme` snapper config takes an **hourly timeline of the entire `/mnt/NVME_PCI` subvolume** (which holds the Docker data). A btrfs snapshot = a **reflink** copy: **deleting a file does not free space while a snapshot references it**. That is why `df`/`btrfs usage` does NOT show the space freed after pruning Docker — it only shows up after **deleting the old snapshots**:
 
 ```bash
 sudo snapper -c nvme list
 sudo snapper -c nvme delete --sync <n1> <n2> ...   # --sync libera imediato
 ```
 
-Snapshots de dados Docker (imagens/cache) **não têm valor de rollback** (são reconstruíveis) — pode deletar sem dó. O vault `agentic-ai` tem backup próprio (Syncthing + `/mnt/BACKUP/agentic-ai-server-psicopompo`).
+Snapshots of Docker data (images/cache) **have no rollback value** (they are rebuildable) — you can delete them without regret. The `agentic-ai` vault has its own backup (Syncthing + `/mnt/BACKUP/agentic-ai-server-psicopompo`).
 
-## Rotina de limpeza (verificar/rodar manualmente)
+## Cleanup routine (check/run manually)
 
 ```bash
 # 1. Estado
@@ -69,32 +69,32 @@ btrfs filesystem usage /mnt/NVME_PCI
 df -h /mnt/NVME_PCI
 ```
 
-> **NÃO** usar `docker system prune -af` cegamente: remove containers parados/imagens de serviços que se quer manter (ex.: WinBoat). Prefira alvos explícitos.
+> **Do NOT** use `docker system prune -af` blindly: it removes stopped containers / images of services you want to keep (e.g. WinBoat). Prefer explicit targets.
 
-## Prevenção ativa (06/09/2026)
+## Active prevention (06/09/2026)
 
-1. **GC do BuildKit no `daemon.json`** — o builder `default` se auto-limita a 30GB de cache:
+1. **BuildKit GC in `daemon.json`** — the `default` builder self-limits to 30GB of cache:
    ```json
    "builder": { "gc": { "enabled": true, "defaultKeepStorage": "30GB" } }
    ```
-2. **Timer systemd mensal** `docker-prune.timer` (dia 01, 04:00) → roda `docker buildx prune --builder default -af` + `docker image prune -f`. Fecha o ciclo com o Watchtower (que atualiza imagens mas não remove as antigas).
-3. **Snapper** continua pinnando o estado recente (últimas 8h/7d/4w/3m) — bounded pelo GC de 30GB. Padronização 06/09 (ver [`backups/snapshots-psicopompo.md`](../backups/snapshots-psicopompo.md)): **reconstruível → sem snapshot** (`hdd`/Steam removido, `ssd`/scryfall sem config); **não reconstruível → timeline** (`backup`, `nvme`).
+2. **Monthly systemd timer** `docker-prune.timer` (day 01, 04:00) → runs `docker buildx prune --builder default -af` + `docker image prune -f`. Closes the loop with Watchtower (which updates images but does not remove the old ones).
+3. **Snapper** keeps pinning recent state (last 8h/7d/4w/3m) — bounded by the 30GB GC. Standardized on 06/09 (see [`backups/snapshots-psicopompo.md`](../backups/snapshots-psicopompo.md)): **rebuildable → no snapshot** (`hdd`/Steam removed, `ssd`/scryfall with no config); **not rebuildable → timeline** (`backup`, `nvme`).
 
-## Resultado da limpeza de 06/09/2026
+## Result of the 06/09/2026 cleanup
 
-| Item | Antes | Depois |
+| Item | Before | After |
 |---|---|---|
-| Imagens | 103 (~200GB lógicos) | 18 (~54GB) |
+| Images | 103 (~200GB logical) | 18 (~54GB) |
 | Build cache | ~346GB | 0B |
-| Snapshots containerd | 1795 | 164 (todas legítimas) |
-| `containerd-data` | ~396GB | ~59GB aparentes |
-| `docker-data` | ~99GB | ~1.8GB reais |
-| `btrfs` livre no NVME_PCI | ~609GB | ~1.16TB (btrfs `Used` 1.22TiB → 652GB) |
-| **Total recuperado** | | **~570GB** (imagens/cache/snapshots + reclaim de blocos btrfs) |
+| containerd snapshots | 1795 | 164 (all legitimate) |
+| `containerd-data` | ~396GB | ~59GB apparent |
+| `docker-data` | ~99GB | ~1.8GB real |
+| `btrfs` free on NVME_PCI | ~609GB | ~1.16TB (btrfs `Used` 1.22TiB → 652GB) |
+| **Total reclaimed** | | **~570GB** (images/cache/snapshots + btrfs block reclaim) |
 
-Backup do config: `/etc/docker/daemon.json.bak-gc-20260906`.
+Config backup: `/etc/docker/daemon.json.bak-gc-20260906`.
 
-## Referências
+## References
 
 - Docker: [Build garbage collection](https://docs.docker.com/build/cache/garbage-collection/) · [Build drivers](https://docs.docker.com/build/builders/drivers/)
 - ArchWiki: [Snapper](https://wiki.archlinux.org/title/Snapper) · [snapper-configs(5)](https://man.archlinux.org/man/snapper-configs.5)

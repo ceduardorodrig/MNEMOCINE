@@ -4,21 +4,21 @@ tags: [homelab, service, mosquitto, automation]
 
 # Mosquitto
 
-Broker MQTT.
+MQTT broker.
 
-**Servidor:** ~~kuaray~~ — **REMOVIDO 16/08/2026**
+**Server:** ~~kuaray~~ — **REMOVED 16/08/2026**
 
-> **Estado (16/08/2026):** removido do kuaray (container + `/home/kuaray/homelab/mosquitto` +
-> `/home/kuaray/docker/mosquitto`). Sem dispositivos MQTT em uso (lâmpadas/sensores Tuya via nuvem).
-> Se precisar no futuro, recriar no **kavure** com credenciais (`allow_anonymous false` + password file).
-> A config antiga usava `allow_anonymous true` (insegura) — **não reutilizar**.
+> **State (16/08/2026):** removed from kuaray (container + `/home/kuaray/homelab/mosquitto` +
+> `/home/kuaray/docker/mosquitto`). No MQTT devices in use (Tuya bulbs/sensors via the cloud).
+> If needed in the future, recreate it on **kavure** with credentials (`allow_anonymous false` + password file).
+> The old config used `allow_anonymous true` (insecure) — **do not reuse**.
 
-## Histórico
+## History
 
-| Container | Imagem | Função |
+| Container | Image | Role |
 |---|---|---|
-| mosquitto | eclipse-mosquitto:latest | Broker MQTT (removido 16/08) |
+| mosquitto | eclipse-mosquitto:latest | MQTT broker (removed 16/08) |
 
-## Integração
+## Integration
 
-Era usado pelo **Home Assistant** para comunicação com dispositivos IoT — sem uso desde a remoção.
+It was used by **Home Assistant** to talk to IoT devices — unused since the removal.

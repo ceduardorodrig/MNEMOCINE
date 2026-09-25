@@ -4,31 +4,31 @@ tags: [homelab, service, duplicati, backup]
 
 # Duplicati
 
-> **🟥 REMOVIDO (06/08/2026)** — não cobria dados de valor; substituído pelo
-> [backup canônico de configs](../backups/config-backup.md) (espelho NAS + restic + git + snapper) e off-site (rclone → Drive).
+> **🟥 REMOVED (06/08/2026)** — it did not cover valuable data; replaced by the
+> [canonical config backup](../backups/config-backup.md) (NAS mirror + restic + git + snapper) and the off-site (rclone → Drive).
 
-Backup automatizado com interface web.
+Automated backup with a web interface.
 
-**Servidor:** ~~kuaray~~ (histórico)
-**Porta:** ~~`8200`~~
+**Server:** ~~kuaray~~ (historical)
+**Port:** ~~`8200`~~
 
 ## Stack
 
-| Container | Imagem | Função |
+| Container | Image | Role |
 |---|---|---|
 | duplicati | linuxserver/duplicati:latest | Backup |
 
-## Acesso
+## Access
 
 `http://kuaray.chimaera-heptatonic.ts.net:8200`
 
-## Estado Atual
+## Current State
 
-**Removido** — não roda mais. Mantido como registro histórico.
+**Removed** — no longer running. Kept as a historical record.
 
-## Recomendações
+## Recommendations
 
-- Configurar backup off-site para a nuvem (B2, S3, etc.)
-- Backup dos bancos PostgreSQL do StênioBOT e Umami
-- Backup das configs do Tailscale (não essencial, mas útil)
-- Testar restore periodicamente
+- Set up cloud off-site backup (B2, S3, etc.)
+- Backup of the StênioBOT and Umami PostgreSQL databases
+- Backup of the Tailscale configs (not essential, but useful)
+- Test the restore periodically

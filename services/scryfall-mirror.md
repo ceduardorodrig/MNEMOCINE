@@ -4,31 +4,31 @@ tags: [homelab, service, scryfall, cache, arandu, psicopompo, kavure, nfs]
 
 # Scryfall Mirror
 
-Mirror completo do Scryfall (bulk JSON + imagens alta resolução) para o Arandu. Roda no **kavure** (scraper/sync), armazena no **psicopompo** (`/mnt/SSD_SATA/scryfall-mirror`) via NFS — psicopompo é apenas NAS.
+Full mirror of Scryfall (bulk JSON + high-resolution images) for Arandu. Runs on **kavure** (scraper/sync), stores on **psicopompo** (`/mnt/SSD_SATA/scryfall-mirror`) over NFS — psicopompo is only a NAS.
 
-**Status:** 🏗 Em implantação
-**Servidor:** kavure (sync) / psicopompo (storage NFS)
-**Storage:** `/mnt/SSD_SATA/scryfall-mirror` — 446GB livres (SSD SATA psicopompo)
-**Sync:** diário 03:00 via `hl-scryfall-mirror.timer` (fora da janela 05:00 backup)
-**Consumo:** `sae-core` no kavure lê via `/srv/data/scryfall-mirror` (NFS)
+**Status:** 🏗 Being deployed
+**Server:** kavure (sync) / psicopompo (NFS storage)
+**Storage:** `/mnt/SSD_SATA/scryfall-mirror` — 446GB free (psicopompo SATA SSD)
+**Sync:** daily 03:00 via `hl-scryfall-mirror.timer` (outside the 05:00 backup window)
+**Consumption:** `sae-core` on kavure reads via `/srv/data/scryfall-mirror` (NFS)
 
-## Arquitetura
+## Architecture
 
 ```
 psicopompo (/mnt/SSD_SATA/scryfall-mirror)  ←→ NFS →  kavure (/srv/data/scryfall-mirror)
    ↑ NAS (BTRFS)                                   scraper + serve
 ```
 
-- **JSON:** `default-cards.jsonl.gz` (75MB) → `bulk/` + `.last_updated` (sync idempotente: só baixa se `updated_at` da API mudar)
-- **Imagens:** layout **sharded 1:1 com o CDN Scryfall** — `cards/{formato}/{front|back}/{h1}/{h2}/{uuid}.{ext}`
-  (ex: `cards/png/front/6/d/6da045f8-....png` = espelho de `cards.scryfall.io/png/front/6/d/...`)
-  6 formatos (`png/small/normal/large/art_crop/border_crop`) + verso `back/` para DFC. ~352k arquivos totais (~55-90GB).
-- **Por que sharded:** diretório flat com 20k+ entradas via NFS é lento por design (servidor ordena a listagem — estoura timeouts). Shard hex 2 níveis = ~256 dirs/nível, listagem instantânea. Mesmo padrão de `.git/objects`.
-- **API Scryfall:** bulk `api.scryfall.com` com `User-Agent: AranduTCG/1.0` + `Accept: */*` (obrigatório desde 08/2024), `/cards/search` 2/s. CDN `*.scryfall.io` sem rate limit. Cache 24h obrigatório (Scryfall exige).
+- **JSON:** `default-cards.jsonl.gz` (75MB) → `bulk/` + `.last_updated` (idempotent sync: only downloads if the API's `updated_at` changes)
+- **Images:** layout **sharded 1:1 with the Scryfall CDN** — `cards/{formato}/{front|back}/{h1}/{h2}/{uuid}.{ext}`
+  (e.g.: `cards/png/front/6/d/6da045f8-....png` = mirror of `cards.scryfall.io/png/front/6/d/...`)
+  6 formats (`png/small/normal/large/art_crop/border_crop`) + `back/` for DFC. ~352k files total (~55-90GB).
+- **Why sharded:** a flat directory with 20k+ entries over NFS is slow by design (the server sorts the listing — it blows past timeouts). 2-level hex sharding = ~256 dirs per level, instant listing. Same pattern as `.git/objects`.
+- **Scryfall API:** bulk `api.scryfall.com` with `User-Agent: AranduTCG/1.0` + `Accept: */*` (mandatory since 08/2024), `/cards/search` 2/s. The `*.scryfall.io` CDN has no rate limit. A 24h cache is mandatory (Scryfall requires it).
 
 ## NFS + Subvolume BTRFS
 
-**Subvolume dedicado** `@scryfall` (filehandles estáveis sob churn pesado + snapshots snapper):
+**Dedicated subvolume** `@scryfall` (stable filehandles under heavy churn + snapper snapshots):
 
 ```
 btrfs subvolume create /mnt/SSD_SATA/@scryfall
@@ -45,27 +45,27 @@ UUID=2f59eee5-... /mnt/SSD_SATA/scryfall-mirror btrfs subvol=@scryfall,compress=
 100.82.51.112:/mnt/SSD_SATA/scryfall-mirror /srv/data/scryfall-mirror nfs rw,soft,timeo=30,retrans=2,_netdev,x-systemd.automount,x-systemd.mount-timeout=10s,x-systemd.idle-timeout=60s,nofail 0 0
 ```
 
-Padrão `soft` + `x-systemd.automount` (nunca `hard`). Ver `network/nfs.md`.
+Pattern `soft` + `x-systemd.automount` (never `hard`). See `network/nfs.md`.
 
-**⚠️ Lição (31/08):** diretório flat `cards/{uuid}/` com 19.917 entradas fez `ls`/`du` via NFS travarem em D-state e o service estourar `TimeoutStartSec` (TERM às 03:30). Correção: shard 1:1 CDN + service hardening. Se listar o mirror lento, verificar contagem de entradas por dir (`find cards -maxdepth 4 -type d`).
+**⚠️ Lesson (31/08):** a flat `cards/{uuid}/` directory with 19,917 entries made `ls`/`du` over NFS hang in D-state and the service blow past `TimeoutStartSec` (TERM at 03:30). Fix: 1:1 CDN sharding + service hardening. If listing the mirror is slow, check the entry count per dir (`find cards -maxdepth 4 -type d`).
 
-## Serviço no kavure
+## Service on kavure
 
-`/srv/data/scryfall-mirror/` é consumido diretamente por `sae-core` (`ARANDU_CACHE_DIR=/srv/data/scryfall-mirror`). Sync roda como timer systemd no kavure:
+`/srv/data/scryfall-mirror/` is consumed directly by `sae-core` (`ARANDU_CACHE_DIR=/srv/data/scryfall-mirror`). The sync runs as a systemd timer on kavure:
 
 - `hl-scryfall-mirror.service` (Type=oneshot, `RuntimeMaxSec=2h`, `Nice=19`, `IOSchedulingClass=idle`, `Restart=on-failure`, `OnFailure=notify-backup-failure@`)
 - `hl-scryfall-mirror.timer` (OnCalendar=*-*-* 03:00, Persistent=true)
 
-Script `scryfall-sync` (`/usr/local/bin`): checa `updated_at` vs `bulk/.last_updated` (idempotente), baixa `default-cards.jsonl.gz` se novo, grava health file `/srv/health/scryfall-mirror-last-ok`. **Nunca lista `cards/`** (só toca `bulk/`, dir pequeno).
+The `scryfall-sync` script (`/usr/local/bin`): checks `updated_at` against `bulk/.last_updated` (idempotent), downloads `default-cards.jsonl.gz` if new, writes the health file `/srv/health/scryfall-mirror-last-ok`. **Never lists `cards/`** (it only touches `bulk/`, a small dir).
 
-**Prefetch** (`/tmp/prefetch-shard.py` → `/var/log/scryfall-prefetch.log` local): resumível (skip exists), 4 workers, `--limit-rate 2M`, `nice -19 ionice -c3`. On-demand também funciona: cache miss no front baixa 1 imagem via `get_or_cache_card_image` (path sharded, fallback CDN).
+**Prefetch** (`/tmp/prefetch-shard.py` → local `/var/log/scryfall-prefetch.log`): resumable (skip if exists), 4 workers, `--limit-rate 2M`, `nice -19 ionice -c3`. On-demand also works: a cache miss in the front downloads 1 image via `get_or_cache_card_image` (sharded path, CDN fallback).
 
 ## Backup
 
-Cache é recriável via CDN — **não** precisa off-box. Apenas configs do timer/script vão para `/mnt/BACKUP/configs-homelab` via `hl-config-backup` 05:00.
+The cache is recreatable via the CDN — it does **not** need an off-box copy. Only the timer/script configs go to `/mnt/BACKUP/configs-homelab` via `hl-config-backup` at 05:00.
 
-## Referências
+## References
 
-- `services/arandu.md` — serviço Arandu (consome este mirror)
+- `services/arandu.md` — Arandu service (consumes this mirror)
 - `app/core/arandu_scryfall.py` — `CACHE_DIR`, `User-Agent`, rate limit
 - Scryfall docs: `api.scryfall.com/bulk-data`, `scryfall.com/docs/api/rate-limits`

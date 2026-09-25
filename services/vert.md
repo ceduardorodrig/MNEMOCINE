@@ -4,20 +4,20 @@ tags: [homelab, service, vert, media]
 
 # Vert
 
-Proxy para conteúdo de mídia.
+Media content proxy.
 
-**Servidor:** kuaray
-**Porta:** `3030`
+**Server:** kuaray
+**Port:** `3030`
 **URL:** `http://kuaray.chimaera-heptatonic.ts.net:3030`
 
 ## Stack
 
-| Container | Imagem | Função |
+| Container | Image | Role |
 |---|---|---|
 | vert | ghcr.io/vert-sh/vert:latest | Proxy/content |
 
-## Portas
+## Ports
 
-| Porta | Função |
+| Port | Role |
 |---|---|
 | `3030` | Web UI |

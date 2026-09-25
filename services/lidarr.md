@@ -4,24 +4,24 @@ tags: [homelab, service, lidarr, media, download, kuaray]
 
 # Lidarr
 
-Gerenciamento e download automático de música.
+Management and automatic music downloading.
 
-**Servidor:** kuaray
-**Porta:** `8686`
+**Server:** kuaray
+**Port:** `8686`
 **URL:** `http://kuaray.chimaera-heptatonic.ts.net:8686`
 
 ## Stack
 
-| Container | Imagem | Função |
+| Container | Image | Role |
 |---|---|---|
-| lidarr | linuxserver/lidarr:latest | Gerenciamento de biblioteca musical |
-| transmission | linuxserver/transmission:latest | Download por torrent (Prowlarr) |
+| lidarr | linuxserver/lidarr:latest | Music library management |
+| transmission | linuxserver/transmission:latest | Torrent download (Prowlarr) |
 | prowlarr | linuxserver/prowlarr:latest | Indexers |
-| soularr | mrusse08/soularr:latest | Ponte Lidarr → Soulseek |
-| slskd | slskd/slskd:latest | Cliente Soulseek |
-| navidrome | deluan/navidrome:latest | Leitor da biblioteca |
+| soularr | mrusse08/soularr:latest | Lidarr → Soulseek bridge |
+| slskd | slskd/slskd:latest | Soulseek client |
+| navidrome | deluan/navidrome:latest | Library player |
 
-## Fluxo físico dos arquivos (importante)
+## Physical file flow (important)
 
 ```
 1) DOWNLOAD — disco LOCAL do kuaray (/dev/sdb1)
@@ -39,45 +39,45 @@ Gerenciamento e download automático de música.
    - Navidrome lê daqui; Syncthing (folder `backup`) espelha p/ kuaray
 ```
 
-> ⚠️ **Sem hardlinks/atomic move:** downloads (kuaray) e biblioteca (NFS/psicopompo) estão em **filesystems diferentes** → todo import é **copy+delete sobre NFS** (lento). Isso é um **trade-off deliberado**: a biblioteca foi movida pro NAS porque o HD do kuaray tem bad sectors. Ver [`network/nfs.md`](../network/nfs.md) (nota de performance/WiFi).
+> ⚠️ **No hardlinks/atomic move:** downloads (kuaray) and library (NFS/psicopompo) are on **different filesystems** → every import is a **copy+delete over NFS** (slow). This is a **deliberate trade-off**: the library was moved to the NAS because kuaray's HDD has bad sectors. See [`network/nfs.md`](../network/nfs.md) (performance/WiFi note).
 
-## Caminhos internos (containers)
+## Internal paths (containers)
 
 | Container | Mount | Host (kuaray) |
 |---|---|---|
 | lidarr | `/config` | `/DATA/AppData/lidarr/config` |
-| lidarr | `/data` | `/mnt/storage/data` (enxerga downloads + música) |
+| lidarr | `/data` | `/mnt/storage/data` (sees downloads + music) |
 | lidarr | `/data/torrents` | `/mnt/storage/data/torrents` |
 | transmission | `/data/torrents` | `/mnt/storage/data/torrents` |
 | slskd | `/app/downloads` | `/mnt/storage/data/downloads/soulseek` |
 | soularr | `/downloads` | `/mnt/storage/data/downloads/soulseek` |
 | navidrome | `/music` | `/mnt/storage/data/media/music` |
 
-- **Root folder do Lidarr:** `/data/media/music` (= NFS → psicopompo).
-- **Download client Transmission:** host `100.94.209.99:9091`, urlBase `/transmission/`, categoria `lidarr` → downloads em `/data/torrents/lidarr/`. **Não há remote path mapping** (Lidarr e Transmission na mesma máquina).
-- **Soularr:** `config.ini` em `/DATA/AppData/soularr/config/` (hosts/api_keys) — ver [`soularr-slskd.md`](soularr-slskd.md).
+- **Lidarr root folder:** `/data/media/music` (= NFS → psicopompo).
+- **Transmission download client:** host `100.94.209.99:9091`, urlBase `/transmission/`, category `lidarr` → downloads in `/data/torrents/lidarr/`. **No remote path mapping** (Lidarr and Transmission on the same machine).
+- **Soularr:** `config.ini` in `/DATA/AppData/soularr/config/` (hosts/api_keys) — see [`soularr-slskd.md`](soularr-slskd.md).
 
-## Funcionamento (automático)
+## Operation (automatic)
 
-1. Artista marcado como monitored no Lidarr → álbuns faltantes viram `wanted/missing`.
-2. **Soularr** (a cada 5 min) lê o wanted/missing, busca no Soulseek, enfileira no slskd e, ao completar, dispara o import no Lidarr.
-3. **Lidarr + Prowlarr + Transmission** cobre torrents (RSS/search) — sujeito a rate-limit dos indexers (TPB/Knaben → desabilita temporariamente, auto-recupera).
-4. Import move para a biblioteca NFS; Navidrome consome.
+1. An artist marked as monitored in Lidarr → missing albums become `wanted/missing`.
+2. **Soularr** (every 5 min) reads the wanted/missing, searches Soulseek, queues on slskd and, on completion, triggers the import in Lidarr.
+3. **Lidarr + Prowlarr + Transmission** covers torrents (RSS/search) — subject to indexer rate limits (TPB/Knaben → temporarily disables, auto-recovers).
+4. The import moves to the NFS library; Navidrome consumes it.
 
-**Únicos passos manuais:** adicionar artistas e, quando um download ruim vai pro denylist do soularr, limpar o `failed_imports.json` (ver `soularr-slskd.md`).
+**Only manual steps:** adding artists and, when a bad download lands on soularr's denylist, clearing `failed_imports.json` (see `soularr-slskd.md`).
 
 ## Troubleshooting
 
-- **`/data/torrents/lidarr` "does not appear to exist"**: o diretório precisa existir no host (`/mnt/storage/data/torrents/lidarr`, dono `kuaray:kuaray`) — é o destino da categoria do Transmission. Se o aviso persistir na UI, revalidar o client (test) ou reiniciar o container.
-- **Rescans completos (`RescanFolders`) penduram no WiFi**: a biblioteca NFS via link WiFi do kuaray é lenta/instável (3,6 MB/s). Evitar rescan completo; usar `RefreshArtist` pontual (também lento, mas progride). Quando houver **cabo de rede** no kuaray, um rescan limpo reconcilia o DB.
-- **Álbum `0/x` no DB mas arquivos no disco**: reconciliação pendente do rescan (estado do DB oscila com NFS lento). Arquivos intactos; Navidrome toca normalmente.
-- **`Artist with ID 0` no ManualImport**: payload da API exige `artistId` + `albumReleaseId` (além de `albumId`/`trackIds`) — ver `soularr-slskd.md`.
-- **Import lento**: copy+delete via NFS/WiFi; ver `network/nfs.md` (async + cabo).
+- **`/data/torrents/lidarr` "does not appear to exist"**: the directory must exist on the host (`/mnt/storage/data/torrents/lidarr`, owner `kuaray:kuaray`) — it is the destination for Transmission's category. If the warning persists in the UI, revalidate the client (test) or restart the container.
+- **Full rescans (`RescanFolders`) hang on WiFi**: the NFS library over kuaray's WiFi link is slow/unstable (3.6 MB/s). Avoid a full rescan; use a targeted `RefreshArtist` (also slow, but it progresses). Once kuaray has an **ethernet cable**, a clean rescan reconciles the DB.
+- **Album `0/x` in the DB but files on disk**: reconciliation pending from the rescan (DB state oscillates with slow NFS). Files intact; Navidrome plays normally.
+- **`Artist with ID 0` in ManualImport**: the API payload requires `artistId` + `albumReleaseId` (on top of `albumId`/`trackIds`) — see `soularr-slskd.md`.
+- **Slow import**: copy+delete over NFS/WiFi; see `network/nfs.md` (async + ethernet).
 
-## Histórico relevante
+## Relevant history
 
-- **2026-08-07:** limpeza geral — 131 torrents mortos removidos do Transmission, fila zerada, duplicatas/`failed_imports` apagadas, `failed_imports.json` (denylist) limpo, imports manuais via API (Damien Rice 9, Pink Floyd), soularr destravado.
+- **2026-08-07:** general cleanup — 131 dead torrents removed from Transmission, queue zeroed, duplicates/`failed_imports` deleted, `failed_imports.json` (denylist) cleared, manual API imports (Damien Rice 9, Pink Floyd), soularr unstuck.
 
-## Segredos
+## Secrets
 
-- **API key** no store sops (`LIDARR_API_KEY`, 32-char — fonte `config.xml` `<ApiKey>`). O `config.xml` é **excluído** do espelho `config-backup` (nunca vai pro NAS). Restore após wipe: `inject-secrets.sh` (ver `guides/secrets-centralizados.md`).
+- **API key** in the sops store (`LIDARR_API_KEY`, 32-char — source `config.xml` `<ApiKey>`). The `config.xml` is **excluded** from the `config-backup` mirror (it never goes to the NAS). Restore after a wipe: `inject-secrets.sh` (see `guides/secrets-centralizados.md`).

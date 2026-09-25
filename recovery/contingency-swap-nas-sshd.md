@@ -2,51 +2,51 @@
 tags: [homelab, recovery, storage, psicopompo]
 ---
 
-# Plano de Contingência — Troca do disco do NAS (psicopompo)
+# Contingency Plan — NAS Disk Replacement (psicopompo)
 
-> **Status:** documentado (13/09/2026) — **NÃO executado**. Disco atual do NAS está saudável.
-> **Disparar quando:** `sda` do psicopompo (NAS `/mnt/BACKUP`) apresentar **Reallocated_Sector_Ct > 0** OU **Current_Pending_Sector > 0** — igual ao caso kuaray `sdb` (1 pending → alerta `SmartDiskError` firing). Monitorado automaticamente via smartd + Prometheus.
+> **Status:** documented (13/09/2026) — **NOT executed**. The NAS's current disk is healthy.
+> **Trigger when:** psicopompo's `sda` (the NAS `/mnt/BACKUP`) shows **Reallocated_Sector_Ct > 0** OR **Current_Pending_Sector > 0** — same as the kuaray `sdb` case (1 pending → `SmartDiskError` alert firing). Monitored automatically via smartd + Prometheus.
 
-## Contexto
+## Context
 
-O NAS do homelab é o **`sda`** do psicopompo (`ST1000LM024 HN-M101MBB`, 931.5G, SATA 2.5"). Hospeda `/mnt/BACKUP` (mídia, backups off-box, configs) + serve NFSv4 para kavure/kuaray/ybytu/ybyra.
+The homelab NAS is psicopompo's **`sda`** (`ST1000LM024 HN-M101MBB`, 931.5G, SATA 2.5"). It hosts `/mnt/BACKUP` (media, off-box backups, configs) + serves NFSv4 to kavure/kuaray/ybytu/ybyra.
 
-| | Atual (`sda`, no PC) | Candidato (`sdf`, SSHD-1TB USB) |
+| | Current (`sda`, in the PC) | Candidate (`sdf`, SSHD-1TB USB) |
 |---|---|---|
-| Modelo | ST1000LM024 (SpinPoint M8) | ST1000LM014 (Laptop SSHD) |
-| Tamanho | 931.5G | 931.5G |
-| Formato | 2.5" SATA interno | 2.5" SATA (hoje via leitor USB) |
+| Model | ST1000LM024 (SpinPoint M8) | ST1000LM014 (Laptop SSHD) |
+| Size | 931.5G | 931.5G |
+| Format | 2.5" internal SATA | 2.5" SATA (currently via a USB reader) |
 | Health (13/09) | ✅ 0 realloc, 0 pending | ✅ 0 realloc, 0 pending |
 | Power-on | 17.285h | 22.656h |
-| Vantagem | — | **Cache NAND** (leitura repetida mais rápida) |
+| Advantage | — | **NAND cache** (faster repeated reads) |
 
-Ambos são 2.5" SATA — o SSHD cabe no mesmo slot interno.
+Both are 2.5" SATA — the SSHD fits in the same internal slot.
 
-## Decisão (13/09/2026)
+## Decision (13/09/2026)
 
-**Não trocar agora.** O `sda` está saudável (0 reallocated, 0 pending = nenhum remapeamento em curso). O Load_Cycle alto (275k) é característico de HDD 2.5" de laptop, não é sinal de morte. O SSHD ficará como **reserva pronta** para quando o `sda` der sinais.
+**Do not replace it now.** The `sda` is healthy (0 reallocated, 0 pending = no remapping in progress). The high Load_Cycle count (275k) is characteristic of a 2.5" laptop HDD, not a death sign. The SSHD will stay as **ready reserve** for when the `sda` shows signs.
 
-## Procedimento (quando necessário)
+## Procedure (when needed)
 
-> ⚠️ Downtime de **horas** — o NAS atende 4 hosts via NFS. Programar em janela de manutenção e avisar antes.
+> ⚠️ Downtime of **hours** — the NAS serves 4 hosts via NFS. Schedule it in a maintenance window and warn ahead of time.
 
-1. **Parar os clientes NFS:** avisar/parar uso em kavure (zomboid/minecraft/valheim/media/n8n/sumaenima), kuaray (música/lidarr), ybytu/ybyra (configs).
-2. **Desmontar NFS:** `exportfs -au` no psicopompo + `umount` nos clientes (opcional — `soft` evita travar).
-3. **Desligar o psicopompo.**
-4. **Fisicamente:** conectar o SSHD (sdf) como disco SATA interno **no lugar do sda** (mesmo slot/energia). O sda sai.
-5. **Ligar com mídia de recuperação** (o SSHD vem de leitor USB, pode não ter SO).
-6. **Copiar dados:** `rsync -a --info=progress2 /mnt/BACKUP/ <destino>` ou clonar via dd/Clonezilla. 289G usados → várias horas.
-7. **Validar:** `smartctl -a` (0 realloc/pending no novo), `btrfs check`/`fsck`, montar `/mnt/BACKUP`.
-8. **Reexportar NFS** (`/etc/exports` mantido) + `exportfs -arv`.
-9. **Re-montar nos clientes** + reiniciar containers afetados (bind NFS `rprivate`).
-10. **Testar:** `df` nos clientes, serviços Up, acesso à mídia.
+1. **Stop the NFS clients:** warn/stop usage on kavure (zomboid/minecraft/valheim/media/n8n/sumaenima), kuaray (music/lidarr), ybytu/ybyra (configs).
+2. **Unmount NFS:** `exportfs -au` on psicopompo + `umount` on the clients (optional — `soft` prevents hanging).
+3. **Shut down psicopompo.**
+4. **Physically:** connect the SSHD (sdf) as an internal SATA disk **in place of the sda** (same slot/power). The sda comes out.
+5. **Boot with recovery media** (the SSHD comes from a USB reader, it may have no OS).
+6. **Copy the data:** `rsync -a --info=progress2 /mnt/BACKUP/ <destino>` or clone with dd/Clonezilla. 289G used → several hours.
+7. **Validate:** `smartctl -a` (0 realloc/pending on the new one), `btrfs check`/`fsck`, mount `/mnt/BACKUP`.
+8. **Re-export NFS** (`/etc/exports` kept) + `exportfs -arv`.
+9. **Re-mount on the clients** + restart the affected containers (NFS bind `rprivate`).
+10. **Test:** `df` on the clients, services Up, media access.
 
-## Alternativa menos invasiva (avaliar na hora)
+## Less invasive alternative (assess on the spot)
 
-Se só o **setor de dados** do NAS estiver doente mas o sistema OK, considerar **adicionar o SSHD como disco extra** e migrar `/mnt/BACKUP` para ele por rsync (sem parar o SO), depois trocar o ponto de montagem. Mesmo resultado com downtime menor.
+If only the NAS's **data sectors** are sick but the system is fine, consider **adding the SSHD as an extra disk** and migrating `/mnt/BACKUP` to it with rsync (without shutting down the OS), then changing the mount point. Same result with less downtime.
 
-## Referências
+## References
 
-- Monitores: [`services/monitoring.md`](../services/monitoring.md) (alertas `SmartDiskError`) · smartd `sda` no psicopompo
+- Monitors: [`services/monitoring.md`](../services/monitoring.md) (`SmartDiskError` alerts) · smartd `sda` on psicopompo
 - Backups: [`backups/strategy.md`](../backups/strategy.md) · [`backups/snapshots-psicopompo.md`](../backups/snapshots-psicopompo.md)
 - NFS: [`network/nfs.md`](../network/nfs.md)

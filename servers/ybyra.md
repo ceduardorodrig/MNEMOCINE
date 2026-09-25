@@ -4,82 +4,82 @@ tags: [homelab, server, ybyra, docker, monitoring, tailscale]
 
 # ybyra
 
-**Papel:** Servidor cloud (Oracle Cloud) — Borda primária Sumaenima (proxy, tunnel, umami)
-**Shell padrão:** bash (`/bin/bash`)
-**Swarm role:** `primary` — nó worker do Docker Swarm (stack `sae-edge`)
+**Role:** Cloud server (Oracle Cloud) — Sumaenima primary edge (proxy, tunnel, umami)
+**Default shell:** bash (`/bin/bash`)
+**Swarm role:** `primary` — Docker Swarm worker node (stack `sae-edge`)
 
-> **Atualizado 28/08/2026:** `apt dist-upgrade` completo (41 pacotes, incl. Docker engine → 29.7.2) + reboot. Kernel **6.17.0-1016 → 6.17.0-1020-oracle**. Swarm services e borda primária OK pós-reboot.
+> **Updated 28/08/2026:** full `apt dist-upgrade` (41 packages, incl. Docker engine → 29.7.2) + reboot. Kernel **6.17.0-1016 → 6.17.0-1020-oracle**. Swarm services and primary edge OK after reboot.
 
 ## Hardware
 
-| Item | Especificação |
+| Item | Specification |
 |---|---|
-| **SO** | Ubuntu 24.04.4 LTS (KVM — QEMU Standard PC) |
+| **OS** | Ubuntu 24.04.4 LTS (KVM — QEMU Standard PC) |
 | **Kernel** | 6.17.0-1020-oracle |
 | **CPU** | AMD EPYC 7551 32-Core (2 vCPUs — 1 core/2 threads, Oracle free tier) |
-| **RAM** | 954 MB (nenhum swap configurado) |
-| **Disco Sistema** | 150 GB — Boot Volume (Oracle Block Storage) — `sda1` ext4 — 2% usado (3 GB) |
-| **Swap** | Nenhum |
+| **RAM** | 954 MB (no swap configured) |
+| **System Disk** | 150 GB — Boot Volume (Oracle Block Storage) — `sda1` ext4 — 2% used (3 GB) |
+| **Swap** | None |
 | **Tailscale IP** | 100.66.224.34 |
 | **Tailscale DNS** | ybyra.chimaera-heptatonic.ts.net |
-| **Rede** | Oracle internal network (`ens3`: 10.0.0.40/24) |
+| **Network** | Oracle internal network (`ens3`: 10.0.0.40/24) |
 
-## Papéis
+## Roles
 
-- Novo servidor cloud (Oracle free tier)
-- Futuro host de Single Page Application (Docker)
+- New cloud server (Oracle free tier)
+- Future Single Page Application host (Docker)
 
 ## Tailscale Funnels
 
-| URL | Destino | Status |
+| URL | Destination | Status |
 |---|---|---|
-| `https://sumaenima.chimaera-heptatonic.ts.net` | `http://proxy:80` | Ativo — proxy para o nginx Swarm |
+| `https://sumaenima.chimaera-heptatonic.ts.net` | `http://proxy:80` | Active — proxies to the Swarm nginx |
 
-## Containers Docker — Utilitários (Standalone)
+## Docker Containers — Utilities (Standalone)
 
-| Container | Imagem | Portas | Função |
+| Container | Image | Ports | Function |
 |---|---|---|---|
-| glances | nicolargo/glances:latest | `0.0.0.0:61208` | Monitoramento |
+| glances | nicolargo/glances:latest | `0.0.0.0:61208` | Monitoring |
 | autoheal | willfarrell/autoheal:latest | — | Auto-restart containers |
 | watchtower | containrrr/watchtower:latest | — | Auto-update containers |
 
-## Swarm Services (Gerenciados pelo Docker Swarm no psicopompo)
+## Swarm Services (Managed by the Docker Swarm on psicopompo)
 
-| Service | Imagem | Portas | Função |
+| Service | Image | Ports | Function |
 |---|---|---|---|
-| proxy | nginx-sumaenima:latest | `0.0.0.0:80` | Proxy reverso (SPA, API, Umami) |
+| proxy | nginx-sumaenima:latest | `0.0.0.0:80` | Reverse proxy (SPA, API, Umami) |
 | tunnel | tailscale/tailscale:latest | — | Tailscale Funnel (sumaenima.chimaera-heptatonic.ts.net) |
-| umami | sumaenima-umami:latest | 3000 | Analytics (acessível via nginx `/umami/`) |
-| ~~datavis~~ | ~~datavis-server:latest~~ | ~~9091~~ | **removido 22/09/2026** — legado, nada consumia; CVE-2025-67221 (orjson) fechado por eliminação |
+| umami | sumaenima-umami:latest | 3000 | Analytics (reachable via nginx `/umami/`) |
+| ~~datavis~~ | ~~datavis-server:latest~~ | ~~9091~~ | **removed 22/09/2026** — legacy, nothing consumed it; CVE-2025-67221 (orjson) closed by removal |
 
-## Programas Nativos
+## Native Programs
 
-| Programa | Função |
+| Program | Function |
 |---|---|
-| tailscaled | Agente Tailscale |
+| tailscaled | Tailscale agent |
 | Docker Engine | Container runtime (v29.7.2) |
-| nginx | Borda Primária (Roteamento de tráfego, virtual DNS, SPA Frontend) |
+| nginx | Primary Edge (traffic routing, virtual DNS, SPA Frontend) |
 
-## Portas Importantes
+## Important Ports
 
-| Porta | Serviço | Bind |
+| Port | Service | Bind |
 |---|---|---|
 | 22 | SSH | Tailscale |
-| 80 | Nginx (Borda Primária — SPA, API, Umami) | `0.0.0.0` |
+| 80 | Nginx (Primary Edge — SPA, API, Umami) | `0.0.0.0` |
 | 61208 | Glances | `0.0.0.0` |
 
-## Observações
+## Notes
 
-- Servidor Oracle free tier (Junho 2026): 2 vCPUs, 1 GB RAM, 150 GB disco.
-- Servidor **exclusivamente como borda primária** do Sumænimá Hub.
-- Todo o tráfego público entra via Tailscale Funnel (`sumaenima.chimaera-heptatonic.ts.net` → proxy:80).
-- Nginx roteia:
+- Oracle free tier server (June 2026): 2 vCPUs, 1 GB RAM, 150 GB disk.
+- Server **exclusively as the primary edge** of the Sumænimá Hub.
+- All public traffic enters via Tailscale Funnel (`sumaenima.chimaera-heptatonic.ts.net` → proxy:80).
+- Nginx routes:
   - `/` → SPA (React + Vite)
-  - `/api/` → FastAPI (steniobot-api no psicopompo, overlay network)
-  - `/umami/` → Umami (no próprio ybyra, overlay network)
-- ~~`/api/datavis/`~~ → removido 22/09/2026 (legado) — 404 agora, era 502
-- **Não** roda filebrowser, syncthing nem outros utilitários — estes ficam no ybytu.
-- Containers utilitários (glances, autoheal, watchtower) rodam standalone fora do Swarm.
-- Nenhum serviço do Kuaray roda aqui — kuaray é o servidor multimídia separado.
-- Ver `network/topology.md` para topologia de rede completa.
-- **Fix NFS (10/09/2026):** Entries `hard` → `soft` no fstab (`configs-homelab`, `repos/git`). Backup: `/etc/fstab.bak.20260910`. Drop-in Docker: `/etc/systemd/system/docker.service.d/nfs-ordering.conf` (`After=remote-fs.target`, `TimeoutStopSec=30s`). Ver [`network/nfs.md`](../network/nfs.md).
+  - `/api/` → FastAPI (steniobot-api on psicopompo, overlay network)
+  - `/umami/` → Umami (on ybyra itself, overlay network)
+- ~~`/api/datavis/`~~ → removed 22/09/2026 (legacy) — 404 now, it used to be 502
+- It does **not** run filebrowser, syncthing or other utilities — those live on ybytu.
+- Utility containers (glances, autoheal, watchtower) run standalone outside the Swarm.
+- No Kuaray service runs here — kuaray is the separate media server.
+- See `network/topology.md` for the full network topology.
+- **Fix NFS (10/09/2026):** `hard` → `soft` entries in fstab (`configs-homelab`, `repos/git`). Backup: `/etc/fstab.bak.20260910`. Docker drop-in: `/etc/systemd/system/docker.service.d/nfs-ordering.conf` (`After=remote-fs.target`, `TimeoutStopSec=30s`). See [`network/nfs.md`](../network/nfs.md).

@@ -2,64 +2,64 @@
 tags: [homelab, service, zomboid, tutorial]
 ---
 
-# Zomboid — Onboarding (Jogadores)
+# Zomboid — Onboarding (Players)
 
-Guia para entrar no servidor de Project Zomboid **VaiMorreSim** (kavure).
+Guide for joining the **VaiMorreSim** Project Zomboid server (kavure).
 
-> Acesso só pela tailnet (**whitelist only**) — quem não estiver na Tailscale usa o navegador do jogo (o servidor é público na lista).
+> Access only over the tailnet (**whitelist only**) — anyone not on Tailscale uses the in-game browser (the server is public in the list).
 
-## Dados de conexão
+## Connection details
 
-| Item | Valor |
+| Item | Value |
 |---|---|
-| Nome do servidor | `VaiMorreSim` |
+| Server name | `VaiMorreSim` |
 | IP (Tailscale) | `100.124.146.77` |
-| Porta | `16261` (UDP) |
-| **Senha** | `TuVaiMorre` |
-| Máx. jogadores | 15 |
+| Port | `16261` (UDP) |
+| **Password** | `TuVaiMorre` |
+| Max players | 15 |
 | Build | B42 (**stable**) |
 | Mods | ~65 Workshop |
 
-## Como entrar
+## How to join
 
-**Opção A — navegador do jogo (não precisa de Tailscale):**
-1. Jogo → **Join** → procurar por `VaiMorreSim` na lista de servidores (é público).
-2. Conectar → digitar a senha `TuVaiMorre`.
+**Option A — in-game browser (no Tailscale needed):**
+1. Game → **Join** → look for `VaiMorreSim` in the server list (it is public).
+2. Connect → type the password `TuVaiMorre`.
 
-**Opção B — direto (Tailscale):**
-1. Aceitar o host `kavure` na sua tailnet (se ainda não tiver).
-2. Jogo → **Join** → **Enter IP** → `100.124.146.77` (porta 16261) → conectar.
-3. Senha `TuVaiMorre`.
+**Option B — direct (Tailscale):**
+1. Accept the `kavure` host on your tailnet (if you haven't already).
+2. Game → **Join** → **Enter IP** → `100.124.146.77` (port 16261) → connect.
+3. Password `TuVaiMorre`.
 
-> Se o jogo pedir para baixar mods do Workshop ao conectar, aceite — o servidor envia a lista automaticamente na primeira entrada.
+> If the game asks you to download Workshop mods when connecting, accept — the server sends the list automatically on the first join.
 
-> **Avisos de manutenção:** antes de reinícios/desligamentos, um **banner amarelo no topo da tela** (`[SERVER] ...`) avisa com ~20s de antecedência — o servidor fica fora ~1 min para salvar e atualizar os mods. Restarts automáticos: 05:00, 11:00, 17:00 e 23:00 (são pulados se houver players online).
+> **Maintenance notices:** before restarts/shutdowns, a **yellow banner at the top of the screen** (`[SERVER] ...`) warns ~20s in advance — the server is down for ~1 min to save and update the mods. Automatic restarts: 05:00, 11:00, 17:00 and 23:00 (they are skipped if there are players online).
 
-## Restart remoto pelo celular (update de mods)
+## Remote restart from your phone (mod update)
 
-Se precisar reiniciar fora de casa (ex.: atualizou um mod no Workshop e quer puxar agora), use o **painel** pelo navegador do celular:
+If you need to restart while away (e.g. a mod was updated on Workshop and you want to pull it now), use the **panel** from your phone's browser:
 
-1. Celular conectado na **Tailscale** (MagicDNS) — `http://kavure.chimaera-heptatonic.ts.net:3001`.
-2. Logar no **Zomboid Control Panel** (conta admin do painel).
-3. Aba **Console** → digitar `save` → Enter (salva o mundo).
-4. ~5s depois → digitar `quit` → Enter.
-5. O jogo salva e sai → o **Docker reinicia o container sozinho** (`restart: unless-stopped`) → no boot o servidor re-baixa/atualiza os mods do Workshop (~1-2 min fora).
+1. Phone connected to **Tailscale** (MagicDNS) — `http://kavure.chimaera-heptatonic.ts.net:3001`.
+2. Log into the **Zomboid Control Panel** (panel admin account).
+3. **Console** tab → type `save` → Enter (saves the world).
+4. ~5s later → type `quit` → Enter.
+5. The game saves and exits → **Docker restarts the container by itself** (`restart: unless-stopped`) → on boot the server re-downloads/updates the Workshop mods (~1-2 min down).
 
-> Validado em 07/08/2026. Alternativa via SSH (Termius/Termux + Tailscale): `tailscale ssh kavure@kavure` → `zomboid-restart` (1 comando, faz save + restart).
+> Validated on 07/08/2026. Alternative over SSH (Termius/Termux + Tailscale): `tailscale ssh kavure@kavure` → `zomboid-restart` (1 command, does save + restart).
 
 ## Mods
 
-- Lista completa (WorkshopItems/Mods) gerida pelo **Zomboid Control Panel** (aba Mods) — ver [`zomboid-control-panel`](zomboid-control-panel.md).
-- Referência técnica em [`project-zomboid`](project-zomboid.md) (`Mods=`/`WorkshopItems=` no `pzserver.ini`).
-- Atualização de mods: automática no restart **4x/dia** (05:00, 11:00, 17:00, 23:00 — o servidor baixa updates do Workshop no boot).
+- Full list (WorkshopItems/Mods) managed by the **Zomboid Control Panel** (Mods tab) — see [`zomboid-control-panel`](zomboid-control-panel.md).
+- Technical reference in [`project-zomboid`](project-zomboid.md) (`Mods=`/`WorkshopItems=` in `pzserver.ini`).
+- Mod updates: automatic on the **4x/day** restart (05:00, 11:00, 17:00, 23:00 — the server downloads Workshop updates on boot).
 
-## Admin (dono)
+## Admin (owner)
 
-- **Painel web:** `http://kavure.chimaera-heptatonic.ts.net:3001` — RCON, players, mapa, mods, backup, eventos.
+- **Web panel:** `http://kavure.chimaera-heptatonic.ts.net:3001` — RCON, players, map, mods, backup, events.
 - **SSH/scripts:** [`ssh-runbook`](ssh-runbook.md) — start/stop/restart/update/backup.
-- **Players admins:** contas e permissões vêm do `players.db` migrado (inalterado).
+- **Admin players:** accounts and permissions come from the migrated `players.db` (unchanged).
 
 ## See also
-- [[project-zomboid]] — Servidor Project Zomboid (Docker)
-- [[ssh-runbook]] — Operação via SSH
-- [[zomboid-control-panel]] — Painel web
+- [[project-zomboid]] — Project Zomboid server (Docker)
+- [[ssh-runbook]] — Operation via SSH
+- [[zomboid-control-panel]] — Web panel

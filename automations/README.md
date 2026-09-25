@@ -2,97 +2,97 @@
 tags: [homelab, automation, backup, ritual]
 ---
 
-# Automações do Homelab — Registro
+# Homelab Automations — Log
 
-Fonte da verdade: [`schedules.json`](schedules.json) (JSON). Estas tabelas são a visão humana.
-Regra: **todo job novo/alterado/removido = atualizar `schedules.json` e estas tabelas no mesmo passo** (AGENTS.md canônico).
+Source of truth: [`schedules.json`](schedules.json) (JSON). These tables are the human-readable view.
+Rule: **every new/changed/removed job = update `schedules.json` and these tables in the same step** (canonical AGENTS.md).
 
-> **Scheduler (10/08/2026):** todos os jobs **customizados** do homelab migraram de cron para **systemd timers** `hl-*.timer` (`Persistent=true` — se a máquina estiver off no horário, o job roda no próximo boot). O **cron nativo** (Ubuntu/Mint) e o **cronie** (psicopompo, mantido p/ uso futuro) seguem ativos apenas p/ jobs do SO (`e2scrub_all`, `sysstat`, `anacron`, `0hourly`). Fonte: `schedules.json` (`type=systemd-timer`) e units em `/etc/systemd/system/hl-*.{service,timer}`.
+> **Scheduler (10/08/2026):** all **customized** homelab jobs migrated from cron to **systemd timers** `hl-*.timer` (`Persistent=true` — if the machine is off at the scheduled time, the job runs on the next boot). The **native cron** (Ubuntu/Mint) and **cronie** (psicopompo, kept for future use) remain active only for OS jobs (`e2scrub_all`, `sysstat`, `anacron`, `0hourly`). Source: `schedules.json` (`type=systemd-timer`) and units in `/etc/systemd/system/hl-*.{service,timer}`.
 
-## Janela de backup (padrão)
+## Backup window (standard)
 
 - **Local (psicopompo/kavure/kuaray):** 05:00–06:00 BRT (`America/Sao_Paulo`).
 - **VPS (ybytu/ybyra):** 08:00 UTC (= 05:00 BRT).
 
-| Hora | Job |
+| Time | Job |
 |---|---|
-| 05:00 | config-backup (todos os hosts) + zomboid-restart (kavure) |
+| 05:00 | config-backup (all hosts) + zomboid-restart (kavure) |
 | 05:15 | zomboid-backup (kavure) + **monitoring-backup (kavure, 13/09)** |
 | 05:20 | agentic-ai-backup (psicopompo) |
 | 05:25 | n8n-backup (kavure) |
 | 05:30 | valheim-backup (kavure) |
-| 05:35 | miracena-backup (kavure, timer ativado 13/09) |
+| 05:35 | miracena-backup (kavure, timer enabled 13/09) |
 | 05:40 | restic-configs-backup (psicopompo) |
 | 05:55 | etckeeper-push + configs-git-push |
-| dom 06:00 | restic-configs-check |
+| Sun 06:00 | restic-configs-check |
 
-## Tabela por host
+## Per-host table
 
 ### psicopompo
-| Job | Agendamento | Propósito |
+| Job | Schedule | Purpose |
 |---|---|---|
-| config-backup | 05:00 BRT | Espelho das configs no NAS |
-| agentic-ai-backup | 05:20 BRT | Cópia do vault |
-| restic-configs-backup | 05:40 BRT | Histórico versionado (14d/8s/6m) |
-| restic-configs-check | dom 06:00 | Integridade do repo |
+| config-backup | 05:00 BRT | Mirror configs to the NAS |
+| agentic-ai-backup | 05:20 BRT | Copy of the vault |
+| restic-configs-backup | 05:40 BRT | Versioned history (14d/8s/6m) |
+| restic-configs-check | Sun 06:00 | Repo integrity |
 | rclone-gdrive-backup | 06:30 BRT | Off-site → Google Drive |
-| configs-git-push | 05:55 BRT | Push GitHub `mnemocine` |
+| configs-git-push | 05:55 BRT | Push to GitHub `mnemocine` |
 | etckeeper-push | 05:55 BRT | Push /etc → NAS |
-| **hl-health-metrics** | **a cada 5 min** | Textfile: health files + units systemd (28/08) |
-| **hl-container-metrics** | **a cada 2 min** | Textfile: estado dos containers (28/08) |
-| **hl-smart-metrics** | **a cada 15 min** | Textfile: SMART dos discos (28/08) |
-| snapper-timeline | horário | Snapshots dos discos |
-| snapper-cleanup | diário | Cleanup de snapshots |
-| snap-pac hooks | a cada pacman | Snapshot pre/post update |
-| watchtower | polling 24h | Auto-update |
+| **hl-health-metrics** | **every 5 min** | Textfile: health files + systemd units (28/08) |
+| **hl-container-metrics** | **every 2 min** | Textfile: container state (28/08) |
+| **hl-smart-metrics** | **every 15 min** | Textfile: SMART data for the disks (28/08) |
+| snapper-timeline | hourly | Disk snapshots |
+| snapper-cleanup | daily | Snapshot cleanup |
+| snap-pac hooks | on every pacman run | Pre/post update snapshot |
+| watchtower | 24h polling | Auto-update |
 
 ### kavure
-| Job | Agendamento | Propósito |
+| Job | Schedule | Purpose |
 |---|---|---|
-| config-backup | 05:00 BRT | Espelho das configs |
+| config-backup | 05:00 BRT | Mirror configs |
 | etckeeper-push | 05:55 BRT | Push /etc |
-| zomboid-restart | 05/11/17/23 | Restart gracioso do PZ |
+| zomboid-restart | 05/11/17/23 | Graceful PZ restart |
 | zomboid-backup | 05:15 BRT | Saves → NFS |
 | **monitoring-backup** | **05:15 BRT** | Snapshot Prometheus + Loki/Grafana → NFS (13/09) |
-| **n8n-backup** | **05:25 BRT** | Dump Postgres do n8n → NFS (28/08) |
-| **valheim-backup** | **05:30 BRT** | Mundo `worlds_local` → NFS (corrigido 13/09) |
-| **miracena-backup** | **05:35 BRT** | Dump PG/MariaDB + uploads → NFS (timer ativado 13/09) |
-| sae-core_backup (borg) | 03:00 | Dumps SQL → NFS |
-| **hl-health-metrics** | **a cada 5 min** | Textfile: health files + units systemd (28/08) |
-| **hl-container-metrics** | **a cada 2 min** | Textfile: estado dos containers (28/08) |
-| **hl-smart-metrics** | **a cada 15 min** | Textfile: SMART dos discos físicos (28/08) |
-| watchtower | 03:00 BRT | Auto-update (único ativo p/ updates) |
-| AdvancedBackups | interno | Mundo Minecraft → NFS |
-| painel zomboid autobackup | interno | Saves (retenção 7) |
+| **n8n-backup** | **05:25 BRT** | n8n Postgres dump → NFS (28/08) |
+| **valheim-backup** | **05:30 BRT** | World `worlds_local` → NFS (fixed 13/09) |
+| **miracena-backup** | **05:35 BRT** | PG/MariaDB dump + uploads → NFS (timer enabled 13/09) |
+| sae-core_backup (borg) | 03:00 | SQL dumps → NFS |
+| **hl-health-metrics** | **every 5 min** | Textfile: health files + systemd units (28/08) |
+| **hl-container-metrics** | **every 2 min** | Textfile: container state (28/08) |
+| **hl-smart-metrics** | **every 15 min** | Textfile: SMART data for the physical disks (28/08) |
+| watchtower | 03:00 BRT | Auto-update (only active one for updates) |
+| AdvancedBackups | internal | Minecraft world → NFS |
+| zomboid panel autobackup | internal | Saves (retention 7) |
 
 ### kuaray
-| Job | Agendamento | Propósito |
+| Job | Schedule | Purpose |
 |---|---|---|
-| config-backup | 05:00 BRT | Espelho das configs (reconstruídas 08/08) |
+| config-backup | 05:00 BRT | Mirror configs (rebuilt 08/08) |
 | etckeeper-push | 05:55 BRT | Push /etc |
-| timeshift-hourly | 05:00 | Verificação timeshift (SEM snapshots ativos — reavaliar) |
-| **hl-health-metrics** | **a cada 5 min** | Textfile: health files + units systemd (28/08) |
-| **hl-container-metrics** | **a cada 2 min** | Textfile: estado dos containers (28/08) |
-| **hl-smart-metrics** | **a cada 15 min** | Textfile: SMART do HDD (28/08 — pegou pending=37) |
-| watchtower | **PAUSADO** | Auto-update (decisão pendente) |
+| timeshift-hourly | 05:00 | timeshift check (NO active snapshots — re-evaluate) |
+| **hl-health-metrics** | **every 5 min** | Textfile: health files + systemd units (28/08) |
+| **hl-container-metrics** | **every 2 min** | Textfile: container state (28/08) |
+| **hl-smart-metrics** | **every 15 min** | Textfile: SMART data for the HDD (28/08 — picked up pending=37) |
+| watchtower | **PAUSED** | Auto-update (pending decision) |
 
 ### ybytu (UTC)
-| Job | Agendamento | Propósito |
+| Job | Schedule | Purpose |
 |---|---|---|
-| config-backup | 08:00 UTC | Espelho das configs |
+| config-backup | 08:00 UTC | Mirror configs |
 | etckeeper-push | 08:55 UTC | Push /etc |
-| **hl-health-metrics** | **a cada 5 min** | Textfile: health files + units systemd (28/08) |
-| **hl-container-metrics** | **a cada 2 min** | Textfile: estado dos containers (28/08) |
-| watchtower | polling 24h | Auto-update |
+| **hl-health-metrics** | **every 5 min** | Textfile: health files + systemd units (28/08) |
+| **hl-container-metrics** | **every 2 min** | Textfile: container state (28/08) |
+| watchtower | 24h polling | Auto-update |
 
 ### ybyra (UTC)
-| Job | Agendamento | Propósito |
+| Job | Schedule | Purpose |
 |---|---|---|
-| config-backup | 08:00 UTC | Espelho das configs |
+| config-backup | 08:00 UTC | Mirror configs |
 | etckeeper-push | 08:55 UTC | Push /etc |
-| **hl-health-metrics** | **a cada 5 min** | Textfile: health files + units systemd (28/08) |
-| **hl-container-metrics** | **a cada 2 min** | Textfile: estado dos containers (28/08) |
-| watchtower | polling 24h | Auto-update |
+| **hl-health-metrics** | **every 5 min** | Textfile: health files + systemd units (28/08) |
+| **hl-container-metrics** | **every 2 min** | Textfile: container state (28/08) |
+| watchtower | 24h polling | Auto-update |
 
 ## Schema (`schedules.json`)
 
@@ -113,14 +113,14 @@ Regra: **todo job novo/alterado/removido = atualizar `schedules.json` e estas ta
 }
 ```
 
-## Runbook — adicionar/alterar/remover um job
+## Runbook — adding/changing/removing a job
 
-1. **Criar/editar o job** (cron, systemd timer, etc.) no host.
-2. **Atualizar `schedules.json`** + as tabelas deste README.
-3. Atualizar a doc do serviço correspondente (se afetar backup, citar `backups/config-backup.md`).
-4. Validar: rodar o job manualmente e conferir health/ntfy.
-5. Se mudar a janela de backup: atualizar a tabela "Janela" acima e os `/etc/cron.d/*`.
+1. **Create/edit the job** (cron, systemd timer, etc.) on the host.
+2. **Update `schedules.json`** + the tables in this README.
+3. Update the doc for the corresponding service (if it affects backups, reference `backups/config-backup.md`).
+4. Validate: run the job manually and check health/ntfy.
+5. If the backup window changes: update the "Window" table above and the `/etc/cron.d/*`.
 
-## OS-default (não gerenciar)
+## OS defaults (do not manage)
 
-fstrim, logrotate, apt-daily*, sysstat, e2scrub, dpkg-db-backup, man-db, fwupd-refresh, motd-news, mintupdate-automation (kuaray), anacron (kuaray), shadow, plocate, cachyos-rate-mirrors. Listados no JSON como referência; não devem ser alterados pelos agentes.
+fstrim, logrotate, apt-daily*, sysstat, e2scrub, dpkg-db-backup, man-db, fwupd-refresh, motd-news, mintupdate-automation (kuaray), anacron (kuaray), shadow, plocate, cachyos-rate-mirrors. Listed in the JSON as a reference; agents must not modify them.

@@ -2,82 +2,82 @@
 tags: [homelab, servico, miracena, stack, docker, n8n, directus, wordpress, nuxt, kavure]
 ---
 
-# Miracena - Stack de Infraestrutura
+# Miracena - Infrastructure Stack
 
-**Servidor:** Kavure (Dell OptiPlex 3060 SFF)
-**Data de Deploy:** 10/09/2026
-**Projeto Canônico & Governança:** Miracena (Incubação temporária no Homelab)
-**Ambiente:** Servidor Kavure (instância dedicada isolada)
+**Server:** Kavure (Dell OptiPlex 3060 SFF)
+**Deploy Date:** 10/09/2026
+**Canonical Project & Governance:** Miracena (temporary incubation in the Homelab)
+**Environment:** Kavure Server (isolated dedicated instance)
 
-## Stack Deployada
+## Deployed Stack
 
-| Serviço | Container | Porta | Imagem | Limite RAM | Limite CPU |
+| Service | Container | Port | Image | RAM Limit | CPU Limit |
 |---------|-----------|-------|--------|------------|------------|
-| PostgreSQL | miracena-postgres | 5432 (interno) | postgres:16-alpine | 1 GB | 0.5 |
-| Redis | miracena-redis | 6379 (interno) | redis:7-alpine | 128 MB | 0.25 |
+| PostgreSQL | miracena-postgres | 5432 (internal) | postgres:16-alpine | 1 GB | 0.5 |
+| Redis | miracena-redis | 6379 (internal) | redis:7-alpine | 128 MB | 0.25 |
 | Directus | miracena-directus | 8055 | directus/directus:latest | 2 GB | 1.0 |
 | Nuxt3 Frontend | miracena-nuxt | 3003 | node:22-alpine | 1 GB | 1.0 |
 | Nginx Proxy Manager | miracena-nginx-proxy-manager | 81 (admin), 8180 (HTTP), 8445 (HTTPS) | jc21/nginx-proxy-manager:latest | 256 MB | 0.25 |
 | WordPress | miracena-wordpress | 8085 | wordpress:latest | 512 MB | 0.5 |
-| MariaDB | miracena-mariadb | 3306 (interno) | mariadb:11 | 512 MB | 0.25 |
+| MariaDB | miracena-mariadb | 3306 (internal) | mariadb:11 | 512 MB | 0.25 |
 | n8n | miracena-n8n | 5678 | docker.n8n.io/n8nio/n8n:stable | 1 GB | 0.5 |
 | Tailscale Tunnel | miracena-tunnel | — | tailscale/tailscale:latest | 128 MB | 0.25 |
 
-## Acessos
+## Access
 
-### Externo (via Tailscale Funnel — público, sem Tailscale necessário)
+### External (via Tailscale Funnel — public, no Tailscale required)
 - **WordPress (site):** https://miracena.chimaera-heptatonic.ts.net/
 
-### Interno (via Tailscale — requer Tailscale conectado)
+### Internal (via Tailscale — requires Tailscale connected)
 - **Nuxt3 Frontend:** http://kavure.chimaera-heptatonic.ts.net:3003
 - **WordPress:** http://kavure.chimaera-heptatonic.ts.net:8085
 - **Directus:** http://kavure.chimaera-heptatonic.ts.net:8055
 - **n8n:** http://kavure.chimaera-heptatonic.ts.net:5678
 - **NPM Admin:** http://kavure.chimaera-heptatonic.ts.net:81
 
-### Credenciais
+### Credentials
 
 #### Nginx Proxy Manager
 - **Email:** ceduadorodrig@gmail.com
-- **Senha:** (no .env — NPM_ADMIN_PASSWORD / SOPS)
+- **Password:** (in .env — NPM_ADMIN_PASSWORD / SOPS)
 - **URL:** http://kavure.chimaera-heptatonic.ts.net:81
 
 #### n8n
-- **Usuario:** edu
-- **Senha:** (no .env — N8N_BASIC_AUTH_PASSWORD)
-- **Status:** ✅ Configurado (10/09/2026)
+- **User:** edu
+- **Password:** (in .env — N8N_BASIC_AUTH_PASSWORD)
+- **Status:** ✅ Configured (10/09/2026)
 
 #### Directus
 - **Email:** ceduadorodrig@gmail.com
-- **Senha:** (no .env — ADMIN_PASSWORD)
-- **Static Token:** `miracena-admin-token-2026` (para API/CLI)
-- **Status:** ✅ Configurado (10/09/2026)
-- **Schema:** 21 collections, 28 relações via SQL direto
-- **Dados de teste:** 6 membros, 3 guildas, 3 cabals, 3 contatos, 2 squads, 3 projetos, 2 deals, 4 tarefas, 3 OKRs, 5 key results, 2 invoices, 1 pagamento, 3 assets, 2 peer reviews
-- **Roles:** Admin (built-in), Member (full CRUD), Client (read-only), Public (assets/guildas/cabals)
+- **Password:** (in .env — ADMIN_PASSWORD)
+- **Static Token:** `miracena-admin-token-2026` (for API/CLI)
+- **Status:** ✅ Configured (10/09/2026)
+- **Schema:** 21 collections, 28 relations via direct SQL
+- **Test data:** 6 members, 3 guilds, 3 cabals, 3 contacts, 2 squads, 3 projects, 2 deals, 4 tasks, 3 OKRs, 5 key results, 2 invoices, 1 payment, 3 assets, 2 peer reviews
+- **Roles:** Admin (built-in), Member (full CRUD), Client (read-only), Public (assets/guilds/cabals)
 - **Policies:** Miracena Member (full CRUD), Miracena Client (read-only), Miracena Public (read-only on assets)
-- **Permissions:** 103 custom permissions (Member: CRUD em 23 collections, Client: read em 8 collections, Public: read em 3 collections)
-- **Dashboards:** 4 dashboards (Visão Geral, OKRs & Progresso, Financeiro, Asset Bank) com 21 painéis
-- **Flows:** 3 flows ativos (Novo Membro, Tarefa Criada, Proposta Criada) — limite free tier atingido
+- **Permissions:** 103 custom permissions (Member: CRUD on 23 collections, Client: read on 8 collections, Public: read on 3 collections)
+- **Dashboards:** 4 dashboards (Visão Geral, OKRs & Progresso, Financeiro, Asset Bank) with 21 panels
+- **Flows:** 3 active flows (Novo Membro, Tarefa Criada, Proposta Criada) — free tier limit reached
 
 #### WordPress
-- **Setup:** http://kavure.chimaera-heptatonic.ts.net:8085 (primeiro acesso cria admin)
-- **Status:** ⏳ Aguardando configuração
+- **Setup:** http://kavure.chimaera-heptatonic.ts.net:8085 (first access creates the admin)
+- **Status:** ⏳ Awaiting configuration
 
-## PostgreSQL Compartilhado
+## Shared PostgreSQL
 
-Um único PostgreSQL (`miracena-postgres`) serve **dois bancos separados**:
+A single PostgreSQL (`miracena-postgres`) serves **two separate databases**:
 
-| Database | Usuário | Serviço |
+| Database | User | Service |
 |----------|---------|---------|
 | `miracena` | `miracena` | Directus |
 | `n8n` | `n8n` | n8n |
 
-**Critério:** homelab com RAM limitada (12 GB); compartilhar instância reduz overhead. Bancos isolados, sem cross-reference. Padrão aceito para ambientes não-críticos.
+**Rationale:** homelab with limited RAM (12 GB); sharing the instance reduces overhead. Isolated databases, no cross-reference. Accepted pattern for non-critical environments.
 
 ## Tailscale Funnel
 
-O container `miracena-tunnel` conecta-se à tailnet como hostname `miracena` e expõe o NPM via Funnel na porta 443.
+The `miracena-tunnel` container connects to the tailnet as hostname `miracena` and exposes NPM via Funnel on port 443.
 
 **serve.json:**
 ```json
@@ -92,9 +92,9 @@ O container `miracena-tunnel` conecta-se à tailnet como hostname `miracena` e e
 }
 ```
 
-**Limitação do Tailscale MagicDNS:** subdomínios (`site.miracena.xxx`, `cms.miracena.xxx`) não resolvem — o DNS só registra o hostname do nó (`miracena.chimaera-heptatonic.ts.net`). Serviços internos (Directus, n8n) ficam acessíveis pelas portas mapeadas em `kavure.chimaera-heptatonic.ts.net:{porta}`.
+**Tailscale MagicDNS limitation:** subdomains (`site.miracena.xxx`, `cms.miracena.xxx`) do not resolve — DNS only registers the node hostname (`miracena.chimaera-heptatonic.ts.net`). Internal services (Directus, n8n) remain reachable through the mapped ports at `kavure.chimaera-heptatonic.ts.net:{porta}`.
 
-## Estrutura de Arquivos
+## File Structure
 
 ```
 /srv/data/miracena/
@@ -119,7 +119,7 @@ O container `miracena-tunnel` conecta-se à tailnet como hostname `miracena` e e
 └── backups/                    # Backups locais
 ```
 
-## Rede Docker
+## Docker Network
 
 ```
 miracena_default (172.x.x.x/16)
@@ -134,7 +134,7 @@ miracena_default (172.x.x.x/16)
 └── miracena-tunnel
 ```
 
-## Comandos Úteis
+## Useful Commands
 
 ```bash
 # Status dos containers
@@ -162,9 +162,9 @@ docker exec miracena-tunnel tailscale funnel status
 docker exec miracena-tunnel tailscale status
 ```
 
-## Portas no Kavure
+## Ports on Kavure
 
-| Porta | Serviço | Conflito? |
+| Port | Service | Conflict? |
 |-------|---------|-----------|
 | 80 | Pi-hole | — |
 | 443 | Pi-hole | — |
@@ -180,19 +180,19 @@ docker exec miracena-tunnel tailscale status
 | 8445 | NPM HTTPS | — |
 | 5678 | n8n | — |
 
-## Backups Automáticos
+## Automatic Backups
 
-### Estrutura
+### Structure
 
-| Componente | Método | Frequência |
+| Component | Method | Frequency |
 |------------|--------|------------|
-| PostgreSQL (Directus + n8n) | `pg_dump` → gzip | Diário 05:35 BRT |
-| MariaDB (WordPress) | `mariadb-dump` → gzip | Diário 05:35 BRT |
-| WordPress files | `rsync --delete` | Diário 05:35 BRT |
-| Directus uploads | `rsync --delete` | Diário 05:35 BRT |
-| NPM config | `rsync --delete` | Diário 05:35 BRT |
+| PostgreSQL (Directus + n8n) | `pg_dump` → gzip | Daily 05:35 BRT |
+| MariaDB (WordPress) | `mariadb-dump` → gzip | Daily 05:35 BRT |
+| WordPress files | `rsync --delete` | Daily 05:35 BRT |
+| Directus uploads | `rsync --delete` | Daily 05:35 BRT |
+| NPM config | `rsync --delete` | Daily 05:35 BRT |
 
-### Destino
+### Destination
 
 - **NAS:** `/mnt/BACKUP/miracena-server-kavure/daily/` (psicopompo)
 - **Mount point:** `/srv/data/miracena/offbox` (NFS via autofs)
@@ -200,9 +200,9 @@ docker exec miracena-tunnel tailscale status
 - **Script:** `/usr/local/bin/miracena-backup`
 - **Health file:** `/srv/health/miracena-backup-last-ok`
 - **Log:** `/var/log/miracena-backup.log`
-- **ntfy:** `/backup` topic em caso de falha
+- **ntfy:** `/backup` topic on failure
 
-### Comandos
+### Commands
 
 ```bash
 # Executar backup manualmente
@@ -223,91 +223,91 @@ zcat /mnt/BACKUP/miracena-server-kavure/daily/postgres-n8n-YYYY-MM-DD.sql.gz | d
 zcat /mnt/BACKUP/miracena-server-kavure/daily/mariadb-wordpress-YYYY-MM-DD.sql.gz | docker exec -i miracena-mariadb mariadb -u root -p"$MYSQL_ROOT_PASSWORD" wordpress
 ```
 
-## Próximos Passos
+## Next Steps
 
-1. **Configurar roles & policies** no Directus (Admin, Member, Client, Public)
-2. **Criar dashboards (Insights)** no Directus — OKR progress, squad velocity, revenue, peer review, asset bank
-3. **Configurar flows (automações)** — notifications, calendar sync, AI agent triggers
-4. **Configurar WordPress** (primeiro acesso via http://kavure.chimaera-heptatonic.ts.net:8085)
-5. **Habilitar SSL** via Let's Encrypt no NPM (se domínio próprio disponível)
-6. **Migrar para VPS** quando dimensionar (plano Hostinger Business não suporta)
+1. **Configure roles & policies** in Directus (Admin, Member, Client, Public)
+2. **Create dashboards (Insights)** in Directus — OKR progress, squad velocity, revenue, peer review, asset bank
+3. **Configure flows (automations)** — notifications, calendar sync, AI agent triggers
+4. **Configure WordPress** (first access via http://kavure.chimaera-heptatonic.ts.net:8085)
+5. **Enable SSL** via Let's Encrypt on NPM (if an own domain is available)
+6. **Migrate to VPS** once sized (Hostinger Business plan does not support it)
 
-## Notas
+## Notes
 
-- **n8n migrado:** de stack standalone (`/srv/data/n8n/`) para stack Miracena. Database vazio (0 workflows, 0 credentials) — sem necessidade de migração de dados.
-- **PostgreSQL compartilhado:** Directus e n8n usam a mesma instância com bancos separados.
-- **Tailscale Funnel:** expõe WordPress publicamente via HTTPS. Directus e n8n acessíveis internamente via portas.
-- **Resource limits:** Total alocado ~6.6 GB RAM (funcional com 12 GB disponíveis).
-- **Ambiente CGNAT:** sem IP público, acesso externo exclusivamente via Tailscale.
-- **Directus Flatland:** 21 collections criadas (squads, guildas, cabals, peer reviews, OKRs, tasks, projects, deals, contacts, invoices, assets, etc.) com 28 relações via SQL direto (API retornava 500 por causa de tipo UUID vs integer).
-- **Nuxt3 Frontend:** Container `miracena-nuxt` na porta 3003, conectado ao Directus via `NUXT_PUBLIC_DIRECTUS_URL`. Dashboard com stats, tarefas recentes e OKRs.
-- **Directus Access Control:** 3 roles customizadas (Member, Client, Public) com policies e 103 permissões customizadas. Free tier limitado a 3 flows — Novo Membro, Tarefa Criada, Proposta Criada.
-- **Directus Insights:** 4 dashboards com 21 painéis (metrics, lists) para visão geral, OKRs, financeiro e asset bank.
+- **n8n migrated:** from the standalone stack (`/srv/data/n8n/`) to the Miracena stack. Empty database (0 workflows, 0 credentials) — no data migration needed.
+- **Shared PostgreSQL:** Directus and n8n use the same instance with separate databases.
+- **Tailscale Funnel:** exposes WordPress publicly over HTTPS. Directus and n8n reachable internally via ports.
+- **Resource limits:** Total allocated ~6.6 GB RAM (works with 12 GB available).
+- **CGNAT environment:** no public IP, external access exclusively via Tailscale.
+- **Directus Flatland:** 21 collections created (squads, guilds, cabals, peer reviews, OKRs, tasks, projects, deals, contacts, invoices, assets, etc.) with 28 relations via direct SQL (the API returned 500 because of a UUID vs integer type mismatch).
+- **Nuxt3 Frontend:** Container `miracena-nuxt` on port 3003, connected to Directus via `NUXT_PUBLIC_DIRECTUS_URL`. Dashboard with stats, recent tasks and OKRs.
+- **Directus Access Control:** 3 custom roles (Member, Client, Public) with policies and 103 custom permissions. Free tier limited to 3 flows — Novo Membro, Tarefa Criada, Proposta Criada.
+- **Directus Insights:** 4 dashboards with 21 panels (metrics, lists) for overview, OKRs, finance and asset bank.
 
-## Governança Enforced no Directus (11/09/2026)
+## Governance Enforced in Directus (11/09/2026)
 
-### Infra de extensões
+### Extension infra
 
-- `docker-compose.yml`: directus com `EXTENSIONS_AUTO_RELOAD=true` + `MARKETPLACE_TRUST=all` + volume `./directus/extensions:/directus/extensions`
-- **Hook custom `miracena-workflow`**: enforcement de fluxo em todas as operações de itens do API
-  - Fonte canônica: `/srv/data/miracena/directus/src/miracena-workflow/`
-  - Build: dentro do container `miracena-nuxt` (Node 22), apontando para `/srv/data/miracena/directus/src/miracena-workflow` (mesma pasta montada em `/app`); `npm run build` gera `dist/`
-  - **Requisito:** package.json de API extension precisa de `directus:extension: {type, path, source}` — o campo `source` é obrigatório (se faltar, erro "Current directory is not a valid Directus extension")
-  - Deploy: copia `dist/` + `package.json` para `/directus/extensions/miracena-workflow/`
-  - **Importante:** runtime do Directus 12 não resolve `@directus/errors` a partir do `import` do hook — é preciso vendê-la em `dist/node_modules/@directus/errors` (copiar do node_modules do build)
+- `docker-compose.yml`: directus with `EXTENSIONS_AUTO_RELOAD=true` + `MARKETPLACE_TRUST=all` + volume `./directus/extensions:/directus/extensions`
+- **Custom hook `miracena-workflow`**: workflow enforcement on all API item operations
+  - Canonical source: `/srv/data/miracena/directus/src/miracena-workflow/`
+  - Build: inside the `miracena-nuxt` container (Node 22), pointing at `/srv/data/miracena/directus/src/miracena-workflow` (same folder mounted at `/app`); `npm run build` produces `dist/`
+  - **Requirement:** the API extension package.json needs `directus:extension: {type, path, source}` — the `source` field is mandatory (if missing, error "Current directory is not a valid Directus extension")
+  - Deploy: copies `dist/` + `package.json` to `/directus/extensions/miracena-workflow/`
+  - **Important:** the Directus 12 runtime does not resolve `@directus/errors` from the hook's `import` — you must vendor it into `dist/node_modules/@directus/errors` (copy from the build's node_modules)
 
-### Regras de workflow (hook `miracena-workflow`)
+### Workflow rules (hook `miracena-workflow`)
 
-| Collection | Regra | Erro |
+| Collection | Rule | Error |
 |---|---|---|
-| `tasks` | status `done` requer `deliverable_url` | `INCOMPLETE_WORKFLOW 400` |
-| `tasks` | status `in_progress` requer `assignee` | `INCOMPLETE_WORKFLOW 400` |
-| `projects` | status `ativo` requer `squad` + `client` | `INCOMPLETE_WORKFLOW 400` |
-| `deals` | stage `won` requer `project` | `INCOMPLETE_WORKFLOW 400` |
+| `tasks` | status `done` requires `deliverable_url` | `INCOMPLETE_WORKFLOW 400` |
+| `tasks` | status `in_progress` requires `assignee` | `INCOMPLETE_WORKFLOW 400` |
+| `projects` | status `ativo` requires `squad` + `client` | `INCOMPLETE_WORKFLOW 400` |
+| `deals` | stage `won` requires `project` | `INCOMPLETE_WORKFLOW 400` |
 
-Bateria de testes 11/09/2026: 6/6 corretos (bloqueios e passagens).
+Test suite 11/09/2026: 6/6 correct (blocks and passes).
 
-### Consolidação para 25 collections (limite free tier)
+### Consolidation to 25 collections (free tier limit)
 
-O Directus 12 free tier limita a **25 collections custom até em self-hosted** (erro HTTP 403 `LIMIT_EXCEEDED`). Consolidação feita:
+The Directus 12 free tier limits you to **25 custom collections even when self-hosted** (HTTP 403 error `LIMIT_EXCEEDED`). Consolidation done:
 
-| Collection removida | Onde foi parar |
+| Removed collection | Where it went |
 |---|---|
-| `licenses` | campos `license_type`, `license_cost`, `purchase_date` em `assets` |
-| `deliverables` | campos `deliverable_url`, `deliverable_note` em `tasks` |
-| `milestones` | cobertos por `tasks` com prazos |
-| `pdps` | campos `pdi_goals`, `pdi_actions` em `members` |
-| `payments` | campos `payment_method`, `payment_date` em `invoices` |
+| `licenses` | fields `license_type`, `license_cost`, `purchase_date` in `assets` |
+| `deliverables` | fields `deliverable_url`, `deliverable_note` in `tasks` |
+| `milestones` | covered by `tasks` with deadlines |
+| `pdps` | fields `pdi_goals`, `pdi_actions` in `members` |
+| `payments` | fields `payment_method`, `payment_date` in `invoices` |
 
-Novas collections de governança criadas (guias no campo `note` de cada collection visível no Data Studio):
+New governance collections created (guides in the `note` field of each collection, visible in the Data Studio):
 
-- `sprints` — ciclo quinzenal, status planejada/em_andamento/concluída; squad + objetivo
-- `daily_syncs` — daily async (done_yesterday, plan_today, blockers obrigatórios)
-- `retrospectives` — retro da sprint (what_went_well, what_improve, actions)
-- `decisions` — registro decisório (estratégica/tática/operacional, reversível, review_date)
-- `guild_sessions` — sessões de guilda ( alimenta métrica Conhecimento Compartilhado)
-- `checklists` — pendências do framework viva (demais categorias em cadeia_valor/processo/infra/acesso/marketing/juridico)
-- `links` — centralização de clientes, ferramentas, templates, referências
+- `sprints` — biweekly cycle, planned/in_progress/completed status; squad + objective
+- `daily_syncs` — daily async (done_yesterday, plan_today, blockers mandatory)
+- `retrospectives` — sprint retro (what_went_well, what_improve, actions)
+- `decisions` — decision log (strategic/tactical/operational, reversible, review_date)
+- `guild_sessions` — guild sessions (feeds the Shared Knowledge metric)
+- `checklists` — pending items of the living framework (remaining categories in cadeia_valor/processo/infra/acesso/marketing/juridico)
+- `links` — centralization of clients, tools, templates, references
 
-Permissões `Miracena Member` aplicadas: full CRUD sobre as 7 novas collections (28 permissões).
+`Miracena Member` permissions applied: full CRUD on the 7 new collections (28 permissions).
 
-### Roles granulares (11/09/2026 — controle de acesso)
+### Granular roles (11/09/2026 — access control)
 
-Nova role **Freelancer** (editores/freelas externos) criada:
+New **Freelancer** role (external editors/freelancers) created:
 
-| Role | Policy | O que vê | O que NÃO vê |
+| Role | Policy | What it sees | What it does NOT see |
 |---|---|---|---|
-| Admin | Administrator | tudo | — |
-| Member | Miracena Member | full CRUD (time interno) | — |
-| **Freelancer** | Miracena Freelancer | read: tasks, projects, members, assets, guilds, sprints, links · update: tasks, daily_syncs · create: daily_syncs | **403:** invoices, profit_share, deals, contacts, proposals, peer_reviews, okrs, key_results, decisions, checklists, cabals, guild_sessions · não cria tasks |
-| Client | Miracena Client | read: projetos/faturas/deals (API only) | módulos do app |
+| Admin | Administrator | everything | — |
+| Member | Miracena Member | full CRUD (internal team) | — |
+| **Freelancer** | Miracena Freelancer | read: tasks, projects, members, assets, guilds, sprints, links · update: tasks, daily_syncs · create: daily_syncs | **403:** invoices, profit_share, deals, contacts, proposals, peer_reviews, okrs, key_results, decisions, checklists, cabals, guild_sessions · cannot create tasks |
+| Client | Miracena Client | read: projects/invoices/deals (API only) | app modules |
 
-Validado com usuário de teste (13 verificações, passou tudo — usuário deletado após teste).
+Validated with a test user (13 checks, everything passed — user deleted after the test).
 
-**Limitação free tier:** restrição de *fields por permissão* retorna `custom_permission_rules_enabled is a restricted resource` — não dá para esconder emails do diretório de members do freela via DB override (não enforce mesmo alterando a tabela). Na cultura de transparência Miracena, diretório aberto é aceitável.
+**Free tier limitation:** restricting *fields per permission* returns `custom_permission_rules_enabled is a restricted resource` — there is no way to hide the freelancer's emails from the members directory via a DB override (it is not enforced even after changing the table). In Miracena's transparency culture, an open directory is acceptable.
 
-**Dashboards por role:** no Directus 12 o `module_listing` (ocultar módulos por role) foi **removido** — a barrra de módulos é global (`directus_settings.module_bar`). Dashboards são visíveis para qualquer usuário com app_access (painéis de coleta sem permissão retornam erro vazio na UI). Solução definitiva planejada: **dashboards por role no front Nuxt3** (rotas por role com o SDK do Directus), que respeita as mesmas permissões da API — front apenas lê o que a permissão deixa.
+**Dashboards per role:** in Directus 12 `module_listing` (hiding modules per role) was **removed** — the module bar is global (`directus_settings.module_bar`). Dashboards are visible to any user with app_access (collection panels without permission return an empty error in the UI). Definitive solution planned: **dashboards per role in the Nuxt3 front** (per-role routes with the Directus SDK), which honors the same API permissions — the front only reads what the permission allows.
 
-### Backup do diretório de extensions
+### Backup of the extensions directory
 
-O hook em `/srv/data/miracena/directus/extensions/` **não é coberto pelo rsync do `miracena-backup`** (que copia apenas uploads, database, wordpress, NPM). A fonte canônica em `src/miracena-workflow` permite rebuild. Se instalar extensões do Marketplace, adicionar linha rsync no `/usr/local/bin/miracena-backup`.
+The hook in `/srv/data/miracena/directus/extensions/` **is not covered by the `miracena-backup` rsync** (which only copies uploads, database, wordpress, NPM). The canonical source in `src/miracena-workflow` allows a rebuild. If you install Marketplace extensions, add an rsync line to `/usr/local/bin/miracena-backup`.
