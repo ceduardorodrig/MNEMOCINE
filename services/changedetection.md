@@ -4,9 +4,9 @@ tags: [homelab, service, changedetection, monitoring, ybytu]
 
 # Changedetection.io
 
-Monitoramento de mudanças em páginas web. Roda no ybytu (Docker).
+Web page change monitoring. Runs on ybytu (Docker).
 
-**Servidor:** ybytu
+**Server:** ybytu
 
 ## Deploy
 
@@ -17,17 +17,17 @@ docker run -d --restart unless-stopped --name changedetection \
   dgtlmoon/changedetection.io
 ```
 
-## Acesso
+## Access
 
 - URL: `http://100.115.253.109:8082`
 - Tailscale DNS: `http://ybytu.chimaera-heptatonic.ts.net:8082`
 - API token: Settings → API
-- Notificação: ntfy (`ntfy://100.115.253.109:8083/cambiomonitor`)
+- Notification: ntfy (`ntfy://100.115.253.109:8083/cambiomonitor`)
 
 ## Config
 
-- Modo text/HTML (`html_requests`), sem Playwright (economia de RAM)
-- Intervalo padrão: 3h
+- Text/HTML mode (`html_requests`), without Playwright (saves RAM)
+- Default interval: 3h
 - Workers: 5
 - Timeout: 45s
 
@@ -35,9 +35,9 @@ docker run -d --restart unless-stopped --name changedetection \
 
 ~50-80 MB.
 
-## Uso sugerido
+## Suggested Uses
 
-- Páginas de programas de mestrado (UFSC, USP, CAPES, exterior)
-- Vagas de emprego
-- Editais e bolsas
-- Preço de produtos
+- Graduate program websites (UFSC, USP, CAPES, international)
+- Job openings
+- Public notices, tenders, and grants
+- Product prices
