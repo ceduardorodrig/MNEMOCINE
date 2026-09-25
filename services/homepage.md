@@ -107,7 +107,7 @@ docker restart homepage
 
 > **Applying config changes:** Homepage is **static** — after editing `services.yaml`/`settings.yaml` etc., regenerate the HTML with the **refresh button** (bottom-right corner) or:
 > ```bash
-> curl http://127.0.0.1:3001/api/revalidate   # takes ~1 min; returns when finished
+> curl http://127.0.0.1:3001/api/revalidate   # demora ~1 min; retorna quando terminar
 > ```
 > No rebuild or container recreation needed. `docker restart homepage` also works (reloads on the first request).
 
