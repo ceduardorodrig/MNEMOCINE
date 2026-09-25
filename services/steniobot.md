@@ -112,7 +112,7 @@ Peça no chat para um agente executar `sumaenima-ctl start`.
 
 | Dado | Método |
 |---|---|
-| Código + git | Repo principal em `/mnt/NVME_PCI/agentic-ai/sumaenimahub/sumaenima-hub/` (GitHub) + cópia de deploy em `/srv/data/sumaenimahub/SUMAENIMA-HUB/` (kavure) |
+| Código + git | Repo principal em `/mnt/NVME_PCI/homelab/sumaenimahub/sumaenima-hub/` (GitHub) + cópia de deploy em `/srv/data/sumaenimahub/SUMAENIMA-HUB/` (kavure) |
 | Banco PostgreSQL | Backup automático diário 03:00 via sentinel (Borg + pg_dump → NFS psicopompo) |
 
 > **Como roda (29/08/2026):** systemd timer `hl-sumaenima-backup.timer` (kavure) → `/usr/local/bin/sumaenima-backup` (failsafe/retry/ntfy `/backup`) → `docker exec sae-core_backup python3 /app/scripts/backup/sentinel.py`. Marcador `/app/logs/.backup_last_run` tocado pelo host (root); health file `/srv/health/sumaenima-backup-last-ok` (coberto pelo alerta `BackupNotRun` do Grafana via textfile collector). O crond interno do container foi **removido em 29/08** (a imagem roda como `appuser` desde v2.22.0 e não lia `/etc/crontabs/root`).

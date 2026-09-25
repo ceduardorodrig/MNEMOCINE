@@ -47,7 +47,7 @@ Helpers (psicopompo, 0700)
 scp secrets/generated/zomboid.env   kavure:/srv/data/zomboid/.env        # + chown kavure:kavure
 scp secrets/generated/homepage.env  ybytu:/home/ubuntu/homelab/homepage/config/.env
 scp secrets/generated/sumaenima.env kavure:/srv/data/sumaenimahub/SUMAENIMA-HUB/.env
-cp  secrets/generated/sumaenima.env /mnt/NVME_PCI/agentic-ai/sumaenimahub/sumaenima-hub/.env
+cp  secrets/generated/sumaenima.env /mnt/NVME_PCI/homelab/sumaenimahub/sumaenima-hub/.env
 scp secrets/generated/sumaenima.env ybyra:/home/ubuntu/homelab/sumaenima/.env   # subset Sumænimá (edge/SPA)
 ```
 

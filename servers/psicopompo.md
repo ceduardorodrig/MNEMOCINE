@@ -17,7 +17,7 @@ tags: [homelab, server, psicopompo, gaming, docker, storage, power, gpu, nvidia,
 | **GPU** | NVIDIA GeForce RTX 5050 |
 | **RAM** | 46 GB (ZRAM: 46 GB) |
 | **Disco Sistema** | 462 GB NVMe (Kingston NV3) — `/dev/nvme1n1p2` — 49% usado (06/09) |
-| **Disco PCIe** | 1.8 TB NVMe (Kingston NV2) — `/mnt/NVME_PCI` — 36% usado, ~1.2TB livres (06/09, após limpeza Docker de ~570GB — ver [`guides/docker-disk-cleanup.md`](../guides/docker-disk-cleanup.md)). Fusão BTRFS: nvme1n1p5 + nvme1n1p1 de 100GB ex-Windows. Maiores consumidores: SteamLibrary ~550G, containerd-data ~59G, sumaenimahub ~50G |
+| **Disco PCIe** | 1.8 TB NVMe (Kingston NV2) — `/mnt/NVME_PCI` — 36% usado, ~1.2TB livres (06/09, após limpeza Docker de ~570GB — ver [`guides/docker-disk-cleanup.md`](../guides/docker-disk-cleanup.md)). Fusão BTRFS: nvme1n1p5 + nvme1n1p1 de 100GB ex-Windows. Maiores consumidores: SteamLibrary ~550G, containerd-data ~59G, homelab/sumaenimahub ~50G |
 | **SSD SATA** | 448 GB (Kingston A400) — `/mnt/SSD_SATA` — 10% usado |
 | **SSD SATA — Scryfall Mirror** | `/mnt/SSD_SATA/scryfall-mirror` — cache de imagens/bulk do Arandu, exportado via NFS para o kavure (`/srv/data/scryfall-mirror`). Sync diário 03:00 roda no kavure (`hl-scryfall-mirror.timer`). Ver [`services/scryfall-mirror.md`](../services/scryfall-mirror.md) |
 | **HDD SATA** | 932 GB (Seagate 1TB) — `/mnt/HDD_SATA` — Montado permanentemente (BTRFS) |
@@ -109,6 +109,22 @@ Configuração "swap file for hibernation with zram" (padrão ArchWiki): o **zra
 **Hibernação NÃO afetada (separação por design):** `SuspendState=` (suspend → `/sys/power/state`) e `HibernateMode=` (hibernação → `/sys/power/disk`) são opções independentes de serviços distintos — `systemd-sleep.conf(5)`. Config de hibernação (21/08) intocada.
 
 **Cuidados:** evitar suspender com CPU quente (aviso `intel_pch_thermal: S0ix might fail` ≥66C no journal); AER RxErr na GPU para observar.
+
+## Política de idle do desktop Hyprland/Noctalia (24/09/2026)
+
+O desktop usa o **Idle Behavior nativo do Noctalia**, sem `hypridle` ou `swayidle` adicionais. A política persistida em `~/.local/state/noctalia/settings.toml` é:
+
+- **screen off:** `timeout = 0` desbloqueado; `locked_timeout = 60 s` (1 min após o lock);
+- **lock:** `900 s` (15 min de idle);
+- **lock + suspend:** desativado (`timeout = 0`, `enabled = false`);
+- **fade pré-ação:** `2 s`;
+- **lock antes de suspensão manual:** habilitado (`lock_before_suspend = true`).
+
+Quando a sessão entra no estado bloqueado, o Noctalia rearma o timer `screen-off` com `60 s`; ao desbloquear, o monitor é religado e o comportamento fica desativado novamente (`timeout = 0`). A ordem é `lock` → `screen-off`, para que a tela não seja apagada antes de a sessão travar. O `systemd-logind` continua com `IdleAction=ignore`; logo, o PC não suspende automaticamente por inatividade. A ação `lock_and_suspend` do menu de sessão e `SUPER+H` permanecem manuais.
+
+Durante reprodução de mídia, players que enviam idle inhibitors suspendem os dois timers. O log do Noctalia deve ser consultado em `~/.cache/noctalia/noctalia.log`; Firefox pode não sinalizar de forma consistente. O guia operacional completo está em [[hyprland-noctalia-guide]].
+
+O `settings.toml` é um override de Settings, tem prioridade sobre TOML declarativos e é incluído no espelho `config-backup`. O `merged-config.toml` é gerado diariamente e não deve ser editado.
 
 ## See also
 - [[psicopompo-gaming]] — Guia de jogos Steam no Linux

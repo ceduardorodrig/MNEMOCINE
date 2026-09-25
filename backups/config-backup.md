@@ -35,6 +35,8 @@ Cada host (05:00) → /usr/local/bin/config-backup (systemd timer hl-config-back
 | 05:55 | etckeeper-push + configs-git-push |
 | dom 06:00 | restic check |
 
+> **Nota de política (24/09/2026):** o override `~/.local/state/noctalia/settings.toml` contém a política de idle do desktop Hyprland/Noctalia (lock 900 s; screen off desativado enquanto desbloqueado e 60 s quando bloqueado; lock+suspend desativado). Esse arquivo é espelhado junto com `~/.config/noctalia`; `merged-config.toml` é somente saída gerada e não deve ser editado manualmente.
+
 ## Componentes
 
 | Peça | Onde |

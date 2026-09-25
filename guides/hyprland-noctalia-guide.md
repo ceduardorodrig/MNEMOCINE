@@ -28,7 +28,7 @@ O login usa o **Noctalia Greeter** (greetd, instalado 22/09/2026 — substituiu 
 - `[output] name = "HDMI-A-4", 1920x1080, scale 1` — **⚠️ `refresh_rate` NÃO existe na v1.5.0** (chegou na `main` do repo, pós-1.5.0; CachyOS só tem 1.5.0-1). O `writeConfig` do greeter normaliza o arquivo e **descarta chaves desconhecidas** — só usar as da v1.5.0 (`name/layout/scale/scales/width/height/transforms`). O greeter usa o modo EDID-preferred no refresh (60Hz); desktop 72Hz → modetset curto no login aceitável. Atualizar quando o pacote subir.
 - `[keyboard] layout = "us"` (bruto, sem variant intl)
 - `[cursor] theme = "McMojave" size = 36 path = "/usr/share/icons"` (copiado p/ system-wide — home do edu é 700, inacessível ao user greeter)
-- `[idle] timeout = 300` (blank após 5min sem input)
+- `[idle] timeout = 300` (blank após 5min sem input **no greeter**; não é a política do desktop Hyprland)
 
 **Sync com Noctalia (22/09):** `sudo noctalia-greeter passwordless-sync enable edu` — sync **sem prompt** de senha (constrained action `org.noctalia.greeter.sync-appearance`, helper `/usr/bin/noctalia-greeter-apply-appearance`). Para copiar o visual para o greeter: **Noctalia → Settings → Security → Noctalia Greeter → Sync Now** (ou Auto-Sync). Restart greetd/logout para ver o resultado. Versões compatíveis: greeter 1.5.0 + Noctalia 5.1.0.
 
@@ -42,6 +42,46 @@ O login usa o **Noctalia Greeter** (greetd, instalado 22/09/2026 — substituiu 
 **Política de dual DE (22/09):** Plasma instalado **intencionalmente** (uso se necessário — Dolphin, KDE Connect), mas daemons KDE desnecessários ficam **parados** na sessão Hyprland:
 - ✅ Parados: `akonadi` (PIM), `kalendarac` (reminders — `.desktop` → `.disabled`), `kactivitymanagerd`, `baloo` (indexação — `.desktop` → `.disabled`), `powerdevil` (energia — `.desktop` → `.disabled`)
 - ✅ Mantidos: **KDE Connect** (`org.kde.kdeconnect.daemon`), **Portal KDE** (`plasma-xdg-desktop-portal-kde` — necessário p/ Dolphin/file pickers Qt), `gnome-keyring`
+
+## Política de idle, tela e mídia (24/09/2026)
+
+O desktop `psicopompo` usa **somente o gerenciador de idle nativo do Noctalia** — não há `hypridle` nem `swayidle` na sessão Hyprland. A política efetiva está persistida no override de Settings:
+
+`~/.local/state/noctalia/settings.toml`
+
+| Comportamento | Valor efetivo | Regra |
+|---|---:|---|
+| Screen off | `0 s` desbloqueado / `60 s` bloqueado | Não desliga a tela durante o uso; depois de bloquear, desliga após 1 min |
+| Lock | `900 s` (15 min) | Bloqueia a sessão após 15 min de idle |
+| Lock + suspend | `0 s`, desativado | Nenhuma suspensão automática por idle |
+| Fade pré-ação | `2 s` | Fade visual antes de apagar/bloquear; atividade durante o fade cancela a ação |
+
+O comportamento `screen-off` está configurado com `timeout = 0.0` e `locked_timeout = 60.0`: ele fica inativo enquanto a sessão está desbloqueada e só é armado depois do lock, desligando o monitor após 1 minuto. A ordem `lock` → `screen-off` evita que a tela seja apagada antes de a sessão entrar no lock. Ao desbloquear ou detectar atividade, o monitor é religado normalmente e o comportamento volta a ficar inativo até um novo lock.
+
+`lockscreen.lock_before_suspend = true` permanece ativo: quando uma suspensão/hibernação **for escolhida manualmente**, o Noctalia bloqueia antes de o sistema dormir. A opção `3` do menu de sessão (`lock_and_suspend`) e `SUPER+H` continuam sendo ações manuais.
+
+O `systemd-logind` permanece com `IdleAction=ignore`; o `PowerDevil` do KDE está inativo e não participa da política do Hyprland/Noctalia.
+
+### Inibidores de mídia
+
+O Noctalia respeita idle inhibitors. Quando um navegador/player envia `org.freedesktop.ScreenSaver.Inhibit` (ou outro inibidor reconhecido pelo shell), os timers de **screen off e lock são suspensos**. No host, o log já registra inibidores de Zen, Chromium, Stremio, Electron e Steam WebHelper durante reprodução.
+
+Isso é baseado no sinal de inibição, não em uma detecção universal de “vídeo”: players que não enviam o sinal podem ainda acionar os timers. Firefox teve comportamento inconsistente no issue upstream; em caso de falha, usar o **Caffeine** manual do Noctalia antes de instalar qualquer serviço auxiliar.
+
+### Fontes e manutenção
+
+- Não editar `~/.config/noctalia/merged-config.toml`: ele é gerado pelo exportador das 04:55 e será reescrito.
+- O `settings.toml` tem prioridade final sobre os TOML declarativos e está incluído no `config-backup`.
+- A janela e as verificações do backup permanecem conforme [`../backups/backup-rituals.md`](../backups/backup-rituals.md).
+- Não iniciar `hypridle`/`swayidle` em paralelo ao Noctalia.
+- Validar após alterações:
+
+```bash
+noctalia config validate
+noctalia config export full | rg -n -A25 '^\[idle\]'
+```
+
+Referências: [Noctalia Idle](https://docs.noctalia.dev/noctalia/services/idle/), [Noctalia Configuration](https://docs.noctalia.dev/noctalia/configuration/), [PR oficial `locked_timeout` #3388](https://github.com/noctalia-dev/noctalia/pull/3388), [correção do rearme no lock #4002](https://github.com/noctalia-dev/noctalia/pull/4002), [Hypridle](https://wiki.hypr.land/Hypr-Ecosystem/hypridle/).
 
 **Cursor em TODAS as camadas (unificado 23/09, dual-spec Hyprcursor + XCursor no mesmo tema `McMojave`):**
 O tema `McMojave` foi consolidado segundo a especificação oficial contendo simultaneamente `hyprcusors/` (vetorial SVG para Hyprland) e `cursors/` (binários XCursor reais de 36KB via `mcmojave-cursors` AUR), eliminando a assimetria de nomes (`McMojave` vs `McMojave-cursors`).
@@ -57,6 +97,7 @@ O tema `McMojave` foi consolidado segundo a especificação oficial contendo sim
 3. **`~/.config/xsettingsd/xsettingsd.conf`** → `Gtk/CursorThemeName "McMojave"` + `Gtk/CursorThemeSize 36` — **roda como user service `xsettingsd.service` (`WantedBy=graphical-session.target`)** — o mecanismo XSETTINGS que faltava; afeta também Electron legado, Java AWT, apps FHS-wrapped
 4. `~/.Xresources` → `Xcursor.theme: McMojave` / `Xcursor.size: 36` + `xrdb -merge` + `autostart.lua`
 5. **Calibração 1:1 XCursor vs Hyprcursor (fix Steam/KeePassXC 23/09):** O upstream do `mcmojave-cursors` mapeava uma imagem de 48px para o tamanho nominal 36 (fator 0.75), tornando apps X11 33% maiores que os apps Wayland nativos. Recompilamos o conjunto completo com `rsvg-convert` e `xcursorgen` garantindo proporção matemática 1:1 exata em todas as resoluções nominais (24, 28, 32, 36, 40, 48, 64).
+6. **Correção de Hotspot da Mãozinha / Pointer (fix 25/09):** O upstream do port Hyprcursor continha um erro sistemático de divisão por 24 em vez de 32 no `meta.hl` (`hotspot_x = 0.67` em vez de `0.39` na ponta do dedo), deslocando o ponto de clique em ~10 pixels para a direita quando o mouse virava a mãozinha. Calibramos os hotspots de todos os cursores (`pointer.hlc` a `0.39, 0.19`, `text`, `crosshair`, `all-scroll` e cantos a `0.50`/proporcionais) e recompilamos o XCursor com os hotspots exatos (ponta do indicador em `14, 7` a 36px), eliminando o desvio ao clicar em links/botões.
 - Reiniciar a Steam/KeePassXC p/ pegar (processo antigo não relê).
 - ⚠️ **`xsettingsd` só relê o `.conf` ao ser (re)iniciado** — se mexer no nwg-look: `systemctl --user restart xsettingsd`. No boot o user service (graphical-session.target) já sobe com o tema correto.
 
