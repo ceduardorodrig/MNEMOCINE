@@ -15,7 +15,7 @@ Guide for joining the **Mnemocine Vikings** Valheim server (kavure).
 | Server name | `Mnemocine Vikings` |
 | IP (Tailscale) | `100.124.146.77` |
 | Port | `2456` (UDP) |
-| **Password** | `HalVeim1235` |
+| **Password** | in the sops store (`VALHEIM_SERVER_PASS`) |
 | World | `Fimbulvetr` |
 | Version | 1.0.12 (Deep North) |
 
@@ -26,7 +26,7 @@ Guide for joining the **Mnemocine Vikings** Valheim server (kavure).
 3. Add the server manually:
    - IP: `100.124.146.77`
    - Port: `2456`
-4. Connect → type the password `HalVeim1235`.
+4. Connect → use the server password from the sops store (`VALHEIM_SERVER_PASS`).
 
 > The server is **private** (`public=false`) — it does not appear in the server list. Only reachable via direct IP on the tailnet.
 
