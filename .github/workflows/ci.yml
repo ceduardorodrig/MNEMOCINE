@@ -1,0 +1,33 @@
+name: ci
+
+# Auditoria de governança pelo StenioSentinel — documentação do homelab.
+#
+# POR QUE MUDOU (29/09/2026): este repositório é PÚBLICO e não tinha CI algum.
+# Uma auditoria revelou uma senha em claro num guia (`Valheim`) — sem valor de
+# segurança real (o acesso é barrado pela tailnet, não pela senha), mas é
+# exatamente o tipo de inconsistência que o gate existe para pegar: valor de
+# segredo em repositório público deve virar referência ao cofre.
+#
+# Consome a composite action do motor, que baixa o binário já compilado da
+# release em vez de compilar Rust aqui. Ver:
+#   mnemocine/guides/stenio-ci-unificado.md e guides/ferramentas-de-operacao.md
+
+on: [push, pull_request]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  check:
+    name: Governance Audit (homelab docs)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: StenioSentinel — auditar documentação do homelab
+        uses: ceduardorodrig/STENIO-SENTINEL/.github/actions/stenio-check@v1
+        with:
+          scope: homelab
+          path: .
+          github-format: "true"

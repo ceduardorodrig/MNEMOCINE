@@ -8,7 +8,7 @@ Dedicated Valheim 1.0 (Deep North) server with BepInEx and QoL mods.
 
 **Server:** kavure
 **Ports:** UDP 2456-2458
-**Password:** `HalVeim1235`
+**Password:** in the sops store (`VALHEIM_SERVER_PASS` in `/mnt/NVME_PCI/secrets/secrets.env`)
 **World:** `Fimbulvetr`
 **IP (Tailscale):** `100.124.146.77`
 
@@ -34,7 +34,7 @@ Dedicated Valheim 1.0 (Deep North) server with BepInEx and QoL mods.
 |---|---|
 | World | `Fimbulvetr` |
 | Server | `Mnemocine Vikings` |
-| Password | `HalVeim1235` |
+| Password | in the sops store (`VALHEIM_SERVER_PASS`) — decorative: access is gated by the tailnet, not by the password |
 | Public | `false` (access only via tailnet) |
 | BepInEx | Yes (`TYPE: BepInEx`) |
 | Modifiers | `portals=casual` |
