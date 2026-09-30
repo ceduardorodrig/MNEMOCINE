@@ -4,42 +4,42 @@ tags: [homelab, service, crafty, gaming]
 
 # Crafty Controller
 
-Minecraft server management panel.
+Painel de gerenciamento de servidores Minecraft.
 
-**Server:** kavure
-**Admin Port:** `8444` (host `8444` → container `8443`)
-**Game Port:** `25565`
+**Servidor:** kavure
+**Porta Admin:** `8444` (host `8444` → container `8443`)
+**Porta Jogo:** `25565`
 **URL:** `https://kavure.chimaera-heptatonic.ts.net:8444`
 
-> **✅ Migrated to kavure (08/08/2026 — Phase C1):** Crafty + the Dominium server (Minecraft 1.21.1/Fabric) moved from psicopompo with **rsync `--checksum` (0 differences)**. The **backup (AdvancedBackups) now goes straight to the NAS** over NFS (`/srv/data/minecraft/offbox` → `/mnt/BACKUP/minecraft-server-kavure/`), following the zomboid pattern. JVM configured with **G1 flags** (floor 2G / ceiling 8G / soft 5G) to coexist with Zomboid. psicopompo was left intact (crafty stopped, nothing deleted).
+> **✅ Migrado para o kavure (08/08/2026 — Fase C1):** Crafty + servidor Dominium (Minecraft 1.21.1/Fabric) movidos do psicopompo com **rsync `--checksum` (0 diferenças)**. O **backup (AdvancedBackups) agora vai direto para o NAS** via NFS (`/srv/data/minecraft/offbox` → `/mnt/BACKUP/minecraft-server-kavure/`), seguindo o padrão do zomboid. JVM configurada com **flags G1** (piso 2G / teto 8G / soft 5G) para coexistir com o Zomboid. O psicopompo ficou intacto (crafty parado, nada deletado).
 >
-> **Backup (13/09/2026):** AdvancedBackups writes to `/minecraft-backups` (= offbox → NAS) every 2h **only while the server is running**. Server stopped since 08/08 → last full backup 28/06 (partials up to 08/08). **Expected gap** — when the server comes back, the automatic backup resumes. If you are re-enabling without starting the server, rsync the world manually first.
+> **Backup (13/09/2026):** o AdvancedBackups grava em `/minecraft-backups` (= offbox → NAS) a cada 2h **apenas enquanto o servidor está rodando**. Servidor parado desde 08/08 → último backup completo 28/06 (parciais até 08/08). **Gap esperado** — quando o servidor voltar, o backup automático retoma. Se for reativar sem ligar o servidor, fazer rsync manual do mundo primeiro.
 
 ## Stack
 
-| Container | Image | Role |
+| Container | Imagem | Função |
 |---|---|---|
-| crafty-controller | crafty-4 | Management + Minecraft server |
+| crafty-controller | crafty-4 | Gerenciamento + servidor Minecraft |
 
-## Ports
+## Portas
 
-| Port | Role |
+| Porta | Função |
 |---|---|
-| `8443` | Web interface (HTTPS) |
-| `25565` | Minecraft server (Java) |
+| `8443` | Interface web (HTTPS) |
+| `25565` | Servidor Minecraft (Java) |
 | `25575` | RCON (localhost) |
-| `8123` | Dynamic map |
-| `5520-5550` | Proxy/portals |
+| `8123` | Mapa dinâmico |
+| `5520-5550` | Proxy/portais |
 | `19132` | Bedrock |
 
-## Access
+## Acesso
 
 `https://kavure.chimaera-heptatonic.ts.net:8444`
 
-## Data
+## Dados
 
-Persistent Docker volumes with Crafty's settings, worlds and automatic backups.
+Volumes Docker persistentes com configurações, mundos e backups automáticos do Crafty.
 
-## Servers
+## Servidores
 
-- [[dominium-permissions]] — Dominium modded server (groups, players, permissions)
+- [[dominium-permissions]] — Servidor modded Dominium (grupos, players, permissões)

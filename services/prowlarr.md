@@ -4,30 +4,30 @@ tags: [homelab, service, prowlarr, download]
 
 # Prowlarr
 
-Unified indexer for the *arr stack.
+Indexer unificado para o *arr stack.
 
-**Server:** kuaray
-**Port:** `9696`
+**Servidor:** kuaray
+**Porta:** `9696`
 **URL:** `http://kuaray.chimaera-heptatonic.ts.net:9696`
 
 ## Stack
 
-| Container | Image | Role |
+| Container | Imagem | Função |
 |---|---|---|
-| prowlarr | linuxserver/prowlarr:latest | Indexer management |
+| prowlarr | linuxserver/prowlarr:latest | Gerenciamento de indexers |
 
-## Integration
+## Integração
 
-Feeds the indexers for:
-- Lidarr (music)
-- Other *arr apps as needed
+Alimenta os indexers para:
+- Lidarr (música)
+- Demais *arr conforme necessidade
 
-## Operation
+## Funcionamento
 
-1. Centralizes multiple torrent/usenet indexers
-2. Syncs automatically with the connected *arr apps
-3. Uses Flaresolverr for sites protected by Cloudflare
+1. Centraliza múltiplos indexers de torrent/usenet
+2. Sincroniza automaticamente com os apps *arr conectados
+3. Usa Flaresolverr para sites protegidos por Cloudflare
 
-## Secrets
+## Segredos
 
-- **API key** in the sops store (`PROWLARR_API_KEY`, 32-char — source `config.xml` `<ApiKey>`). The `config.xml` is **excluded** from the `config-backup` mirror (it never goes to the NAS). Restore after a wipe: `inject-secrets.sh` (see `guides/secrets-centralizados.md`).
+- **API key** no store sops (`PROWLARR_API_KEY`, 32-char — fonte `config.xml` `<ApiKey>`). O `config.xml` é **excluído** do espelho `config-backup` (nunca vai pro NAS). Restore após wipe: `inject-secrets.sh` (ver `guides/secrets-centralizados.md`).

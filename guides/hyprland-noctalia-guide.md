@@ -3,192 +3,210 @@ tags: [homelab, hyprland, noctalia, guide, cachyos, gpu]
 created: 2026-09-21
 ---
 
-# Hyprland + Noctalia Guide — CachyOS (psicopompo)
+# Guia Hyprland + Noctalia — CachyOS (psicopompo)
 
-Quick reference guide for using Hyprland with the Noctalia shell on CachyOS.
+Guia de referência rápida para usar o Hyprland com Noctalia shell no CachyOS.
 
-## Basic Concept
+## Conceito Básico
 
-Hyprland is a **tiling compositor** — windows arrange themselves in a grid on their own, without overlapping. **Super** (the Windows key) is the main shortcut key.
+O Hyprland no psicopompo opera com o **layout nativo `scrolling` (estilo Niri / PaperWM)** (canonizado 27/09/2026) — as janelas se organizam em uma fita horizontal infinita de colunas que desliza suavemente sobre a tela, com suporte a empilhamento vertical de janelas dentro de uma mesma coluna. O **Super** (tecla Windows) é a tecla principal de atalhos.
 
-## Sessions at Login
+## Sessões no Login
 
-Login uses the **Noctalia Greeter** (greetd, installed 22/09/2026 — it replaced the KDE plasmalogin). Through the greeter you pick the session:
+O login usa o **Noctalia Greeter** (greetd, instalado 22/09/2026 — substituiu o plasmalogin do KDE). Pelo greeter você escolhe a sessão:
 
-| Session | Description |
+| Sessão | Descrição |
 |---|---|
-| **Hyprland (uwsm-managed)** | ✅ Recommended — uses UWSM with NVIDIA env vars |
-| **Plasma (Wayland)** | Traditional KDE Plasma (intentional dual DE — fallback) |
+| **Hyprland (uwsm-managed)** | ✅ Recomendado — usa UWSM com env vars NVIDIA |
+| **Plasma (Wayland)** | KDE Plasma tradicional (dual DE intencional — fallback) |
 
-**Greeter config:** `/etc/greetd/config.toml` → `command = "/usr/bin/noctalia-greeter-session"`, `user = "greeter"`. Theme/initial user configurable in `docs.noctalia.dev` (noctalia-greeter). Backup of the original config: `/etc/greetd/config.toml.bak-*`. **Rollback:** `sudo systemctl disable --now greetd && sudo systemctl enable --now plasmalogin` (plasmalogin is intentionally left installed).
+**Config do greeter:** `/etc/greetd/config.toml` → `command = "/usr/bin/noctalia-greeter-session"`, `user = "greeter"`. Tema/usuário inicial configuráveis em `docs.noctalia.dev` (noctalia-greeter). Backup do config original: `/etc/greetd/config.toml.bak-*`. **Rollback:** `sudo systemctl disable --now greetd && sudo systemctl enable --now plasmalogin` (plasmalogin fica instalado de propósito).
 
-**`/var/lib/noctalia-greeter/greeter.toml`** (declarative, configured 22/09 — **v1.5.0**):
-- `[session] default = "Hyprland (uwsm-managed)"` (the user selects manually in the greeter)
-- `[appearance] theme_mode = "dark"` — **no `scheme` in greeter.toml**: sync.toml manages the scheme (`Rosé Pine` on the 1st sync; `"Synced"` would require a complete `[appearance.palette]`, otherwise `writeConfig` discards it)
-- `[output] name = "HDMI-A-4", 1920x1080, scale 1` — **⚠️ `refresh_rate` does NOT exist in v1.5.0** (it landed on the repo `main` after 1.5.0; CachyOS only has 1.5.0-1). The greeter's `writeConfig` normalizes the file and **discards unknown keys** — only use the v1.5.0 ones (`name/layout/scale/scales/width/height/transforms`). The greeter uses EDID-preferred mode for refresh (60Hz); desktop 72Hz → a short modeset at login is acceptable. Update it when the package moves up.
-- `[keyboard] layout = "us"` (raw, no intl variant)
-- `[cursor] theme = "McMojave" size = 36 path = "/usr/share/icons"` (copied system-wide — edu's home is 700, inaccessible to the greeter user)
-- `[idle] timeout = 300` (blank after 5 min without input **in the greeter**; it is not the Hyprland desktop policy)
+**`/var/lib/noctalia-greeter/greeter.toml`** (declarativo, configurado 22/09 — **v1.5.0**):
+- `[session] default = "Hyprland (uwsm-managed)"` (usuário seleciona manualmente no greeter)
+- `[appearance] theme_mode = "dark"` — **sem `scheme` no greeter.toml**: o sync.toml gerencia o scheme (`Rosé Pine` no 1º sync; `"Synced"` exigiria `[appearance.palette]` completo, senão o `writeConfig` descarta)
+- `[output] name = "HDMI-A-4", 1920x1080, scale 1` — **⚠️ `refresh_rate` NÃO existe na v1.5.0** (chegou na `main` do repo, pós-1.5.0; CachyOS só tem 1.5.0-1). O `writeConfig` do greeter normaliza o arquivo e **descarta chaves desconhecidas** — só usar as da v1.5.0 (`name/layout/scale/scales/width/height/transforms`). O greeter usa o modo EDID-preferred no refresh (60Hz); desktop 72Hz → modetset curto no login aceitável. Atualizar quando o pacote subir.
+- `[keyboard] layout = "us"` (bruto, sem variant intl)
+- `[cursor] theme = "McMojave" size = 36 path = "/usr/share/icons"` (copiado p/ system-wide — home do edu é 700, inacessível ao user greeter)
+- `[idle] timeout = 300` (blank após 5min sem input **no greeter**; não é a política do desktop Hyprland)
 
-**Sync with Noctalia (22/09):** `sudo noctalia-greeter passwordless-sync enable edu` — sync **without a password prompt** (constrained action `org.noctalia.greeter.sync-appearance`, helper `/usr/bin/noctalia-greeter-apply-appearance`). To copy the look to the greeter: **Noctalia → Settings → Security → Noctalia Greeter → Sync Now** (or Auto-Sync). Restart greetd/log out to see the result. Compatible versions: greeter 1.5.0 + Noctalia 5.1.0.
+**Sync com Noctalia (22/09):** `sudo noctalia-greeter passwordless-sync enable edu` — sync **sem prompt** de senha (constrained action `org.noctalia.greeter.sync-appearance`, helper `/usr/bin/noctalia-greeter-apply-appearance`). Para copiar o visual para o greeter: **Noctalia → Settings → Security → Noctalia Greeter → Sync Now** (ou Auto-Sync). Restart greetd/logout para ver o resultado. Versões compatíveis: greeter 1.5.0 + Noctalia 5.1.0.
 
-**72Hz monitor discovery (22/09):** `monitors.lua` used `mode = "preferred"` → EDID marks 60Hz as preferred, but the Samsung supports 71.91Hz → **now `mode = "1920x1080@72"`** (desktop + greeter matched at 72).
+**Descoberta monitor 72Hz (22/09):** o `monitors.lua` usava `mode = "preferred"` → EDID marca 60Hz como preferido, mas o Samsung suporta 71.91Hz → **agora `mode = "1920x1080@72"`** (desktop + greeter casados em 72).
 
-> 🔮 **Future TODO (monitor swap):** when swapping the display (hopefully 2K OLED @144), the connector will be the **same `HDMI-A-4`** → it is enough to update **2 files, in the same session**:
-> 1. `~/.config/hypr/config/monitors.lua` → `mode = "2560x1440@144"` (or the new display spec)
-> 2. `/var/lib/noctalia-greeter/greeter.toml` → `[output] width/height` (+ `refresh_rate` once the greeter package supports it — v1.5.0 still does not; see the note above)
-> `direct_scanout=2` + VRR are already in place — just swap the spec. No need for `desc:`/catch-all (fixed connector).
+> 🔮 **TODO futuro (troca de monitor):** quando trocar a tela (hopefully 2K OLED @144), o conector será o **mesmo `HDMI-A-4`** → basta atualizar em **2 arquivos, na mesma sessão**:
+> 1. `~/.config/hypr/config/monitors.lua` → `mode = "2560x1440@144"` (ou a spec da tela nova)
+> 2. `/var/lib/noctalia-greeter/greeter.toml` → `[output] width/height` (+ `refresh_rate` quando o pacote do greeter suportar — v1.5.0 ainda não tem; ver nota acima)
+> `direct_scanout=2` + VRR já prontos — só trocar a spec. Não precisa de `desc:`/catch-all (conector fixo).
 
-**Dual DE policy (22/09):** Plasma installed **on purpose** (use it if needed — Dolphin, KDE Connect), but unnecessary KDE daemons stay **stopped** in the Hyprland session:
-- ✅ Stopped: `akonadi` (PIM), `kalendarac` (reminders — `.desktop` → `.disabled`), `kactivitymanagerd`, `baloo` (indexing — `.desktop` → `.disabled`), `powerdevil` (power — `.desktop` → `.disabled`)
-- ✅ Kept: **KDE Connect** (`org.kde.kdeconnect.daemon`), **KDE Portal** (`plasma-xdg-desktop-portal-kde` — needed for Dolphin/Qt file pickers), `gnome-keyring`
+**Política de dual DE (22/09):** Plasma instalado **intencionalmente** (uso se necessário — Dolphin, KDE Connect), mas daemons KDE desnecessários ficam **parados** na sessão Hyprland:
+- ✅ Parados: `akonadi` (PIM), `kalendarac` (reminders — `.desktop` → `.disabled`), `kactivitymanagerd`, `baloo` (indexação — `.desktop` → `.disabled`), `powerdevil` (energia — `.desktop` → `.disabled`)
+- ✅ Mantidos: **KDE Connect** (`org.kde.kdeconnect.daemon`), **Portal KDE** (`plasma-xdg-desktop-portal-kde` — necessário p/ Dolphin/file pickers Qt), `gnome-keyring`
 
-## Idle, screen and media policy (24/09/2026)
+## Política de idle, tela e mídia (24/09/2026)
 
-The `psicopompo` desktop uses **only Noctalia's native idle manager** — there is no `hypridle` nor `swayidle` in the Hyprland session. The effective policy is persisted in the Settings override:
+O desktop `psicopompo` usa **somente o gerenciador de idle nativo do Noctalia** — não há `hypridle` nem `swayidle` na sessão Hyprland. A política efetiva está persistida no override de Settings:
 
 `~/.local/state/noctalia/settings.toml`
 
-| Behavior | Effective value | Rule |
+| Comportamento | Valor efetivo | Regra |
 |---|---:|---|
-| Screen off | `0 s` unlocked / `60 s` locked | Does not turn the screen off during use; after locking, turns off after 1 min |
-| Lock | `900 s` (15 min) | Locks the session after 15 min idle |
-| Lock + suspend | `0 s`, disabled | No automatic idle suspend |
-| Pre-action fade | `2 s` | Visual fade before blanking/locking; activity during the fade cancels the action |
+| Screen off | `0 s` desbloqueado / `60 s` bloqueado | Não desliga a tela durante o uso; depois de bloquear, desliga após 1 min |
+| Lock | `900 s` (15 min) | Bloqueia a sessão após 15 min de idle |
+| Lock + suspend | `0 s`, desativado | Nenhuma suspensão automática por idle |
+| Fade pré-ação | `2 s` | Fade visual antes de apagar/bloquear; atividade durante o fade cancela a ação |
 
-The `screen-off` behavior is configured with `timeout = 0.0` and `locked_timeout = 60.0`: it stays idle while the session is unlocked and is only armed after the lock, turning the monitor off after 1 minute. The `lock` → `screen-off` ordering prevents the screen from being blanked before the session enters the lock. On unlock or activity detection, the monitor turns back on normally and the behavior goes idle again until the next lock.
+O comportamento `screen-off` está configurado com `timeout = 0.0` e `locked_timeout = 60.0`: ele fica inativo enquanto a sessão está desbloqueada e só é armado depois do lock, desligando o monitor após 1 minuto. A ordem `lock` → `screen-off` evita que a tela seja apagada antes de a sessão entrar no lock. Ao desbloquear ou detectar atividade, o monitor é religado normalmente e o comportamento volta a ficar inativo até um novo lock.
 
-`lockscreen.lock_before_suspend = true` remains active: when a suspend/hibernate **is chosen manually**, Noctalia locks before the system goes to sleep. Session menu option `3` (`lock_and_suspend`) and `SUPER+H` remain manual actions.
+`lockscreen.lock_before_suspend = true` permanece ativo: quando uma suspensão/hibernação **for escolhida manualmente**, o Noctalia bloqueia antes de o sistema dormir. A opção `3` do menu de sessão (`lock_and_suspend`) e `SUPER+H` continuam sendo ações manuais.
 
-`systemd-logind` stays with `IdleAction=ignore`; KDE's `PowerDevil` is inactive and does not take part in the Hyprland/Noctalia policy.
+O `systemd-logind` permanece com `IdleAction=ignore`; o `PowerDevil` do KDE está inativo e não participa da política do Hyprland/Noctalia.
 
-### Media inhibitors
+### Inibidores de mídia
 
-Noctalia respects idle inhibitors. When a browser/player sends `org.freedesktop.ScreenSaver.Inhibit` (or another inhibitor recognized by the shell), the **screen off and lock timers are suspended**. On the host, the log already records inhibitors from Zen, Chromium, Stremio, Electron and Steam WebHelper during playback.
+O Noctalia respeita idle inhibitors. Quando um navegador/player envia `org.freedesktop.ScreenSaver.Inhibit` (ou outro inibidor reconhecido pelo shell), os timers de **screen off e lock são suspensos**. No host, o log já registra inibidores de Zen, Chromium, Stremio, Electron e Steam WebHelper durante reprodução.
 
-This is based on the inhibition signal, not on universal "video" detection: players that do not send the signal may still trigger the timers. Firefox behaved inconsistently in the upstream issue; if it fails, use Noctalia's manual **Caffeine** before installing any helper service.
+Isso é baseado no sinal de inibição, não em uma detecção universal de “vídeo”: players que não enviam o sinal podem ainda acionar os timers. Firefox teve comportamento inconsistente no issue upstream; em caso de falha, usar o **Caffeine** manual do Noctalia antes de instalar qualquer serviço auxiliar.
 
-### Sources and maintenance
+### Fontes e manutenção
 
-- Do not edit `~/.config/noctalia/merged-config.toml`: it is generated by the 04:55 exporter and will be rewritten.
-- `settings.toml` has final priority over the declarative TOMLs and is included in the `config-backup`.
-- The backup window and checks remain as described in [`../backups/backup-rituals.md`](../backups/backup-rituals.md).
-- Do not start `hypridle`/`swayidle` alongside Noctalia.
-- Validate after changes:
+- Não editar `~/.config/noctalia/merged-config.toml`: ele é gerado pelo exportador das 04:55 e será reescrito.
+- O `settings.toml` tem prioridade final sobre os TOML declarativos e está incluído no `config-backup`.
+- A janela e as verificações do backup permanecem conforme [`../backups/backup-rituals.md`](../backups/backup-rituals.md).
+- Não iniciar `hypridle`/`swayidle` em paralelo ao Noctalia.
+- Validar após alterações:
 
 ```bash
 noctalia config validate
 noctalia config export full | rg -n -A25 '^\[idle\]'
 ```
 
-References: [Noctalia Idle](https://docs.noctalia.dev/noctalia/services/idle/), [Noctalia Configuration](https://docs.noctalia.dev/noctalia/configuration/), [official `locked_timeout` PR #3388](https://github.com/noctalia-dev/noctalia/pull/3388), [lock re-arm fix #4002](https://github.com/noctalia-dev/noctalia/pull/4002), [Hypridle](https://wiki.hypr.land/Hypr-Ecosystem/hypridle/).
+Referências: [Noctalia Idle](https://docs.noctalia.dev/noctalia/services/idle/), [Noctalia Configuration](https://docs.noctalia.dev/noctalia/configuration/), [PR oficial `locked_timeout` #3388](https://github.com/noctalia-dev/noctalia/pull/3388), [correção do rearme no lock #4002](https://github.com/noctalia-dev/noctalia/pull/4002), [Hypridle](https://wiki.hypr.land/Hypr-Ecosystem/hypridle/).
 
-**Cursor on ALL layers (unified 23/09, dual-spec Hyprcursor + XCursor in the same `McMojave` theme):**
-The `McMojave` theme was consolidated following the official specification, simultaneously holding `hyprcusors/` (vector SVG for Hyprland) and `cursors/` (real 36KB XCursor binaries via the `mcmojave-cursors` AUR package), eliminating the name asymmetry (`McMojave` vs `McMojave-cursors`).
-- **GTK 2/3/4**: `gtk-cursor-theme-name=McMojave` (settings.ini + gtkrc) · **gsettings**: `McMojave` (Hyprland `cursor:sync_gsettings_theme=true` syncs perfectly)
-- **X11/XWayland**: `XCURSOR_THEME="McMojave"` in `uwsm/env` · **Qt/qt6ct**: `cursor=McMojave`
-- **Native Hyprland**: `HYPRCURSOR_THEME=McMojave`
-- **Unified size**: **36px** on all layers (comfortable, sharp and balanced).
-- Persistence: everything in on-disk config (`uwsm/env`, settings.ini, qt6ct.conf, dconf, Xresources) — it comes back on reboot. Docs: [Hyprland wiki §hyprcursor](https://wiki.hypr.land/Hypr-Ecosystem/hyprcursor/) and [ArchWiki §Cursor themes](https://wiki.archlinux.org/title/Cursor_themes).
+**Cursor em TODAS as camadas (unificado 23/09, dual-spec Hyprcursor + XCursor no mesmo tema `McMojave`):**
+O tema `McMojave` foi consolidado segundo a especificação oficial contendo simultaneamente `hyprcusors/` (vetorial SVG para Hyprland) e `cursors/` (binários XCursor reais de 36KB via `mcmojave-cursors` AUR), eliminando a assimetria de nomes (`McMojave` vs `McMojave-cursors`).
+- **GTK 2/3/4**: `gtk-cursor-theme-name=McMojave` (settings.ini + gtkrc) · **gsettings**: `McMojave` (Hyprland `cursor:sync_gsettings_theme=true` sincroniza perfeitamente)
+- **X11/XWayland**: `XCURSOR_THEME="McMojave"` no `uwsm/env` · **Qt/qt6ct**: `cursor=McMojave`
+- **Hyprland nativo**: `HYPRCURSOR_THEME=McMojave`
+- **Tamanho unificado**: **36px** em todas as camadas (confortável, nítido e equilibrado).
+- Persistência: tudo em config disco (`uwsm/env`, settings.ini, qt6ct.conf, dconf, Xresources) — volta no reboot. Docs: [Hyprland wiki §hyprcursor](https://wiki.hypr.land/Hypr-Ecosystem/hyprcursor/) e [ArchWiki §Cursor themes](https://wiki.archlinux.org/title/Cursor_themes).
 
-**⚠️ Cursor in Steam and "stubborn" apps (universal fix 23/09 — Steam does NOT respect XCURSOR_THEME on its own):** Steam (CEF + old GTK + chroot sandbox) queries the **XSETTINGS protocol** (which KDE provided via kded6; Hyprland does not) + a **physical** `default` fallback. Complete fix (Valve issues #10808/#825/#13209/#11484 and COSMIC#168):
-1. `mcmojave-cursors` package installed via AUR with real binaries (fixing the previous 0-byte dummy files)
-2. **PHYSICAL copy** to `~/.local/share/icons/default` (`cp -r`, **no symlink** — #11484: Steam does not follow symlinks)
-3. **`~/.config/xsettingsd/xsettingsd.conf`** → `Gtk/CursorThemeName "McMojave"` + `Gtk/CursorThemeSize 36` — **runs as user service `xsettingsd.service` (`WantedBy=graphical-session.target`)** — the XSETTINGS mechanism that was missing; it also affects legacy Electron, Java AWT, FHS-wrapped apps
+**⚠️ Cursor na Steam e apps "teimosos" (fix universal 23/09 — a Steam NÃO respeita XCURSOR_THEME sozinha):** a Steam (CEF + GTK antigo + chroot sandbox) consulta o **protocolo XSETTINGS** (que o KDE fornecia via kded6; o Hyprland não) + fallback `default` **físico**. Fix completo (issues Valve #10808/#825/#13209/#11484 e COSMIC#168):
+1. Pacote `mcmojave-cursors` instalado via AUR com binários reais (corrigindo arquivos dummy de 0 bytes anteriores)
+2. **Cópia FÍSICA** p/ `~/.local/share/icons/default` (`cp -r`, **sem symlink** — #11484: a Steam não segue symlink)
+3. **`~/.config/xsettingsd/xsettingsd.conf`** → `Gtk/CursorThemeName "McMojave"` + `Gtk/CursorThemeSize 36` — **roda como user service `xsettingsd.service` (`WantedBy=graphical-session.target`)** — o mecanismo XSETTINGS que faltava; afeta também Electron legado, Java AWT, apps FHS-wrapped
 4. `~/.Xresources` → `Xcursor.theme: McMojave` / `Xcursor.size: 36` + `xrdb -merge` + `autostart.lua`
-5. **1:1 XCursor vs Hyprcursor calibration (Steam/KeePassXC fix 23/09):** The `mcmojave-cursors` upstream mapped a 48px image to the nominal size 36 (0.75 factor), making X11 apps 33% larger than native Wayland apps. We recompiled the full set with `rsvg-convert` and `xcursorgen`, guaranteeing an exact 1:1 mathematical ratio at all nominal resolutions (24, 28, 32, 36, 40, 48, 64).
-6. **Hand/Pointer hotspot fix (fix 25/09):** The Hyprcursor port upstream had a systematic error dividing by 24 instead of 32 in `meta.hl` (`hotspot_x = 0.67` instead of `0.39` at the fingertip), shifting the click point by ~10 pixels to the right when the mouse turned into the pointing hand. We calibrated the hotspots of all cursors (`pointer.hlc` to `0.39, 0.19`, `text`, `crosshair`, `all-scroll` and the corners to `0.50`/proportional) and recompiled the XCursor with the exact hotspots (index-finger tip at `14, 7` at 36px), eliminating the offset when clicking links/buttons.
-- Restart Steam/KeePassXC to pick it up (the old process does not re-read).
-- ⚠️ **`xsettingsd` only re-reads the `.conf` when (re)started** — if you change the nwg-look: `systemctl --user restart xsettingsd`. At boot the user service (graphical-session.target) already comes up with the correct theme.
+5. **Calibração 1:1 XCursor vs Hyprcursor (fix Steam/KeePassXC 23/09):** O upstream do `mcmojave-cursors` mapeava uma imagem de 48px para o tamanho nominal 36 (fator 0.75), tornando apps X11 33% maiores que os apps Wayland nativos. Recompilamos o conjunto completo com `rsvg-convert` e `xcursorgen` garantindo proporção matemática 1:1 exata em todas as resoluções nominais (24, 28, 32, 36, 40, 48, 64).
+6. **Correção de Hotspot da Mãozinha / Pointer (fix 25/09):** O upstream do port Hyprcursor continha um erro sistemático de divisão por 24 em vez de 32 no `meta.hl` (`hotspot_x = 0.67` em vez de `0.39` na ponta do dedo), deslocando o ponto de clique em ~10 pixels para a direita quando o mouse virava a mãozinha. Calibramos os hotspots de todos os cursores (`pointer.hlc` a `0.39, 0.19`, `text`, `crosshair`, `all-scroll` e cantos a `0.50`/proporcionais) e recompilamos o XCursor com os hotspots exatos (ponta do indicador em `14, 7` a 36px), eliminando o desvio ao clicar em links/botões.
+- Reiniciar a Steam/KeePassXC p/ pegar (processo antigo não relê).
+- ⚠️ **`xsettingsd` só relê o `.conf` ao ser (re)iniciado** — se mexer no nwg-look: `systemctl --user restart xsettingsd`. No boot o user service (graphical-session.target) já sobe com o tema correto.
 
-## Essential Shortcuts
+## Atalhos Essenciais
 
-### Open Applications
+### Abrir Aplicativos
 
-| Shortcut | What it does |
+| Atalho | O que faz |
 |---|---|
 | `Super + Return` | Terminal (kitty) |
-| `Super + E` | File manager (Dolphin) |
-| `Super + W` | Browser (Zen) |
-| `Super + T` | Text editor (gnome-text-editor) |
-| `Super + C` | Calculator |
-| `Ctrl + Shift + Esc` | System monitor (btop) |
-| `Super + Space` | **App launcher** (Noctalia) |
+| `Super + E` | Gerenciador de arquivos (Dolphin) |
+| `Super + W` | Navegador (Zen) |
+| `Super + T` | Editor de texto (gnome-text-editor) |
+| `Super + C` | Calculadora |
+| `Ctrl + Shift + Esc` | Monitor de sistema (btop) |
+| `Super + Space` | **Launcher de apps** (Noctalia) |
 | `Super + .` | Emoji picker |
 
-### Windows
+### Janelas
 
-| Shortcut | What it does |
+| Atalho | O que faz |
 |---|---|
-| `Super + Q` | Close window |
-| `Super + Escape` | Kill window (force close) |
-| `Super + D` | Fullscreen (no bar) |
-| `Super + F` | Fullscreen (with bar) |
-| `Super + ALT + Space` | Toggle float/tile (floating window) |
-| `Super + J` | Invert split (horizontal ↔ vertical) |
+| `Super + Q` | Fechar janela |
+| `Super + Escape` | Matar janela (forçar fechar) |
+| `Super + D` | Maximizar coluna (fullscreen mode 1 — com gaps/margens) |
+| `Super + F` | Fullscreen clássico (tela cheia total) |
+| `Super + ALT + Space` | Alternar float/tile (janela flutuante) |
 | `Super + Tab` | Window switcher (Noctalia) |
-| `ALT + Tab` | Cycle windows |
+| `ALT + Tab` | Ciclar janelas |
 
-### Navigating Between Windows
+### Navegar e Controlar a Fita (Estilo Niri / Scrolling Layout)
 
-| Shortcut                   | What it does                          |
-| -------------------------- | ------------------------------------- |
-| `Super + Setas`           | Move focus (left/right/up/down)       |
-| `Super + Shift + Setas`   | Move window in that direction         |
-| `Super + Mouse drag`       | Drag window                           |
-| `Super + Mouse right-drag` | Resize window                         |
-
-### Workspaces (Work Areas)
-
-| Shortcut | What it does |
+| Atalho | O que faz |
 |---|---|
-| `Super + Ctrl + Setas` | Switch workspace (left/right) |
-| `Super + Alt + 1/2/3` | Go to a specific workspace |
-| `Super + Ctrl + 1/2/3` | Go to a relative workspace |
-| `Super + Mouse scroll` | Scroll between workspaces |
-| `Super + Shift + S` | Send window to scratchpad |
-| `Super + S` | Toggle scratchpad (show/hide) |
+| `Super + ←` / `→` | **Navegar entre colunas** (desliza a fita horizontalmente e foca na coluna vizinha) |
+| `Super + ↑` / `↓` | **Foco vertical** (alterna entre janelas empilhadas na mesma coluna) |
+| `Super + Shift + ←` / `→` | **Trocar ordem de colunas** (`swapcol l/r` — move a coluna inteira para o lado) |
+| `Super + Shift + ↑` / `↓` | Mover janela para cima/baixo dentro da coluna |
+| `Super + J` | **Alternar empilhamento** (`consume_or_expel` — junta janela na coluna anterior ou separa em coluna própria) |
+| `Super + R` / `Super + Shift + R` | **Presets de largura de coluna** (cicla entre 33% → 50% → 67% → 100%) |
+| `Super + Home` / `End` | **Pular para a ponta** (desliza direto para o início ou fim da fita) |
+| `Super + I` | **Travar fita** (`inhibit_scroll` — congela o scroll horizontal sob demanda) |
+| `Super + Alt + Scroll ↑/↓` | **Rolar a fita com a roda do mouse** (`move -col` / `move +col`) |
+| `Super + Mouse drag` | Arrastar janela livremente |
+| `Super + Mouse right-drag` | Redimensionar janela |
 
-**Moving a window between workspaces** (real binds from `binds.lua`, 22/09):
+### Workspaces (Áreas de Trabalho)
 
-| Shortcut | What it does |
+| Atalho | O que faz |
 |---|---|
-| `Super + Shift + Ctrl + N` | Move the window to workspace **N** and **it follows you** (goes along) |
-| `Super + Shift + Alt + N` | Move the window to workspace **N**, but **you stay** where you are |
-| `Super + Ctrl + Shift + ←/→` | Move the window to the **previous/next** workspace (it follows you) |
-| `Super + Ctrl + Shift + scroll ↑/↓` | Move via the mouse wheel (↑ = previous, ↓ = next) |
-| `Super + Shift + 1/2/3` | Move the window to **another monitor** (MONITOR1/2/3) |
+| `Super + Ctrl + Setas` | Trocar workspace (esquerda/direita) |
+| `Super + Alt + 1/2/3` | Ir para workspace específico |
+| `Super + Ctrl + 1/2/3` | Ir para workspace relativo |
+| `Super + Mouse scroll` | Scroll entre workspaces |
+| `Super + Shift + S` | Enviar janela para scratchpad |
+| `Super + S` | Toggle scratchpad (mostrar/ocultar) |
 
-> ⚠️ **Do not confuse:** `Super + Shift + Setas` moves the window's **position in the grid** (tile), it does not switch workspace · `Super + Ctrl + Setas` only **navigates** (focus) between workspaces without taking the window along · `N` = workspace number (3 per monitor plus the `gaming` one).
+**Mover janela entre workspaces** (binds reais do `binds.lua`, 22/09):
 
-### Noctalia Shell (Bar + Panels)
-
-| Shortcut | What it does |
+| Atalho | O que faz |
 |---|---|
-| `Super + Space` | Open the app launcher |
-| `Super + X` | Control panel (WiFi, Bluetooth, etc.) |
-| `Super + A` | Notifications |
-| `Super + Z` | Noctalia settings (theme, wallpaper) |
-| `Super + V` | Clipboard (copy history) |
-| `Super + Shift + W` | Change wallpaper |
+| `Super + Shift + Ctrl + N` | Move a janela pro workspace **N** e **você acompanha** (vai junto) |
+| `Super + Shift + Alt + N` | Move a janela pro workspace **N**, mas **você fica** onde está |
+| `Super + Ctrl + Shift + ←/→` | Move a janela pro workspace **anterior/próximo** (você acompanha) |
+| `Super + Ctrl + Shift + scroll ↑/↓` | Move via roda do mouse (↑ = anterior, ↓ = próximo) |
+| `Super + Shift + 1/2/3` | Move a janela pra **outro monitor** (MONITOR1/2/3) |
+
+> ⚠️ **Não confundir:** `Super + Shift + Setas` move a janela de **posição no grid** (tile), não troca de workspace · `Super + Ctrl + Setas` só **navega** (foco) entre workspaces sem levar a janela · `N` = número do workspace (3 por monitor + o `gaming`).
+
+#### Workspace inicial da sessão (fix 29/09/2026)
+
+A workspace que **abre no login** é decidida pela regra `default = true` em `~/.config/hypr/config/workspaces.lua`. A wiki define `default` como *"Whether this workspace should be **the** default workspace for **the given monitor**"* → **exatamente UM `default = true` por monitor**, e esse deve ser a workspace 1.
+
+- **Mecanismo:** ao registrar o monitor, o Hyprland chama `CMonitor::setupDefaultWS()` → `getDefaultWorkspaceFor()`, que retorna a **primeira** regra `default = true` que casar com o monitor, **em ordem de arquivo** (v0.56.2: `src/output/Monitor.cpp` + `src/config/shared/workspace/WorkspaceRuleManager.cpp`).
+- **Bug corrigido 29/09/2026:** a regra `name:gaming` vinha *antes* da workspace 1 e também com `default = true` → **toda sessão nova abria na área de trabalho de games**. Agora só a workspace 1 tem `default = true` (`name:gaming`, 2 e 3 ficaram sem).
+- **`default` não afeta nada além disso:** roteamento de janelas, `monitor`, `layout` e `persistent` são campos independentes — os jogos continuam indo para `name:gaming` pelas *window rules* (`windowrules.lua`), com `monitor = HDMI-A-4` e `layout = "dwindle"` vindos da mesma regra.
+- **Por que SÓ o primeiro boot era afetado:** na primeira entrada da sessão não há workspace memorizada → vence o `default`. Depois (resume/hotplug) o Hyprland restaura a workspace memorizada do monitor (`rememberedWorkspaceForMonitor`), mascarando o problema.
+- **Validar:** `hyprctl workspacerules` → apenas `Workspace rule 1` com `default: true` (as outras `<unset>`); após o login, `hyprctl activeworkspace` → `1`.
+
+> 📚 Fontes: [Hyprland wiki §Workspace Rules](https://wiki.hypr.land/Configuring/Basics/Workspace-Rules/) · código-fonte Hyprland v0.56.2 (`getDefaultWorkspaceFor` / `setupDefaultWS`) · linha de contexto: `~/.config/hypr/config/workspaces.lua`.
+
+### Noctalia Shell (Barra + Painéis)
+
+| Atalho | O que faz |
+|---|---|
+| `Super + Space` | Abrir launcher de apps |
+| `Super + X` | Painel de controle (WiFi, Bluetooth, etc.) |
+| `Super + A` | Notificações |
+| `Super + Z` | Configurações do Noctalia (tema, wallpaper) |
+| `Super + V` | Clipboard (histórico de copiar) |
+| `Super + Shift + W` | Trocar wallpaper |
 | `Super + L` | Lock screen |
-| `Super + ALT + C` | Session menu (logout, reboot, shutdown) |
+| `Super + ALT + C` | Menu de sessão (logout, reboot, shutdown) |
 
 ### Hardware
 
-| Shortcut | What it does |
+| Atalho | O que faz |
 |---|---|
 | `F2/F3` | Volume +/- |
 | `F1` | Mute |
-| `F4` | Mute microphone |
-| `F7/F8` | Play/Pause, Next track |
-| `Print` | Region screenshot |
-| `Super + Print` | Fullscreen screenshot |
+| `F4` | Mute microfone |
+| `F7/F8` | Play/Pause, Próxima música |
+| `Print` | Screenshot região |
+| `Super + Print` | Screenshot tela inteira |
 | `Super + P` | Color picker (hyprpicker) |
 
-### Session (via Super + ALT + C)
+### Sessão (via Super + ALT + C)
 
-| Key in the menu | Action |
+| Tecla no menu | Ação |
 |---|---|
 | `1` | Lock screen |
 | `2` | Logout |
@@ -198,50 +216,57 @@ The `McMojave` theme was consolidated following the official specification, simu
 
 ### Zoom
 
-| Shortcut | What it does |
+| Atalho | O que faz |
 |---|---|
 | `Super + +` | Zoom in |
 | `Super + -` | Zoom out |
 
-## Scratchpad — What is it?
+## Scratchpad — O que é?
 
-The scratchpad is a **special hidden workspace**. Think of it as a "drawer" that shows up and disappears.
+O scratchpad é um **workspace oculto especial**. Pense nele como um "drawer" que aparece e desaparece.
 
-- `Super + Shift + S` → Sends the active window to the scratchpad (it disappears)
-- `Super + S` → Opens/closes the scratchpad (the windows involved appear above the others)
+- `Super + Shift + S` → Envia a janela ativa para o scratchpad (ela some)
+- `Super + S` → Abre/fecha o scratchpad (as janelas envolvidas aparecem sobre as outras)
 
-**Practical use:** send a terminal to the scratchpad and call it back with `Super + S` when you need it, without occupying a workspace.
+**Uso prático:** mandar um terminal para o scratchpad e chamar com `Super + S` quando precisar, sem ocupar workspace.
 
-## The Bar (Noctalia)
+## A Barra (Noctalia)
 
-The bar at the top shows:
-- **Left:** Launcher + Clock + GPU temp + RAM usage
-- **Center:** Workspaces (dots) + Active window
-- **Right:** Media + Tray + Notifications + WiFi + Volume + Session
+A barra no topo mostra:
+- **Esquerda:** Launcher + Relógio + GPU temp + RAM usage
+- **Centro:** Workspaces (dots) + Janela ativa
+- **Direita:** Mídia + Tray + Notificações + WiFi + Volume + Sessão
 
-## Getting Started Tips
+## Dicas Iniciais
 
-1. **There is no "minimize"** — windows stay in workspaces. Move with `Super + Shift + Setas`
-2. **Scratchpad** (`Super + S`) is a hidden workspace for apps you want quick access to
-3. **Float** (`Super + ALT + Space`) for apps that need a fixed size
-4. **Everything is configurable** in `~/.config/hypr/config/`
+1. **Não existe "minimizar"** — janelas ficam em workspaces. Mova com `Super + Shift + Setas`
+2. **Scratchpad** (`Super + S`) é um workspace oculto para apps que você quer acesso rápido
+3. **Float** (`Super + ALT + Space`) para apps que precisam de tamanho fixo
+4. **Tudo é configurável** em `~/.config/hypr/config/`
 
-## Configuration Files
+## Arquivos de Configuração
 
-| File | What it controls |
+| Arquivo | O que controla |
 |---|---|
-| `~/.config/hypr/config/variables.lua` | Default apps, monitor, workspaces |
-| `~/.config/hypr/config/binds.lua` | All shortcuts |
-| `~/.config/hypr/config/monitors.lua` | Monitor configuration |
-| `~/.config/hypr/config/windowrules.lua` | Per-app rules (float, opacity, etc.) |
-| `~/.config/hypr/config/autostart.lua` | What starts with Hyprland |
-| `~/.config/noctalia/config.toml` | Theme, bar, widgets |
-| `~/.config/uwsm/env` | Env of the graphical session (UWSM): cursor `HYPRCURSOR_THEME=McMojave` (native) + NVIDIA + toolkits |
-| `~/.config/xdg-desktop-portal/portals.conf` | Portal config (KDE file picker) |
+| `~/.config/hypr/config/decorations.lua` | Estilo visual, gaps, bordas e **layout global** (`layout = "scrolling"`) |
+| `~/.config/hypr/config/animations.lua` | Curvas, molas e animações (workspaces em `fade` para evitar flash de janelas da fita) |
+| `~/.config/hypr/config/misc.lua` | Configurações do layout **`scrolling`** (modo fit `focus_fit_method = 1`, presets 1/3-1/2-2/3-1, direção), scanout |
+| `~/.config/hypr/config/variables.lua` | Apps padrão, monitor, workspaces |
+| `~/.config/hypr/config/colors.lua` | Paleta de cores **Sumænimá** (seed `#7C3AED`, MD3 purple) + verdes/azuis CachyOS do splash |
+| `~/.config/hypr/config/environment.lua` | Variáveis de ambiente do Hyprland — **inativo** (sessão usa UWSM → as vars valem em `~/.config/uwsm/env`; aqui só sobrou o template NVIDIA comentado) |
+| `~/.config/hypr/config/inputs.lua` | Input (`accel_profile = flat`) e **gestos** (4 dedos → workspace, 3 dedos → fechar/fullscreen/float) |
+| `~/.config/hypr/config/workspaces.lua` | Regras por workspace: monitor, persistência, layout por workspace e **workspace inicial da sessão (`default = true` — só a 1)** |
+| `~/.config/hypr/config/binds.lua` | Todos os atalhos (incluindo controle da fita/colunas do scrolling) |
+| `~/.config/hypr/config/monitors.lua` | Configuração do monitor |
+| `~/.config/hypr/config/windowrules.lua` | Regras por app (gaming, picture-in-picture, float, etc.) |
+| `~/.config/hypr/config/autostart.lua` | O que inicia com o Hyprland |
+| `~/.config/noctalia/config.toml` | Tema, barra, widgets |
+| `~/.config/uwsm/env` | Env da sessão gráfica (UWSM): cursor `HYPRCURSOR_THEME=McMojave` (nativo) + NVIDIA + toolkits |
+| `~/.config/xdg-desktop-portal/portals.conf` | Portal config (file picker KDE) |
 
-> 🖱️ **Cursor (installed 22/09/2026, consolidated at 36px on 23/09):** unified **McMojave** theme (dual-spec native SVG hyprcursor + real AUR XCursor in the same theme) — Hyprland + Wayland apps + Noctalia + Steam + GTK/Qt. **Size 36px** (1080p, scale 1 — a generous middle size, very sharp and uniform across all layers). Swap at runtime: `hyprctl setcursor McMojave 36`; **persistence via `~/.config/uwsm/env`** (the right layer — UWSM blows the session env over environment.d; Hyprland wiki: use `uwsm/env` for theming/xcursor). Official doc: *"Put your theme(s) in ~/.local/share/icons or ~/.icons"* (wiki.hypr.land → hyprcursor).
+> 🖱️ **Cursor (instalado 22/09/2026, consolidado 36px em 23/09):** tema **McMojave** unificado (dual-spec hyprcursor nativo SVG + XCursor real AUR no mesmo tema) — Hyprland + apps Wayland + Noctalia + Steam + GTK/Qt. **Size 36px** (1080p, scale 1 — tamanho intermediário generoso, muito nítido e uniforme em todas as camadas). Troca em runtime: `hyprctl setcursor McMojave 36`; **persistência via `~/.config/uwsm/env`** (camada certa — o UWSM sopra o env da sessão por cima do environment.d; wiki Hyprland: use `uwsm/env` para theming/xcursor). Doc oficial: *"Put your theme(s) in ~/.local/share/icons or ~/.icons"* (wiki.hypr.land → hyprcursor).
 
-## Useful Commands
+## Comandos Úteis
 
 ```bash
 # Ver monitores
@@ -256,60 +281,66 @@ hyprctl reload
 # Ver janelas abertas
 hyprctl clients
 
-# Ver workspaces
+# Ver regras de workspace (só a 1 deve mostrar default: true)
+hyprctl workspacerules
+
+# Ver workspace ativa (deve ser 1 logo após o login)
+hyprctl activeworkspace
+
+# Ver workspaces existentes (e o layout de cada um)
 hyprctl workspaces
 ```
 
-## Portal Config (avoiding the KDE/Hyprland conflict)
+## Portal Config (evitar conflito KDE/Hyprland)
 
-Created in `~/.config/xdg-desktop-portal/portals.conf`:
+Criado em `~/.config/xdg-desktop-portal/portals.conf`:
 ```ini
 [preferred]
 default=hyprland;gtk
 org.freedesktop.impl.portal.FileChooser=kde
 ```
-This forces the KDE file picker in Hyprland, preventing Firefox from losing logins when switching between sessions.
+Isso força o file picker do KDE no Hyprland, evitando que o Firefox perca logins ao alternar entre sessões.
 
-## References
+## Referências
 
 - [Hyprland Wiki](https://wiki.hypr.land/)
 - [CachyOS Hyprland Wiki](https://wiki.cachyos.org/configuration/desktop_environments/hyprland)
 - [Noctalia Wiki](https://wiki.hypr.land/Hyprland-and-Noctalia)
 
-## ⚠️ Lesson learned: do NOT delete hyprland.desktop
+## ⚠️ Aprendizado: NÃO deletar hyprland.desktop
 
-**MISTAKE MADE:** We deleted `hyprland.desktop` to leave only the "managed" one, but UWSM needs it internally.
+**ERRO COMETIDO:** Deletamos `hyprland.desktop` para deixar só o "managed", mas o UWSM precisa dele internamente.
 
-`hyprland-uwsm.desktop` calls:
+O `hyprland-uwsm.desktop` chama:
 ```
 Exec=uwsm start -e -D Hyprland hyprland.desktop
 ```
 
-**Rule:** BOTH files must exist in `/usr/share/wayland-sessions/`:
-- `hyprland.desktop` → base file that UWSM uses internally
-- `hyprland-uwsm.desktop` → wrapper that the display manager shows to the user
+**Regra:** AMBOS os arquivos precisam existir em `/usr/share/wayland-sessions/`:
+- `hyprland.desktop` → arquivo base que o UWSM usa internamente
+- `hyprland-uwsm.desktop` → wrapper que o display manager mostra ao usuário
 
-If you delete `hyprland.desktop`, UWSM shows a black screen with the error "Could not find entry hyprland.desktop".
+Se deletar o `hyprland.desktop`, o UWSM dá tela preta com erro "Could not find entry hyprland.desktop".
 
 ## 🎮 VRAM Management (dmemcg — NVIDIA via cgroups)
 
-Hyprland uses kernel cgroups to manage VRAM dynamically, just like Plasma.
+O Hyprland usa cgroups do kernel para gerenciar VRAM de forma dinâmica, igual ao Plasma.
 
-**Installed stack:**
+**Stack instalada:**
 
-| Component | Function | Status |
+| Componente | Função | Status |
 |---|---|---|
-| `dmemcg-booster` (system + user services) | Enables the dmem controller and propagates cgroups | ✅ Active |
-| `hyprland-focused-booster` (AUR) | Dynamic VRAM boost for the focused window | ✅ Active |
+| `dmemcg-booster` (system + user services) | Habilita controlador dmem e propaga cgroups | ✅ Ativo |
+| `hyprland-focused-booster` (AUR) | Boost dinâmico de VRAM para janela focada | ✅ Ativo |
 
-**How it works:**
-- The CachyOS kernel has `CONFIG_CGROUP_DMEM=y` (VRAM Cgroup/DMEM in the DRM subsystem)
-- `dmemcg-booster` (system + user) propagates the `dmem` controller down to the app cgroups
-- `hyprland-focused-booster` listens to Hyprland's `activewindow` events (socket)
-- When focus changes → writes `dmem.low = <toda VRAM>` to the focused app's cgroup
-- Background apps → `dmem.low = 0` (evictable if needed)
+**Como funciona:**
+- O kernel CachyOS tem `CONFIG_CGROUP_DMEM=y` (VRAM Cgroup/DMEM no DRM subsystem)
+- O `dmemcg-booster` (system + user) propaga o controlador `dmem` até os cgroups de apps
+- O `hyprland-focused-booster` escuta eventos `activewindow` do Hyprland (socket)
+- Quando o foco muda → escreve `dmem.low = <toda VRAM>` no cgroup do app focada
+- Apps em background → `dmem.low = 0` (evictáveis se precisar)
 
-**Verify that it is working:**
+**Verificar se está funcionando:**
 ```bash
 systemctl --user status hyprland-focused-booster
 # O app FOCADO deve ter dmem.low alto (~8G), os outros 0:
@@ -318,15 +349,15 @@ for d in /sys/fs/cgroup/user.slice/user-1000.slice/user@1000.service/app.slice/a
 done
 ```
 
-**How Noctalia integrates:** `launch_apps_as_systemd_services = true` in `~/.config/noctalia/config.toml` → launcher apps already run in systemd cgroups, which is what the booster needs to resolve PID → cgroup.
+**Como o Noctalia se integra:** `launch_apps_as_systemd_services = true` no `~/.config/noctalia/config.toml` → apps do launcher já rodam em cgroups systemd, que é o que o booster precisa para resolver PID → cgroup.
 
-**Games (Steam):** Steam is already a systemd service → games inherit the cgroup → automatic boost. For a per-game boost: launch options `systemd-run --user --scope %command%`.
+**Games (Steam):** Steam já é systemd service → jogos herdam o cgroup → boost automático. Para boost por jogo: launch options `systemd-run --user --scope %command%`.
 
-> ⚠️ NEVER run `pacman -Rns $(pacman -Qdtq)` blindly — `noctalia`, `uwsm`, `swash` were left orphaned after the removal of `cachyos-hypr-noctalia` and were explicitly marked.
+> ⚠️ NUNCA rode `pacman -Rns $(pacman -Qdtq)` cegamente — `noctalia`, `uwsm`, `swash` ficaram órfãos após a remoção do `cachyos-hypr-noctalia` e foram marcados explícitos.
 
-## 🩺 GPU/VRAM health check (executable checklist)
+## 🩺 Verificação de saúde GPU/VRAM (checklist executável)
 
-Full probe to validate that the entire video stack is working (GPU, ReBAR, dmem, boost):
+Probe completo para validar que todo o stack de vídeo está funcionando (GPU, ReBAR, dmem, boost):
 
 ```bash
 # 1. GPU + driver + VRAM
@@ -352,16 +383,16 @@ done
 # ✔ Janela ativa deve ter ~8546942976 (8G), TODOS os outros 0
 ```
 
-**OK criteria (verified 21/09/2026):** GPU RTX 5050 + driver 615.71.09 · ReBAR=1 (modprobe + cmdline + module) · 3 active services · `dmem` in the controller · focused=8G / bg=0.
+**Criterio de OK (verificado 21/09/2026):** GPU RTX 5050 + driver 615.71.09 · ReBAR=1 (modprobe + cmdline + module) · 3 serviços ativos · `dmem` no controller · focada=8G / bg=0.
 
-## ⚙️ Pinned NVIDIA parameters (psicopompo)
+## ⚙️ Parâmetros NVIDIA fixados (psicopompo)
 
 **`/etc/modprobe.d/nvidia-rebar.conf`:**
 ```
 options nvidia NVreg_EnableResizableBar=1
 ```
 
-**`~/.config/uwsm/env` (NVIDIA variables + app defaults):**
+**`~/.config/uwsm/env` (variáveis NVIDIA + app defaults):**
 ```bash
 export BROWSER=zen
 export TERM=xterm-kitty
@@ -382,118 +413,118 @@ export WLR_NO_HARDWARE_CURSORS=1
 ```
 
 **Kernel cmdline NVIDIA (via bootloader):**
-- `nvidia-drm.modeset=1` — KMS mandatory for Wayland
-- `nvidia.NVreg_EnableResizableBar=1` — ReBAR (mirror of the modprobe)
-- `nvidia.NVreg_RegistryDwords=RMUseSwI2c=0x01;RMI2cSpeed=100` — I2C fix
-- `resume=UUID=ffc60b3e-2f31-47bb-b51e-4eb785af8647 resume_offset=60761344` — hibernation (48G swapfile)
+- `nvidia-drm.modeset=1` — KMS obrigatório p/ Wayland
+- `nvidia.NVreg_EnableResizableBar=1` — ReBAR (espelho do modprobe)
+- `nvidia.NVreg_RegistryDwords=RMUseSwI2c=0x01;RMI2cSpeed=100` — fix I2C
+- `resume=UUID=ffc60b3e-2f31-47bb-b51e-4eb785af8647 resume_offset=60761344` — hibernação (swapfile 48G)
 
-**Loaded modules (lsmod):** `nvidia`, `nvidia_modeset`, `nvidia_drm`, `nvidia_uvm` (+ `drm_ttm_helper`).
+**Módulos carregados (lsmod):** `nvidia`, `nvidia_modeset`, `nvidia_drm`, `nvidia_uvm` (+ `drm_ttm_helper`).
 
-> 💡 `PreserveVideoMemoryAllocations=2` in the driver (auto) — preserves VRAM across suspend/resume. It is not the VRAM cgroup (dmem); those are different things.
+> 💡 `PreserveVideoMemoryAllocations=2` no driver (auto) — preserva VRAM entre suspend/resume. Não é a VRAM cgroup (dmem), são coisas diferentes.
 
-## ⚠️ Quirk: Smooth Motion vs Hyprland direct_scanout (30fps lock)
+## ⚠️ Quirk: Smooth Motion vs direct_scanout do Hyprland (30fps lock)
 
-**Symptom:** a game with `NVPRESENT_ENABLE_SMOOTH_MOTION=1` locks to **half the refresh rate** (30fps on a 60Hz monitor) in fullscreen; **paused raises FPS / running locks up; windowed works / fullscreen locks up**.
+**Sintoma:** jogo com `NVPRESENT_ENABLE_SMOOTH_MOTION=1` trava em **metade do refresh** (30fps num monitor 60Hz) em fullscreen; **pausa sobe FPS / rodando trava; windowed funciona / fullscreen trava**.
 
-**Root cause (canonized 21/09/2026):** Hyprland with `render.direct_scanout = 2` sends the swapchain **straight to the display** in fullscreen, skipping compositing. The `VK_LAYER_NV_present` layer (Smooth Motion) **cannot inject frames** on that path → ABAB frame pacing (GPU ~15%, locks at half).
+**Causa raiz (canonizada 21/09/2026):** o Hyprland com `render.direct_scanout = 2` manda a swapchain **direta ao display** em fullscreen, pulando a composição. O layer `VK_LAYER_NV_present` (Smooth Motion) **não consegue injetar frames** nesse caminho → frame pacing ABAB (GPU ~15%, trava em metade).
 
-**Why it worked on KDE:** KWin **always composites** (it does not have Hyprland's aggressive direct scanout) → NVPRESENT injects frames normally.
+**Por que no KDE funcionava:** o KWin **sempre compõe** (não tem o direct scanout agressivo do Hyprland) → o NVPRESENT injeta frames normalmente.
 
-**DEFINITIVE SOLUTION (Option C — with-smooth-motion, canonized 23/09/2026):**
-On 21/09 gamescope (Option B) was tested, but it produced unwanted side effects (in-game VSync blocked SM, and without VSync there was jitter/"rubber band" frametime).
-The definitive solution is the adaptive **`with-smooth-motion`** wrapper (`/usr/local/bin/with-smooth-motion`):
+**SOLUÇÃO DEFINITIVA (Opção C — with-smooth-motion, canonizada 23/09/2026):**
+Em 21/09 testou-se gamescope (Opção B), mas gerou efeitos colaterais indesejados (VSync in-game travava o SM, e sem VSync ocorria jitter/"efeito elástico" de frametime).
+A solução definitiva é o wrapper adaptativo **`with-smooth-motion`** (`/usr/local/bin/with-smooth-motion`):
 ```bash
 # Executa jogo com Smooth Motion sem gamescope e sem desligar o scanout global:
 with-smooth-motion %command%
 ```
-**How it works:**
-1. Native Rust binary (`~/homelab/with-smooth-motion/`, installed at `/usr/local/bin/with-smooth-motion`).
-2. Detects Hyprland and temporarily suspends direct scanout at runtime via `hyprctl eval 'hl.config({ render = { direct_scanout = 0 } })'`.
-3. Sets `NVPRESENT_ENABLE_SMOOTH_MOTION=1` safely in the child process.
-4. The game runs directly on Hyprland (pure native Wayland, no gamescope and no VSync).
-5. The Rust `Drop` guard (RAII) and signal handler (`SIGINT`, `SIGTERM`, `SIGHUP`) instantly restore `direct_scanout = 2` on exit (normal or crash).
-6. On other compositors (e.g.: KDE Plasma), it does not affect the compositor. Zero loss for the other 35 games and maximum smoothness on Valheim.
-7. To replicate on new games: see the Playbook in [[psicopompo-gaming#🪄 Playbook: How to Enable Smooth Motion on New Games (Replicability)]].
+**Como funciona:**
+1. Binário nativo em Rust (`~/homelab/with-smooth-motion/`, instalado em `/usr/local/bin/with-smooth-motion`).
+2. Detecta Hyprland e suspende temporariamente o direct scanout em tempo de execução via `hyprctl eval 'hl.config({ render = { direct_scanout = 0 } })'`.
+3. Seta `NVPRESENT_ENABLE_SMOOTH_MOTION=1` de forma segura no processo filho.
+4. O jogo roda direto no Hyprland (Wayland nativo puro, sem gamescope e sem VSync).
+5. O `Drop` guard em Rust (RAII) e tratador de sinais (`SIGINT`, `SIGTERM`, `SIGHUP`) restauram instantaneamente `direct_scanout = 2` no encerramento (normal ou crash).
+6. Em outros compositors (ex: KDE Plasma), não afeta o compositor. Zero perda para os outros 35 jogos e máxima fluidez no Valheim.
+7. Para replicar em novos jogos: ver Playbook em [[psicopompo-gaming#🪄 Playbook: Como Habilitar Smooth Motion em Novos Jogos (Replicabilidade)]].
 
-> ⚠️ **Do not combine SM with:** `dxvk.latencySleep=True` / `dxvk.maxFrameLatency=1` (30fps lock in Unity: DXVK #5507) · in-game V-Sync ON (locks at half) · FPS limiter (locks up; Fallout76 case: cap 120 + SM = 30fps).
+> ⚠️ **Não combinar SM com:** `dxvk.latencySleep=True` / `dxvk.maxFrameLatency=1` (lock 30fps em Unity: DXVK #5507) · V-Sync in-game ON (trava em metade) · limiter de FPS (trava; caso Fallout76: cap 120 + SM = 30fps).
 
-### ℹ️ Global scanout = `2` (auto for games) — confirmed in the wiki
+### ℹ️ Scanout global = `2` (auto p/ jogos) — confirmado na wiki
 
-`render.direct_scanout = 2` means **auto: enabled with content type 'game'** (the official wiki: *"2 - auto (enabled with content type 'game')"*). Since the windowrules mark games with `content = "game"` + `fullscreen_state = 2`, direct scanout (minimum latency) is only enabled in **game fullscreen** — it does not get in the way of the rest of the desktop.
+`render.direct_scanout = 2` significa **auto: ativa com content type 'game'** (a wiki oficial: *"2 - auto (enabled with content type 'game')"*). Como as windowrules marcam os jogos com `content = "game"` + `fullscreen_state = 2`, o scanout direto (latência mínima) só é ativado em **fullscreen de jogo** — não incomoda o resto do desktop.
 
-### 🟥 ALERT: black screen in native-wayland games (Hyprland #14843)
+### 🟥 ALERTA: tela preta em jogos native-wayland (Hyprland #14843)
 
-**Scenario (same as on psicopompo):** a game with `PROTON_ENABLE_WAYLAND=1` (native wayland via Proton) + NVIDIA + `direct_scanout=2` may open a **black screen in fullscreen** (audio keeps playing, input works, moving the cursor brings the image back). It is a **known Hyprland×NVIDIA×winewayland bug** (same community thread: Overwatch, EZFN, Helldivers 2). KDE is not affected — there the DS does not even activate with NVIDIA winewayland.
+**Cenário (igual ao psicopompo):** jogo com `PROTON_ENABLE_WAYLAND=1` (native wayland via Proton) + NVIDIA + `direct_scanout=2` pode abrir **tela preta no fullscreen** (áudio continua, input funciona, cursor devolve a imagem). É um **bug conhecido Hyprland×NVIDIA×winewayland** (mesma discussão da comunidade: Overwatch, EZFN, Helldivers 2). KDE não afetado — lá o DS nem ativa com winewayland NVIDIA.
 
-**Solutions (community):**
-1. `render:non_shader_cm = 0` → fixes most cases (but disables scanout)
-2. `quirks:skip_non_kms_dmabuf_formats = 1` → fixes it but **forces VSync** in all native-wayland games
-3. Run the game without `PROTON_ENABLE_WAYLAND=1` (XWayland is not affected)
+**Soluções (community):**
+1. `render:non_shader_cm = 0` → resolve maioria (mas desativa scanout)
+2. `quirks:skip_non_kms_dmabuf_formats = 1` → resolve mas **força VSync** em todos os jogos native-wayland
+3. Rodar o jogo sem `PROTON_ENABLE_WAYLAND=1` (XWayland não é afetado)
 
-> If any game on psicopompo opens a black screen in fullscreen with Wayland, apply option 1 or 3. (Has not happened yet — preventive alert.)
+> Se algum jogo do psicopompo abrir tela preta no fullscreen com Wayland, aplicar a opção 1 ou 3. (Ainda não ocorreu — alerta preventivo.)
 
-## 🎮 Gaming optimization inventory (canonized 21/09/2026 — wiki sources)
+## 🎮 Inventário de otimizações de gaming (canonizado 21/09/2026 — fontes wiki)
 
-> Everything below is **already active** on psicopompo. Validate with a single command: **`stenio --gaming`**
-> (session-aware X-ray — detects Hyprland vs KDE and audits each item below).
+> Tudo abaixo **já está ativo** no psicopompo. Valide com um comando: **`stenio --gaming`**
+> (Raio-X sessão-aware — detecta Hyprland vs KDE e audita cada item abaixo).
 
-| # | Optimization | Source | Where it is |
+| # | Otimização | Fonte | Onde está |
 |---|---|---|---|
-| 1 | **CachyOS-BORE** kernel (7.2.6) | [CachyOS wiki](https://wiki.cachyos.org/features/kernel/) | `uname -r` |
-| 2 | **VRAM management (dmemcg)** — `CONFIG_CGROUP_DMEM` + `dmemcg-booster-{system,user}` + `hyprland-focused-booster` | CachyOS feature | cgroup v2 + 3 services |
-| 3 | **game-performance** on-demand (profile → `performance` during the game) | [CachyOS wiki §Power Profile](https://wiki.cachyos.org/configuration/gaming/) | launch options on **36/36 games** |
+| 1 | Kernel **CachyOS-BORE** (7.2.6) | [CachyOS wiki](https://wiki.cachyos.org/features/kernel/) | `uname -r` |
+| 2 | **VRAM management (dmemcg)** — `CONFIG_CGROUP_DMEM` + `dmemcg-booster-{system,user}` + `hyprland-focused-booster` | CachyOS feature | cgroup v2 + 3 serviços |
+| 3 | **game-performance** on-demand (profile → `performance` durante o jogo) | [CachyOS wiki §Power Profile](https://wiki.cachyos.org/configuration/gaming/) | launch options de **36/36 jogos** |
 | 4 | **NTSYNC** (`/dev/ntsync` + `PROTON_USE_NTSYNC=1`) | ArchWiki | `~/.config/environment.d/env.conf` |
 | 5 | **ReBAR** (`nvidia.NVreg_EnableResizableBar=1`) | NVIDIA/CachyOS | `/proc/cmdline` |
-| 6 | **Global DLSS upgrade** (`PROTON_DLSS_UPGRADE=1`) | [CachyOS wiki §DLSS](https://wiki.cachyos.org/configuration/gaming/) | `~/.config/environment.d/gaming.conf` |
-| 7 | **NVIDIA 12GB shader cache** (`__GL_SHADER_DISK_CACHE_SIZE=12000000000`) | [CachyOS wiki §Shader cache](https://wiki.cachyos.org/configuration/gaming/) | `~/.config/environment.d/gaming.conf` — applied 21/09 |
-| 8 | **Steam shader pre-caching DISABLED** (Proton CachyOS/GE already has the codecs) | [CachyOS wiki §Pre-caching](https://wiki.cachyos.org/configuration/gaming/) | Steam → Settings → Downloads — disabled 21/09 |
-| 9 | **Direct scanout for games** (`direct_scanout=2`, auto with content `game`) | [Hyprland wiki](https://wiki.hypr.land/Configuring/Variables/) | `~/.config/hypr/config/misc.lua` |
-| 9b | **Hyprland splash/logo DISABLED** (`disable_splash_rendering` + `disable_hyprland_logo`, 22/09 — killed the <1s flash of the distro wallpaper between login and Noctalia; splash color changed from `SUMAEPrimary` to `CACHYLGREEN`, skel default) | [Hyprland wiki §misc](https://wiki.hypr.land/Configuring/Basics/Variables/) | `~/.config/hypr/config/misc.lua` + `colors.lua` |
-| 10 | **Windowrule** `content = "game"` + `fullscreen_state = 2` (scanout trigger) | Hyprland wiki | `~/.config/hypr/config/windowrules.lua` |
-| 11 | **TSC clocksource** (less overhead than HPET) | [ArchWiki §clock_gettime](https://wiki.archlinux.org/title/Gaming#Improve_clock_gettime_throughput) | `/sys/devices/system/clocksource/...` |
-| 12 | **Wayland in all games** (`PROTON_ENABLE_WAYLAND=1` + `PROTON_USE_NTSYNC=1`) | Proton-EM / CachyOS | `env.conf` + launch options |
-| 13 | **VRAM cgroup in all games** (`systemd-run --user --scope`) | dmemcg architecture | launch options on 36/36 |
-| 14 | **Isolated gamescope for Valheim** (Smooth Motion composites only there) | [ArchWiki §Utilities](https://wiki.archlinux.org/title/Gaming) | `r2modman-valheim` profile |
+| 6 | **DLSS upgrade global** (`PROTON_DLSS_UPGRADE=1`) | [CachyOS wiki §DLSS](https://wiki.cachyos.org/configuration/gaming/) | `~/.config/environment.d/gaming.conf` |
+| 7 | **Shader cache NVIDIA 12GB** (`__GL_SHADER_DISK_CACHE_SIZE=12000000000`) | [CachyOS wiki §Shader cache](https://wiki.cachyos.org/configuration/gaming/) | `~/.config/environment.d/gaming.conf` — aplicado 21/09 |
+| 8 | **Shader pre-caching do Steam DESLIGADO** (Proton CachyOS/GE já tem codecs) | [CachyOS wiki §Pre-caching](https://wiki.cachyos.org/configuration/gaming/) | Steam → Settings → Downloads — desligado 21/09 |
+| 9 | **Scanout direto p/ games** (`direct_scanout=2`, auto com content `game`) | [Hyprland wiki](https://wiki.hypr.land/Configuring/Variables/) | `~/.config/hypr/config/misc.lua` |
+| 9b | **Splash/logo do Hyprland DESLIGADOS** (`disable_splash_rendering` + `disable_hyprland_logo`, 22/09 — matou o flash <1s do wallpaper da distro entre login e Noctalia; cor do splash reverdida de `SUMAEPrimary` p/ `CACHYLGREEN`, padrão skel) | [Hyprland wiki §misc](https://wiki.hypr.land/Configuring/Basics/Variables/) | `~/.config/hypr/config/misc.lua` + `colors.lua` |
+| 10 | **Windowrule** `content = "game"` + `fullscreen_state = 2` (gatilho do scanout) | Hyprland wiki | `~/.config/hypr/config/windowrules.lua` |
+| 11 | **Clocksource TSC** (menos overhead que HPET) | [ArchWiki §clock_gettime](https://wiki.archlinux.org/title/Gaming#Improve_clock_gettime_throughput) | `/sys/devices/system/clocksource/...` |
+| 12 | **Wayland em todos os jogos** (`PROTON_ENABLE_WAYLAND=1` + `PROTON_USE_NTSYNC=1`) | Proton-EM / CachyOS | `env.conf` + launch options |
+| 13 | **VRAM cgroup em todos os jogos** (`systemd-run --user --scope`) | Arquitetura dmemcg | launch options de 36/36 |
+| 14 | **Gamescope isolado p/ Valheim** (Smooth Motion compõe só nele) | [ArchWiki §Utilities](https://wiki.archlinux.org/title/Gaming) | perfil `r2modman-valheim` |
 
-**Informational notes (NOT changed — owner's decision):**
-- `vm.max_map_count` = `1048576` — Proton treats it as sufficient (SteamOS uses `2147483642`, optional)
-- `kernel.split_lock_mitigate` — `0` improves certain Wine games (ArchWiki), not applied
-- In-game V-Sync + SM → conflict; FPS limiter + SM → locks up (see the quirk above)
+**Avisos informativos (NÃO alterados — decisão do dono):**
+- `vm.max_map_count` = `1048576` — Proton trata como suficiente (SteamOS usa `2147483642`, opcional)
+- `kernel.split_lock_mitigate` — `0` melhora certos jogos Wine (ArchWiki), não aplicado
+- V-Sync in-game + SM → conflito; limiter de FPS + SM → trava (ver quirk acima)
 
-**Gaming config backup (enabled 21/09):** `~/.config/hypr`, `~/.config/noctalia`, `~/.config/uwsm` (22/09 — cursor/NVIDIA), `~/.config/environment.d`, `~/.config/steam-launch-options`, `~/.local/state/noctalia` are now mirrored by the `config-backup` (05:00) → NAS + git + restic + snapper. `noctalia config export` runs at 04:55 (user timer), generating `merged-config.toml` in the mirrored folder. See [`../backups/config-backup.md`](../backups/config-backup.md).
+**Backup das configs de gaming (ativado 21/09):** `~/.config/hypr`, `~/.config/noctalia`, `~/.config/uwsm` (22/09 — cursor/NVIDIA), `~/.config/environment.d`, `~/.config/steam-launch-options`, `~/.local/state/noctalia` agora são espelhados pelo `config-backup` (05:00) → NAS + git + restic + snapper. O `noctalia config export` roda 04:55 (timer user) gerando `merged-config.toml` na pasta espelhada. Ver [`../backups/config-backup.md`](../backups/config-backup.md).
 
-## 💾 Swap: ZRAM + hibernation (correctly configured)
+## 💾 Swap: ZRAM + hibernação (configurado corretamente)
 
-| Swap | Size | Priority | Use |
+| Swap | Tamanho | Prioridade | Uso |
 |---|---|---|---|
-| `/dev/zram0` (zstd) | 46.9G (`zram-size = ram`) | **100** | Used first (compressed RAM) |
-| `/swap/swapfile` | 48G | **1** | Hibernation only (`resume=`) |
+| `/dev/zram0` (zstd) | 46.9G (`zram-size = ram`) | **100** | Usado primeiro (compressed RAM) |
+| `/swap/swapfile` | 48G | **1** | Só hibernação (`resume=`) |
 
-Confirmation:
+Confirmação:
 - `zram-generator.conf` → `swap-priority = 100` ✅
 - `/etc/fstab` → `/swap/swapfile ... pri=1` ✅
-- Kernel params: `resume=UUID=ffc60b3e... resume_offset=60761344` → hibernation uses the swapfile ✅
+- Kernel params: `resume=UUID=ffc60b3e... resume_offset=60761344` → hibernação usa o swapfile ✅
 
-## 📦 Important discovery: CachyOS Hyprland packages
+## 📦 Descoberta importante: pacotes CachyOS Hyprland
 
-**`cachyos-hypr-noctalia` and `cachyos-hyprland-settings` are MUTUALLY EXCLUSIVE** — both have `Provides: cachyos-desktop-settings` + `Conflicts With: cachyos-desktop-settings`. Installing one **automatically removes the other** (which is why Noctalia became an orphan with no explicit removal log).
+**`cachyos-hypr-noctalia` e `cachyos-hyprland-settings` são MUTUAMENTE EXCLUSIVOS** — ambos têm `Provides: cachyos-desktop-settings` + `Conflicts With: cachyos-desktop-settings`. Instalar um **remove o outro automaticamente** (por isso o Noctalia virou orphan sem log explícito de remoção).
 
-- ✅ **`cachyos-hypr-noctalia`** — the CORRECT one (meta-package with deps: noctalia, uwsm, kitty, qt6ct, brightnessctl, grim, slurp, etc.)
-- ❌ **`cachyos-hyprland-settings`** — vanilla (waybar/mako/wofi/swaylock), unnecessary for Noctalia
+- ✅ **`cachyos-hypr-noctalia`** — o CORRETO (meta-pacote com deps: noctalia, uwsm, kitty, qt6ct, brightnessctl, grim, slurp, etc.)
+- ❌ **`cachyos-hyprland-settings`** — vanilla (waybar/mako/wofi/swaylock), desnecessário p/ Noctalia
 
-**Extra hypr* packages NOT needed** (Noctalia replaces them):
+**Pacotes hypr* extras NÃO necessários** (Noctalia substitui):
 - `hyprlock` → `noctalia msg session lock`
-- `hypridle` → built-in Idle service
-- `hyprsunset` → built-in Night Light
+- `hypridle` → serviço Idle embutido
+- `hyprsunset` → Night Light embutido
 - `hyprpolkitagent` → `polkit_agent = true`
-- `hyprlauncher` / `hyprpaper` / `hyprshot` / `grimblast` → built-in or uses `swash`
-- `nwg-*`, `dms-shell-hyprland` → incompatible with Noctalia
+- `hyprlauncher` / `hyprpaper` / `hyprshot` / `grimblast` → embutidos ou usa `swash`
+- `nwg-*`, `dms-shell-hyprland` → incompatíveis com Noctalia
 
-**If the lock/idle services do not work** after removing the extras, check what Noctalia uses internally (the `noctalia` package does not depend on hyprlock/hypridle).
+**Se os serviços de lock/idle não funcionarem** após remover os extras, verificar o que o Noctalia usa internamente (o package `noctalia` não depende de hyprlock/hypridle).
 
-## 🔎 Searching for packages with Shelly (CLI)
+## 🔎 Buscar pacotes com Shelly (CLI)
 
-Shelly has a useful CLI search to check availability:
+O Shelly tem busca CLI útil para conferir disponibilidade:
 ```bash
 shelly search standard -v hypr    # repos oficiais
 shelly search aur hypr            # AUR

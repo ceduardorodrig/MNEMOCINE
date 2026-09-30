@@ -8,52 +8,52 @@ See also: [[psicopompo]] · [[hyprland-noctalia-guide]]
 
 ---
 
-## 🎮 Gaming Stack (psicopompo)
+## 🎮 Stack de gaming (psicopompo)
 
-| Component | Version | Function |
+| Componente | Versão | Função |
 |---|---|---|
 | GPU | RTX 5050 (driver 615.71.09, nvidia-open) | Ray tracing + DLSS |
-| ReBAR | ✅ ON (`NVreg_EnableResizableBar=1`) | Resizable BAR enabled |
-| Default Proton | `proton-cachyos-slr` | Proton CachyOS (system default) |
-| GE-Proton | `GE-Proton11-7-x86_64` (weekly autoupdate) | Heavy ray tracing (Portal RTX) |
-| VRAM boost | `dmemcg-booster` + `hyprland-focused-booster` | VRAM prioritized for the focused window via cgroups |
-| Wrapper | `game-performance` | Performance power profile + disables screensaver |
-| Monitoring | `mangohud` (Shift_R+F12) | In-game FPS/temperature |
+| ReBAR | ✅ ON (`NVreg_EnableResizableBar=1`) | Resizable BAR habilitado |
+| Proton default | `proton-cachyos-slr` | Proton CachyOS (default do sistema) |
+| GE-Proton | `GE-Proton11-7-x86_64` (autoupdate semanal) | Ray tracing pesado (Portal RTX) |
+| VRAM boost | `dmemcg-booster` + `hyprland-focused-booster` | VRAM priorizada p/ janela focada via cgroups |
+| Wrapper | `game-performance` | Power profile performance + desativa screensaver |
+| Monitoramento | `mangohud` (Shift_R+F12) | FPS/temperatura in-game |
 
-> 🔍 **GPU/VRAM health checklist + pinned NVIDIA parameters:** see
-> [[hyprland-noctalia-guide]] (sections 🩺 Health Check and ⚙️ NVIDIA Parameters).
+> 🔍 **Checklist de saúde GPU/VRAM + parâmetros NVIDIA fixados:** ver
+> [[hyprland-noctalia-guide]] (seções 🩺 Verificação de saúde e ⚙️ Parâmetros NVIDIA).
 
-> 🖥️ **Gaming Health X-ray:** run `stenio --gaming` — session-aware audit of the
-> full stack (VRAM dmemcg, Hyprland scanout, 36/36 launch options, DLSS,
-> kernel/NTSYNC/ReBAR, 12GB shader cache). Detects Hyprland vs KDE automatically.
+> 🖥️ **Raio-X de Gaming Health:** rodar `stenio --gaming` — auditoria sessão-aware do
+> stack completo (VRAM dmemcg, scanout do Hyprland, 36/36 launch options, DLSS,
+> kernel/NTSYNC/ReBAR, shader cache 12GB). Deteta Hyprland vs KDE automaticamente.
 
-### 🏗️ Global Gaming Architecture (canonicalized 21/09)
+### 🏗️ Arquitetura global de gaming (canonizada 21/09)
 
-| Layer | Scope | Status |
+| Camada | Escopo | Estado |
 |---|---|---|
-| **VRAM boost** (`systemd-run --user --scope` + dmemcg) | **ALL 36 games** | ✅ Active in all |
-| **Wayland** (`PROTON_ENABLE_WAYLAND=1`) | All games with Proton | ✅ Active |
-| **Direct scanout** (`direct_scanout=2`, auto for games) | 35 games (36 when Valheim is closed) | ✅ Minimal latency |
-| **Smooth Motion** (`with-smooth-motion`) | Valheim (expandable to any game) | ✅ Native, no gamescope |
-| **Adaptive wrapper** (`with-smooth-motion`) | Games with Smooth Motion | ✅ Suspends scanout during the game, restores on exit |
-| **DLSS upgrade** (global env) | All games with DLSS | ✅ via environment.d |
+| **VRAM boost** (`systemd-run --user --scope` + dmemcg) | **TODOS os 36 jogos** | ✅ Ativo em todos |
+| **Wayland** (`PROTON_ENABLE_WAYLAND=1`) | Todos os jogos com Proton | ✅ Ativo |
+| **Scanout direto** (`direct_scanout=2`, auto p/ game) | 35 jogos (36 quando Valheim fechado) | ✅ Latência mínima |
+| **Smooth Motion** (`with-smooth-motion`) | Valheim (expansível p/ qualquer jogo) | ✅ Nativo sem gamescope |
+| **Wrapper adaptativo** (`with-smooth-motion`) | Jogos com Smooth Motion | ✅ Suspende scanout durante o jogo, restaura ao sair |
+| **DLSS upgrade** (env global) | Todos os jogos com DLSS | ✅ via environment.d |
 
-**Golden rule:** VRAM + Wayland for EVERYTHING; direct scanout active globally by default; games with Smooth Motion use the adaptive `with-smooth-motion` wrapper — never turn off a global optimization because of 1 game.
+**Regra de ouro:** VRAM + Wayland em TUDO; scanout direto ativo globalmente por padrão; jogos com Smooth Motion usam o wrapper adaptativo `with-smooth-motion` — nunca desligar otimização global por causa de 1 jogo.
 
-## 🛠️ steam-launch-options (CLI script, Rust)
+## 🛠️ steam-launch-options (script CLI, Rust)
 
-**Declarative** manager for Steam launch options and Proton.
+Gerenciador **declarativo** de launch options e Proton do Steam.
 
-- **Binary:** `~/.local/bin/steam-launch-options`
-- **Source:** `~/homelab/steam-launch-options/`
+- **Binário:** `~/.local/bin/steam-launch-options`
+- **Fonte:** `~/homelab/steam-launch-options/`
 - **Config:** `~/.config/steam-launch-options/{profiles,games}.toml`
-- **GE-Proton autoupdate:** weekly systemd timer (`steam-ge-update.timer`)
+- **Autoupdate GE-Proton:** timer systemd semanal (`steam-ge-update.timer`)
 
-> **🖥️ Wayland mandatory:** homelab policy — ALL games run with
-> `PROTON_ENABLE_WAYLAND=1` (native winewayland.drv). Xwayland is a rare exception
-> (`wayland_fallback` profile) for games that break with launchers (e.g. white screen).
+> **🖥️ Wayland obrigatório:** política do homelab — TODOS os jogos rodam com
+> `PROTON_ENABLE_WAYLAND=1` (winewayland.drv nativo). Xwayland é exceção rara
+> (perfil `wayland_fallback`) para jogos que quebram com launchers (ex: white screen).
 
-### Usage
+### Uso
 
 ```bash
 steam-launch-options list       # jogos + perfil + proton + divergências
@@ -65,89 +65,98 @@ steam-launch-options discover [--add]   # detecta jogos novos nas bibliotecas mo
 steam-launch-options ge-update  # atualiza GE-Proton p/ última release
 ```
 
-> ⚠️ **Steam must be CLOSED** for `sync`/`apply` (otherwise the .vdf files get overwritten by Steam on exit). Steam detection uses `pgrep -x` (exact match) — it does not match the binary itself.
+> ⚠️ **Steam deve estar FECHADO** para `sync`/`apply` (senão os .vdf são sobrescritos pelo Steam ao sair). Detecção de Steam usa `pgrep -x` (match exato) — não pega o próprio binário.
 
-### 🎯 Proton Policy (canonicalized 2026-09-21)
+### 🎯 Política de Proton (canonizada 2026-09-21)
 
-| Category | Proton | Profile |
+| Categoria | Proton | Perfil |
 |---|---|---|
-| **Online multiplayer / anti-cheat** | `proton_experimental` | `vram` |
+| **Multiplayer online / anti-cheat** | `proton_experimental` | `vram` |
 | **Triple A / RTX** | `GE-Proton` (autoupdate) | `vram`/`dx12`/`rtx` |
-| **Indie / light / stable** | default (`proton-cachyos-slr`) | `vram` |
-| Single player with optional coop | GE (single is the focus) | `vram` |
+| **Indie / leve / estável** | default (`proton-cachyos-slr`) | `vram` |
+| Single player com coop opcional | GE (single é o foco) | `vram` |
 
-Common sense: games with a multiplayer mode that you play single-player → can stay on GE. Hard rule for games that are multiplayer by nature (Sea of Thieves, MK1, RDR2 online, Valheim, L4D2, RoR2, Civ V) → experimental.
+Bom senso: jogos com modo multiplayer mas que você joga single → pode ficar GE. Regra rígida para jogos multiplayer por natureza (Sea of Thieves, MK1, RDR2 online, Valheim, L4D2, RoR2, Civ V) → experimental.
 
-> **⚙️ Darktide (GE, not experimental — it would look like a mistake):** it is online
-> co-op multiplayer, BUT **Easy Anti-Cheat was removed in jun/2024** (Fatshark,
-> PCGamingWiki). Without anti-cheat, GE is safe and better for DX12 + RTX (the
-> "multiplayer → experimental" rule exists because of anti-cheat; without it, GE wins).
+> **⚙️ Darktide (GE, não experimental — pareceria erro):** é multiplayer co-op online,
+> MAS o **Easy Anti-Cheat foi removido em jun/2024** (Fatshark, PCGamingWiki). Sem
+> anti-cheat, GE é seguro e melhor p/ DX12 + RTX (a regra "multiplayer → experimental"
+> existe por causa do anti-cheat; sem ele, GE vence).
 >
-> **💎 DLSS — GLOBAL (not per game):** `PROTON_DLSS_UPGRADE=1` in
-> `~/.config/environment.d/gaming.conf` — CachyOS wiki best practice. Applies to
-> **every game/proton** (default, GE, experimental), with no per-game launch options:
-> any downloaded game already uses the latest DLSS automatically.
+> **💎 DLSS — GLOBAL (não é por jogo):** `PROTON_DLSS_UPGRADE=1` em
+> `~/.config/environment.d/gaming.conf` — CachyOS wiki best practice. Aplica a
+> **todo jogo/proton** (default, GE, experimental), sem launch options por-jogo:
+> qualquer jogo baixado já usa o DLSS mais atualizado automaticamente.
 >
 > **💾 Shader cache — GLOBAL (12GB, 21/09/2026):** `__GL_SHADER_DISK_CACHE_SIZE=12000000000`
-> in the same `gaming.conf` (canonical value from the CachyOS wiki §Increase shader cache size) —
-> avoids recompiling shaders all the time (stutter on the 1st launch of big games).
-> Applied together with Steam's Shader Pre-caching turned OFF (Settings → Downloads):
-> the wiki recommends disabling it when using Proton CachyOS/GE (they already ship the codecs).
+> no mesmo `gaming.conf` (valor canônico da CachyOS wiki §Increase shader cache size) —
+> evita recompilar shaders toda hora (stutter no 1º launch de jogos grandes).
+> Aplicado junto com o **Shader Pre-caching do Steam DESLIGADO** (Settings → Downloads):
+> a wiki recomenda desligar quando se usa Proton CachyOS/GE (já trazem os codecs).
 >
-> **🎮 Valheim + r2modman (known quirk):** the game has a native Linux build AND
-> Proton, but the mods run via the r2modman wrapper
-> (`web_start_wrapper.sh` inserted in the middle of the launch command, profile `r2modman-valheim`).
-> **Proton used: `proton_experimental`** — deliberate choice: because it comes from
-> Valve, the prefix is kept in place by Steam (without the quirk of reopening vanilla
-> on every tool change). With GE (separate tool) you would have to open vanilla once
-> on every new release — unnecessary here.
-> **Smooth Motion (`NVPRESENT_ENABLE_SMOOTH_MOTION=1`):** enabled on Valheim.
-> **⚠️ ROOT CAUSE of the 30fps (canonicalized 21/09):** Hyprland with
-> `render.direct_scanout = 2` sent the swapchain DIRECT to the display in fullscreen,
-> skipping composition → the `NVPRESENT` layer (Smooth Motion) could not inject
-> frames → frame pacing ABAB (GPU ~15%, locks at half the refresh = 30fps on a
-> 60Hz monitor). Confirmed symptom: **pausing works / running locks; windowed
-> works / fullscreen locks**.
-> **DEFINITIVE SOLUTION (Option C — with-smooth-motion, canonicalized 23/09/2026):**
-> On 21/09 gamescope was tested (Option B), but it produced unwanted trade-offs:
-> with VSync the SM froze, and without VSync a "rubber band effect" appeared in frametime.
-> The definitive, scalable, open-source solution is the Rust utility **`with-smooth-motion`**
-> ([GitHub: ceduardorodrig/WITH-SMOOTH-MOTION](https://github.com/ceduardorodrig/WITH-SMOOTH-MOTION) · `/usr/local/bin/with-smooth-motion`), which:
-> 1. Temporarily suspends direct scanout in Hyprland (`hyprctl eval 'hl.config({ render = { direct_scanout = 0 } })'`)
-> 2. Keeps an **active watchdog thread** every 2s to recover the scanout in case Alt+Tab or a desktop switch resets it
-> 3. Sets `NVPRESENT_ENABLE_SMOOTH_MOTION=1` natively on the child process
-> 4. Runs the game natively and cleanly (without gamescope's overhead or jitter)
-> 5. Forwards graceful signals (`SIGINT`, `SIGTERM`) to the child and restores `direct_scanout = 2` via RAII (`ScanoutGuard::drop`)
-> 6. If it runs on another compositor (e.g. the fallback KWin), it touches nothing and runs clean.
-> That way, the 36 games use direct scanout and low latency, and any game
-> that wants Smooth Motion runs with active composition on demand.
-> Important rules:
-> - **The game's V-Sync must stay OFF** — with V-Sync on, Smooth Motion
->   conflicts and locks at half the refresh.
-> - **No FPS limiter** — user preference (a limiter also locks
->   the SM; Fallout76 case: cap 120 + SM = 30fps).
-> - **`dxvk.latencySleep=True` / `dxvk.maxFrameLatency=1` do NOT work with SM**
->   — they cause the 30fps lock in Unity games (DXVK #5507 + Smooth Motion FAQ).
-> - **`PROTON_ENABLE_NVAPI=1` is LEGACY/unnecessary** — since Proton 9,
->   DXVK-NVAPI is already enabled by default for all titles; the flag no longer
->   does anything. Removed.
-> - **`DXVK_NVAPI_REFLEX_LOW_LATENCY=2` does NOT exist** — an unknown env var is
->   ignored (the old line worked despite it). Do not use.
+> **🎮 Valheim + r2modman (quirk conhecido):** o jogo tem build nativa Linux E
+> Proton, mas os mods rodam via wrapper do r2modman
+> (`web_start_wrapper.sh` inserido no meio da launch command, perfil `r2modman-valheim`).
+> **Proton usado: `proton_experimental`** — escolha deliberada: por ser da Valve,
+> o prefixo é mantido em-place pelo Steam (sem o quirk de reabrir vanilla a cada
+> mudança de tool). Com GE (tool separada) seria preciso abrir 1x vanilla a cada
+> release nova — desnecessário aqui.
+> **Smooth Motion (`NVPRESENT_ENABLE_SMOOTH_MOTION=1`):** ligado no Valheim.
+> **⚠️ CAUSA RAIZ do 30fps (canonizado 21/09):** o Hyprland com
+> `render.direct_scanout = 2` mandava a swapchain DIRETA ao display em fullscreen,
+> pulando a composição → o layer `NVPRESENT` (Smooth Motion) não conseguia injetar
+> frames → frame pacing ABAB (GPU ~15%, trava em metade do refresh = 30fps num
+> monitor 60Hz). Sintoma confirmado: **pausa sobe / rodando trava; windowed
+> funciona / fullscreen trava**.
+> **SOLUÇÃO DEFINITIVA (Opção C — with-smooth-motion, canonizada 23/09/2026):**
+> Em 21/09 testou-se gamescope (Opção B), mas gerou trade-offs indesejados:
+> com VSync o SM congelava, e sem VSync surgia "efeito de elástico" no frametime.
+> A solução definitiva, escalável e open-source é o utilitário Rust **`with-smooth-motion`**
+> ([GitHub: ceduardorodrig/WITH-SMOOTH-MOTION](https://github.com/ceduardorodrig/WITH-SMOOTH-MOTION) · `/usr/local/bin/with-smooth-motion`), que:
+> 1. Suspende temporariamente o direct scanout no Hyprland (`hyprctl eval 'hl.config({ render = { direct_scanout = 0 } })'`)
+> 2. Mantém uma **thread watchdog ativa** a cada 2s para recuperar o scanout caso Alt+Tab ou troca de desktop o resetem
+> 3. Seta `NVPRESENT_ENABLE_SMOOTH_MOTION=1` nativamente no processo filho
+> 4. Roda o jogo de forma nativa e pura (sem o overhead nem o jitter do gamescope)
+> 5. Repassa sinais graciosos (`SIGINT`, `SIGTERM`, `SIGHUP`), instala panic hook de segurança e restaura o `direct_scanout` padrão do usuário via RAII (`ScanoutGuard::drop`), limpando a flag `/tmp/with-smooth-motion.active` (com validação de liveness de PID via `/proc/<pid>`).
+> 6. O workspace `name:gaming` roda isolado no layout `dwindle` (regra `layout = "dwindle"` em `workspaces.lua`), separado do layout `scrolling` do desktop. ⚠️ **`confine_pointer` NÃO está configurado** (verificado 29/09/2026): o campo existe como *window rule* no Hyprland, mas nenhuma regra em `windowrules.lua` o aplica — a menção antiga a `confine_pointer = true` estava desatualizada. Se precisar do confinamento do ponteiro em fullscreen, adicionar `confine_pointer = true` à window rule dos jogos.
+> 7. Se rodar em outro compositor (ex: KWin de fallback), não mexe em nada e roda limpo.
+> Dessa forma, os 36 jogos usam direct scanout e baixa latência, e qualquer jogo
+> que desejar Smooth Motion roda com composição ativa sob demanda.
+> Regras importantes:
+> - **V-Sync do jogo deve ficar OFF** — com V-Sync ligado, o Smooth Motion
+>   conflita e trava em metades do refresh.
+> - **Sem limitador de FPS** — preferência do usuário (limiter também trava
+>   o SM; caso Fallout76: cap 120 + SM = 30fps).
+> - **`dxvk.latencySleep=True` / `dxvk.maxFrameLatency=1` NÃO combinam com SM**
+>   — causam o lock de 30fps em jogos Unity (DXVK #5507 + Smooth Motion FAQ).
+> - **`PROTON_ENABLE_NVAPI=1` é LEGADO/desnecessário** — desde o Proton 9 o
+>   DXVK-NVAPI já é ativado por padrão para todos os títulos; a flag não faz
+>   mais nada. Removida.
+> - **`DXVK_NVAPI_REFLEX_LOW_LATENCY=2` NÃO EXISTE** — env var desconhecida é
+>   ignorada (a linha antiga funcionava apesar dela). Não usar.
 > **Flawless flow:**
-> 1. Launch via **r2modman → Start Modded** (fills `wrapper_args.txt`
->    with the BepInEx wrapper; the file is cleaned on every run, so vanilla
->    launched directly from Steam runs without mods — r2modman's anti-injection behavior)
-> 2. The wrapper is created/updated by r2modman itself when you use the
->    Start Modded button.
-> ⚠️ Steam must be **restarted** to detect new compat tools —
-> relevant for GE (not for experimental, which Steam manages).
+> 1. Abrir pelo **r2modman → Start Modded** (preenche `wrapper_args.txt`
+>    com o BepInEx wrapper; o arquivo é limpo a cada execução, então vanilla
+>    direto pelo Steam roda sem mods — comportamento anti-injeção do r2modman)
+> 2. O wrapper é criado/atualizado pelo próprio r2modman quando você usa o
+>    botão Start Modded.
+> ⚠️ O Steam precisa ser **reiniciado** para detectar compat tools novas —
+> relevante para o GE (não para o experimental, que o Steam gerencia).
 
-### 🪄 Playbook: How to Enable Smooth Motion on New Games (Replicability)
+> ⚠️ **Workspace inicial da sessão (fix 29/09/2026):** a regra `name:gaming` em
+> `~/.config/hypr/config/workspaces.lua` **não pode** ter `default = true` — sem isso
+> **toda sessão nova abria na área de trabalho de games** em vez da workspace 1, porque o
+> Hyprland escolhe a *primeira* regra `default` do monitor, em ordem de arquivo
+> (`setupDefaultWS` → `getDefaultWorkspaceFor`). Hoje **só a workspace 1** tem `default = true`.
+> Os jogos continuam indo para `name:gaming` pelas *window rules* (campo independente de `default`).
+> Detalhes: [[hyprland-noctalia-guide#Workspace inicial da sessão (fix 29/09/2026)]].
 
-NVIDIA's Smooth Motion (`VK_LAYER_NV_present`) generates AI-interpolated frames. To replicate the same perfect smoothness from Valheim on any other game in the library:
+### 🪄 Playbook: Como Habilitar Smooth Motion em Novos Jogos (Replicabilidade)
 
-1. **Vanilla games (no mods / Steam default):**
-   Just map the game to the **`smooth_motion`** profile in `~/.config/steam-launch-options/games.toml`:
+O Smooth Motion da NVIDIA (`VK_LAYER_NV_present`) gera frames interpolados via IA. Para replicar a mesma fluidez perfeita do Valheim em qualquer outro jogo da biblioteca:
+
+1. **Jogos Vanilla (sem mods / padrão Steam):**
+   Basta associar o jogo ao perfil **`smooth_motion`** em `~/.config/steam-launch-options/games.toml`:
    ```toml
    [[games]]
    appid = <APPID_DO_JOGO>
@@ -155,13 +164,13 @@ NVIDIA's Smooth Motion (`VK_LAYER_NV_present`) generates AI-interpolated frames.
    proton = "proton_experimental" # ou GE-Proton conforme a categoria
    note = "Jogo com Smooth Motion nativo via with-smooth-motion"
    ```
-   And apply (with Steam closed):
+   E aplicar (com Steam fechado):
    ```bash
    steam-launch-options apply <APPID_DO_JOGO>
    ```
 
-2. **Games with mods / wrappers (e.g. r2modman, BepInEx):**
-   Add `/usr/local/bin/with-smooth-motion` before the wrapper script in `profiles.toml`:
+2. **Jogos com Mods / Wrappers (ex: r2modman, BepInEx):**
+   Adicione o `/usr/local/bin/with-smooth-motion` antes do script do wrapper no `profiles.toml`:
    ```toml
    [[profiles]]
    name = "r2modman-<jogo>"
@@ -169,72 +178,72 @@ NVIDIA's Smooth Motion (`VK_LAYER_NV_present`) generates AI-interpolated frames.
    options = "PROTON_ENABLE_WAYLAND=1 systemd-run --user --scope game-performance /usr/local/bin/with-smooth-motion \"/path/to/wrapper.sh\" %command%"
    ```
 
-3. **Mandatory in-game rules (for any game with SM):**
-   - **In-game V-Sync:** always **OFF** (in-game FIFO VSync makes the frame generator drop frames).
-   - **In-game FPS limiter:** always **OFF / Uncapped**.
-   - The Rust wrapper (`with-smooth-motion`, source in `~/homelab/with-smooth-motion/`) automatically suspends Hyprland's direct scanout during the match and restores `direct_scanout = 2` the moment you close the game. Zero manual intervention.
+3. **Regras In-Game Obrigatórias (para qualquer jogo com SM):**
+   - **V-Sync in-game:** sempre **OFF** (o VSync FIFO in-game faz o frame generator descartar quadros).
+   - **Limitador de FPS in-game:** sempre **OFF / Ilimitado**.
+   - O wrapper em Rust (`with-smooth-motion`, código-fonte em `~/homelab/with-smooth-motion/`) suspende o direct scanout do Hyprland automaticamente durante a partida e restaura `direct_scanout = 2` no momento em que você fecha o jogo. Zero intervenção manual.
 
-### 📦 Automatic Library Discovery (removable drive)
+### 📦 Descoberta automática de bibliotecas (HD removível)
 
-`discover` reads Steam's `libraryfolders.vdf` (which records all libraries, mounted or not):
+O `discover` lê o `libraryfolders.vdf` do Steam (que registra todas as bibliotecas, montadas ou não):
 
-- **Drive disconnected** → missing libraries are ignored, games do not break
-- **Mount point changed** → the current path is read dynamically (e.g. `/run/media/edu/EXPANSION-2TB`)
-- **Newly installed game** → `discover` suggests a profile by size (`SizeOnDisk`):
+- **HD desconectado** → bibliotecas ausentes são ignoradas, jogos não quebram
+- **Mount mudou** → o path atual é lido dinamicamente (ex: `/run/media/edu/EXPANSION-2TB`)
+- **Jogo novo instalado** → `discover` sugere perfil por tamanho (`SizeOnDisk`):
   - `≥ 20G` → `vram`
-  - `< 5G` → `vram` (light indie, but VRAM active)
-- `discover --add` generates the entries in `games.toml` automatically
+  - `< 5G` → `vram` (indie leve, mas VRAM ativo)
+- `discover --add` gera as entradas no `games.toml` automaticamente
 
-### 📐 Profile Governance (canonicalized 21/09)
+### 📐 Governança de Perfis (canonizada 21/09)
 
-Clear rules for deciding when to create/keep a profile:
+Regras claras para decidir quando criar/manter um perfil:
 
-| Category | Naming pattern | When to use |
+| Categoria | Padrão de nome | Quando usar |
 |---|---|---|
-| **Base** | `vram` | Any game with no special need (the default) |
-| **By API/render** | `dx12`, `rtx`, `low_latency` | API/render-specific flags (DX12, RTX, competitive) |
-| **Per-game exception** | `ferramenta-jogo` (e.g. `r2modman-valheim`) | ONLY when a single game is the one using it (mod wrapper, one game's flag) |
-| **Global (env)** | `environment.d/gaming.conf` | Flags that apply to EVERY game/proton (DLSS upgrade) — do NOT become a profile |
+| **Base** | `vram` | Qualquer jogo sem necessidade especial (o default) |
+| **Por API/render** | `dx12`, `rtx`, `low_latency` | Flags específicas de API/render (DX12, RTX, competição) |
+| **Exceção por-jogo** | `ferramenta-jogo` (ex: `r2modman-valheim`) | SÓ quando um jogo é o único que usa (wrapper de mod, flag de um jogo) |
+| **Global (env)** | `environment.d/gaming.conf` | Flags que valem p/ TODO jogo/proton (DLSS upgrade) — NÃO viram perfil |
 
-**Practical rules:**
-1. **Base/API profiles** need a real technical reason (descriptor_heap, Reflex, etc.)
-2. **Exception profiles** = `ferramenta-jogo` name — never generic (`r2modman` becomes `r2modman-valheim` when the wrapper belongs to a single game)
-3. **On-demand flags** (e.g. `NVPRESENT_ENABLE_SMOOTH_MOTION`): add **as needed** (user rule) — do not apply to everything without a symptom
-4. **New game** → routine: `discover --add` → adjust proton (multiplayer→experimental, AAA→GE) → `sync`
-5. **Mods (r2modman etc.)** → wrapper is **per-game** (`web_start_wrapper.sh` path): each modded game gets its own `r2modman-<jogo>` profile
+**Regras práticas:**
+1. **Perfis base/API** precisam de razão técnica real (descriptor_heap, Reflex, etc.)
+2. **Perfis de exceção** = nome `ferramenta-jogo` — nunca genérico (`r2modman` vira `r2modman-valheim` quando o wrapper é de um jogo só)
+3. **Flags on-demand** (ex: `NVPRESENT_ENABLE_SMOOTH_MOTION`): adicionar **conforme necessidade** (regra do usuário) — não aplicar em tudo sem um sintoma
+4. **Jogo novo** → rotina: `discover --add` → ajustar proton (multiplayer→experimental, AAA→GE) → `sync`
+5. **Mods (r2modman etc.)** → wrapper é **por-jogo** (path do `web_start_wrapper.sh`): cada jogo com mods ganha seu perfil `r2modman-<jogo>`
 
-### Profiles (profiles.toml)
+### Perfis (profiles.toml)
 
-| Profile | Launch options | Use |
+| Perfil | Launch options | Uso |
 |---|---|---|
-| `vram` | `PROTON_ENABLE_WAYLAND=1 systemd-run --user --scope game-performance %command%` | Default (22 games: indie/AAA without special flags) |
+| `vram` | `PROTON_ENABLE_WAYLAND=1 systemd-run --user --scope game-performance %command%` | Padrão (22 jogos: indie/AAA sem flags especiais) |
 | `gta4` | `WINEDLLOVERRIDES="dinput8=n,b" PROTON_ENABLE_WAYLAND=1 systemd-run --user --scope game-performance %command% -nomemrestrict -norestrictions` | GTA IV legacy (dinput8 override) |
 | `rtx` | `DXVK_NVAPI_VKREFLEX=1 PROTON_ENABLE_WAYLAND=1 systemd-run --user --scope game-performance %command%` | Ray tracing + Reflex Vulkan (Portal RTX) |
 | `dx12` | `VKD3D_CONFIG=descriptor_heap PROTON_VKD3D_LOWLATENCY=1 PROTON_ENABLE_WAYLAND=1 systemd-run --user --scope game-performance %command%` | **DX12**: descriptor_heap (+5-8% FPS) + vkd3d low-latency (Reflex DX12) |
-| `low_latency` | `PROTON_ENABLE_WAYLAND=1 PROTON_DXVK_LOWLATENCY=1 systemd-run --user --scope game-performance %command%` | Competitive DX11 (CS2) |
-| `smooth_motion` | `PROTON_ENABLE_WAYLAND=1 systemd-run --user --scope game-performance with-smooth-motion %command%` | Generic games with native Smooth Motion (disables direct_scanout during the session) |
-| `r2modman-valheim` | `WINEDLLOVERRIDES="winhttp,version=n,b" PROTON_ENABLE_WAYLAND=1 systemd-run --user --scope game-performance with-smooth-motion "<wrapper r2modman Valheim>" %command%` | Valheim mods + native Smooth Motion with adaptive scanout (no gamescope, no vsync, no lock) |
-| `wayland_fallback` | `systemd-run --user --scope game-performance %command%` | NO Wayland (Xwayland) for games that break on winewayland |
+| `low_latency` | `PROTON_ENABLE_WAYLAND=1 PROTON_DXVK_LOWLATENCY=1 systemd-run --user --scope game-performance %command%` | Competitivo DX11 (CS2) |
+| `smooth_motion` | `PROTON_ENABLE_WAYLAND=1 systemd-run --user --scope game-performance with-smooth-motion %command%` | Jogos genéricos com Smooth Motion nativo (desativa direct_scanout durante a sessão) |
+| `r2modman-valheim` | `WINEDLLOVERRIDES="winhttp,version=n,b" PROTON_ENABLE_WAYLAND=1 systemd-run --user --scope game-performance with-smooth-motion "<wrapper r2modman Valheim>" %command%` | Valheim mods + Smooth Motion nativo com scanout adaptativo (sem gamescope, sem vsync, sem lock) |
+| `wayland_fallback` | `systemd-run --user --scope game-performance %command%` | SEM Wayland (Xwayland) p/ jogos que quebram no winewayland |
 
-> **💾 VRAM Policy (canonicalized 21/09):** ALL profiles include
-> `systemd-run --user --scope` (VRAM boost) — including light indie.
-> **🖥️ Wayland:** in all profiles (except `wayland_fallback`, a rare exception).
+> **💾 Política VRAM (canonizada 21/09):** TODOS os perfis incluem
+> `systemd-run --user --scope` (VRAM boost) — inclusive indie/leve.
+> **🖥️ Wayland:** em todos os perfis (exceto `wayland_fallback`, exceção rara).
 > **💎 DLSS — GLOBAL (CachyOS wiki best practice):** `PROTON_DLSS_UPGRADE=1`
-> defined in `~/.config/environment.d/gaming.conf` → applies to EVERY game/Proton
-> (default, GE, experimental) with no per-game launch options. Any downloaded game
-> already uses updated DLSS automatically.
-> **⚡ `dx12` profile:** 11 games (Control, Cyberpunk, RDR2, RE4, Returnal, MK1,
+> definido em `~/.config/environment.d/gaming.conf` → aplica a TODO jogo/Proton
+> (default, GE, experimental) sem launch options per-jogo. Qualquer jogo baixado
+> já usa DLSS atualizado automaticamente.
+> **⚡ Perfil `dx12`:** 11 jogos (Control, Cyberpunk, RDR2, RE4, Returnal, MK1,
 > Darktide, Scorn, Midnight Walk, Viewfinder, Teardown) — descriptor heap +
-> vkd3d low-latency (native Reflex DX12, Proton-CachyOS 11+). The DLSS upgrade stays
-> global (env), it is not repeated in the profile.
-> **🐛 GTA IV:** `WINEDLLOVERRIDES="dinput8=n,b"` (dinput8 override for FusionFix/modding)
-> + `-nomemrestrict -norestrictions` (removes the memory limit — ProtonDB Gold).
+> vkd3d low-latency (Reflex DX12 nativo, Proton-CachyOS 11+). DLSS upgrade fica
+> o global (env), não repete no perfil.
+> **🐛 GTA IV:** `WINEDLLOVERRIDES="dinput8=n,b"` (dinput8 override p/ FusionFix/modding)
+> + `-nomemrestrict -norestrictions` (remove limite de memória — ProtonDB Gold).
 
-### Proton per game (games.toml)
+### Proton por jogo (games.toml)
 
-**NVMe PCI (12 games):**
+**NVMe PCI (12 jogos):**
 
-| Game (AppID) | Profile | Proton |
+| Jogo (AppID) | Perfil | Proton |
 |---|---|---|
 | GTA IV (12210) | gta4 | default |
 | **Expedition 33 (1903340)** | vram | **GE-Proton** |
@@ -244,17 +253,17 @@ Clear rules for deciding when to create/keep a profile:
 | **Hellblade (414340)** | vram | **GE-Proton** |
 | Out of Action (1670780) | vram | default |
 | **Portal RTX (2012840)** | **rtx** | **GE-Proton (autoupdate)** |
-| **Project Zomboid (108600)** | vram | **proton_experimental (FIXED — saves)** |
+| **Project Zomboid (108600)** | vram | **proton_experimental (FIXO — saves)** |
 | **Scorn (698670)** | **dx12** | default |
 | **The Midnight Walk (2863640)** | **dx12** | default |
 | **Valheim (892970)** | **r2modman-valheim** | **experimental (r2modman mods)** |
-| **Darktide (1361210)** | **dx12** | **GE-Proton (EAC removed 2024)** |
+| **Darktide (1361210)** | **dx12** | **GE-Proton (EAC removido 2024)** |
 
-*\*CS2 is native Linux (does not use Proton) — only the low_latency profile applies.*
+*\*CS2 é nativo Linux (não usa Proton) — só o perfil low_latency se aplica.*
 
-**SSD SATA (6 games):**
+**SSD SATA (6 jogos):**
 
-| Game (AppID) | Profile | Proton |
+| Jogo (AppID) | Perfil | Proton |
 |---|---|---|
 | Incredibox (1545450) | vram | default |
 | **L4D2 (550)** | vram | **experimental (coop)** |
@@ -263,9 +272,9 @@ Clear rules for deciding when to create/keep a profile:
 | **Viewfinder (1382070)** | **dx12** | **GE-Proton (DLSS)** |
 | I Am Your Beast (1876590) | vram | default |
 
-**HD 2TB EXPANSION (17 games):**
+**HD 2TB EXPANSION (17 jogos):**
 
-| Game (AppID) | Profile | Proton |
+| Jogo (AppID) | Perfil | Proton |
 |---|---|---|
 | **Control UE (870780)** | **dx12** | **GE-Proton** |
 | **Baldur's Gate 3 (1086940)** | vram | **GE-Proton** |
@@ -285,19 +294,19 @@ Clear rules for deciding when to create/keep a profile:
 | PEAK (3527290) | vram | default |
 | **Teardown (1167630)** | **dx12** | default |
 
-> ⚠️ **Do NOT change Zomboid's Proton** (`proton_experimental`) — the saves depend on that prefix/tool.
+> ⚠️ **NÃO mudar o Proton do Zomboid** (`proton_experimental`) — os saves dependem desse prefix/ferramenta.
 
-> ⚠️ Do NOT add `PROTON_ENABLE_NVAPI=1` — Proton 11 already enables NVAPI by default.
+> ⚠️ NÃO adicionar `PROTON_ENABLE_NVAPI=1` — o Proton 11 já habilita NVAPI por padrão.
 
-> 💾 **HD EXPANSION-2TB is removable** — when disconnected, its games go "missing" but the script does not break (it reads `libraryfolders.vdf` dynamically).
+> 💾 **HD EXPANSION-2TB é removível** — quando desconectado, os jogos dele ficam "ausentes" mas o script não quebra (lê `libraryfolders.vdf` dinamicamente).
 
-## 🐛 Lesson: Portal RTX pointed to a removed GE-Proton11-6
+## 🐛 Aprendizado: Portal RTX apontava para GE-Proton11-6 removido
 
-`config.vdf` mapped Portal RTX to `GE-Proton11-6-x86_64`, but that version was **deleted** by the user (only `GE-Proton11-7` exists). Steam showed the tool as invalid — the game could fail to launch.
+O `config.vdf` mapeava o Portal RTX para `GE-Proton11-6-x86_64`, mas essa versão foi **deletada** pelo usuário (só existe `GE-Proton11-7`). O Steam mostrava a tool como inválida — jogo podia falhar ao iniciar.
 
-**Fix:** `steam-launch-options sync` (with Steam closed) updates the mapping to the installed version. `ge-update` keeps the mapping in sync with the latest release automatically (weekly timer).
+**Fix:** `steam-launch-options sync` (com Steam fechado) atualiza o mapping para a versão instalada. O `ge-update` mantém o mapping sincronizado com a última release automaticamente (timer semanal).
 
-## 📦 GE-Proton autoupdate (weekly timer)
+## 📦 GE-Proton autoupdate (timer semanal)
 
 ```bash
 systemctl --user status steam-ge-update.timer   # ver timer
@@ -305,13 +314,13 @@ systemctl --user list-timers steam-ge-update    # próxima execução
 steam-launch-options ge-update                  # forçar agora
 ```
 
-`ge-update`:
-1. Queries the latest release from GitHub (`GloriousEggroll/proton-ge-custom`)
-2. If new → downloads, extracts into `compatibilitytools.d/`, removes the old version
-3. Updates `games.toml` to the new version
-4. Updates the mapping in `config.vdf` (only if Steam is closed — otherwise it warns)
+O `ge-update`:
+1. Consulta a última release do GitHub (`GloriousEggroll/proton-ge-custom`)
+2. Se nova → baixa, extrai em `compatibilitytools.d/`, remove versão antiga
+3. Atualiza `games.toml` para a nova versão
+4. Atualiza o mapping no `config.vdf` (só se Steam fechado — senão avisa)
 
-## 📝 Routine When Installing a New Game
+## 📝 Rotina ao instalar jogo novo
 
 ```bash
 # 1. Baixar/instalar o jogo no Steam (normal)
@@ -326,7 +335,7 @@ steam-launch-options sync
 steam-launch-options list
 ```
 
-### Visual Summary of Your Desktop
+### Resumo Visual da sua Área de Trabalho
 
-- **Bar/Widgets:** System Monitor in the bar (GPU temp/RAM) — see [[hyprland-noctalia-guide]].
-- **Shift_R + F12:** MangoHud (FPS/temp) — "panic button" to see whether the GPU is working.
+- **Barra/Widgets:** System Monitor na barra (GPU temp/RAM) — ver [[hyprland-noctalia-guide]].
+- **Shift_R + F12:** MangoHud (FPS/temp) — "botão de pânico" p/ ver se a GPU está trabalhando.

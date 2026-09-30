@@ -4,33 +4,33 @@ tags: [homelab, service, casaos, monitoring]
 
 # CasaOS
 
-kuaray server management panel — orchestration of containers and services.
+Painel de gerenciamento do servidor kuaray — orquestração de containers e serviços.
 
-> **⚠️ REMOVED (08/08/2026):** CasaOS uninstalled from kuaray (no longer used; SSH/docker is enough). Port 80 freed, systemd services and files removed (`casaos-uninstall` + manual cleanup). References removed from homepage and the docs. This doc stays as history.
+> **⚠️ REMOVIDO (08/08/2026):** CasaOS desinstalado do kuaray (não era mais usado; SSH/docker é o suficiente). Porta 80 liberada, serviços systemd e arquivos removidos (`casaos-uninstall` + limpeza manual). Referências removidas do homepage e das docs. Esta doc fica como histórico.
 
-**Server:** ~~kuaray~~ (removed)
-**Port:** ~~`8800`~~
+**Servidor:** ~~kuaray~~ (removido)
+**Porta:** ~~`8800`~~
 
-## Systemd Services
+## Serviços Systemd
 
-| Service | Role |
+| Service | Função |
 |---|---|
-| casaos.service | Main panel |
-| casaos-gateway.service | Internal reverse proxy |
-| casaos-app-management.service | App management |
-| casaos-local-storage.service | Disk management |
-| casaos-message-bus.service | Message bus |
-| casaos-user-service.service | User management |
+| casaos.service | Painel principal |
+| casaos-gateway.service | Proxy reverso interno |
+| casaos-app-management.service | Gerenciamento de apps |
+| casaos-local-storage.service | Gerenciamento de disco |
+| casaos-message-bus.service | Barramento de mensagens |
+| casaos-user-service.service | Gerenciamento de usuários |
 
-## Operation
+## Funcionamento
 
-CasaOS manages kuaray's Docker containers through a simplified web interface. It replaces Portainer as the visual management layer on this server.
+O CasaOS gerencia os containers Docker do kuaray através de uma interface web simplificada. Ele substitui o Portainer como camada de gerenciamento visual neste servidor.
 
-## Access
+## Acesso
 
 `http://kuaray.chimaera-heptatonic.ts.net:8800`
 
-## Maintenance
+## Manutenção
 
 ```bash
 systemctl status casaos.service

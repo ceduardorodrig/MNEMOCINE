@@ -9,7 +9,7 @@ tags: [homelab, meta]
 ### .env
 
 All secrets are stored in `.env` at the folder root. This file is **never versioned nor synced** —
-this folder is not a git repository (no versioning) and Syncthing ignores `.env` via `.stignore`.
+a pasta não é um repo git (sem versionamento) e o Syncthing ignora `.env` via `.stignore`.
 Use `.env.template` as a reference:
 
 ```bash
@@ -21,12 +21,12 @@ cp .env.template .env
 
 Every sensitive value in documentation uses `{{PLACEHOLDER_NAME}}` format:
 
-| Pattern | Example |
+| Padrão | Exemplo |
 |--------|---------|
-| Passwords | `{{DB_PASSWORD}}` |
+| Senhas | `{{DB_PASSWORD}}` |
 | Tokens | `{{STREMIO_ADDON_URL}}` |
-| Internal IPs | `{{TAILSCALE_PSICOPOMPO_IP}}` |
-| Domains | `{{TAILSCALE_FUNNEL_DOMAIN}}` |
+| IPs internos | `{{TAILSCALE_PSICOPOMPO_IP}}` |
+| Domínios | `{{TAILSCALE_FUNNEL_DOMAIN}}` |
 | Emails | `{{OWNER_EMAIL}}` |
 
 ### What NOT to commit

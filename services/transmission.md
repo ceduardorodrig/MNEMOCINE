@@ -4,29 +4,29 @@ tags: [homelab, service, transmission, download]
 
 # Transmission
 
-Lightweight server torrent client.
+Cliente de torrent leve para servidor.
 
-**Server:** kuaray
-**Web Port:** `9091`
-**DHT Port:** `51413` (TCP/UDP)
+**Servidor:** kuaray
+**Porta Web:** `9091`
+**Porta DHT:** `51413` (TCP/UDP)
 **URL:** `http://kuaray.chimaera-heptatonic.ts.net:9091`
 
 ## Stack
 
-| Container | Image | Role |
+| Container | Imagem | Função |
 |---|---|---|
 | transmission | linuxserver/transmission:latest | Torrent client |
 
-## Access
+## Acesso
 
 `http://kuaray.chimaera-heptatonic.ts.net:9091`
 
-## Integration
+## Integração
 
-- Receives downloads from Lidarr via the *arr stack
-- Direct download via the web interface
-- Bandwidth-limited so as not to saturate the server
+- Recebe downloads do Lidarr via *arr stack
+- Download direto via interface web
+- Limitado por banda para não saturar o servidor
 
-## Secrets
+## Segredos
 
-- **RPC password** in the sops store (`TRANSMISSION_RPC_PASSWORD` — the **hash+salt** value from `settings.json`; restoring it verbatim preserves the password). The `settings.json` is **excluded** from the `config-backup` mirror. Restore after a wipe: `inject-secrets.sh` (see `guides/secrets-centralizados.md`).
+- **RPC password** no store sops (`TRANSMISSION_RPC_PASSWORD` — valor **hash+salt** do `settings.json`; restaurar verbatim preserva a senha). O `settings.json` é **excluído** do espelho `config-backup`. Restore após wipe: `inject-secrets.sh` (ver `guides/secrets-centralizados.md`).
