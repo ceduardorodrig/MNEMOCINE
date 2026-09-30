@@ -4,24 +4,24 @@ tags: [homelab, service, comet, download]
 
 # Comet
 
-Media server via debrid.
+Servidor de mídia via debrid.
 
-**Server:** kavure
-**Port:** `8000`
+**Servidor:** kavure
+**Porta:** `8000`
 **URL:** `http://kavure.chimaera-heptatonic.ts.net:8000`
 
 ## Stack
 
-| Container | Image | Role |
+| Container | Imagem | Função |
 |---|---|---|
-| comet | ghcr.io/g0ldyy/comet:latest | Debrid media aggregator |
+| comet | ghcr.io/g0ldyy/comet:latest | Debrid media agregator |
 
-## Operation
+## Funcionamento
 
-Aggregates content from debrid services (Real-Debrid, AllDebrid, etc.) and exposes it through an API compatible with media players.
+Agrega conteúdo de serviços de debrid (Real-Debrid, AllDebrid, etc.) e disponibiliza via API compatível com players de mídia.
 
-## Ports
+## Portas
 
-| Port | Role |
+| Porta | Função |
 |---|---|
-| `8000` | Web API |
+| `8000` | API web |

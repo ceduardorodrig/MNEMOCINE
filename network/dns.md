@@ -4,9 +4,9 @@ tags: [homelab, network, dns, tailscale]
 
 # DNS
 
-Name resolution chain in the homelab.
+Cadeia de resolução de nomes no homelab.
 
-## Overview
+## Visão Geral
 
 ```mermaid
 graph TB
@@ -47,60 +47,60 @@ graph TB
     ybyra -->|Tailscale| magic
 ```
 
-## Per Machine
+## Por Máquina
 
 ### Psicopompo
-| Item | Value |
+| Item | Valor |
 |---|---|
-| Resolver | systemd-resolved |
-| Mode | `stub` (resolv.conf → `/run/systemd/resolve/stub-resolv.conf`) |
+| Resolvedor | systemd-resolved |
+| Modo | `stub` (resolv.conf → `/run/systemd/resolve/stub-resolv.conf`) |
 | Fallback | Quad9 → Cloudflare → Google |
-| Tailscale MagicDNS | ✅ Configured via systemd-resolved (`100.100.100.100`) |
+| Tailscale MagicDNS | ✅ Configurado via systemd-resolved (`100.100.100.100`) |
 
-> **Fix resolve-nm (21/09/2026):** NetworkManager now uses `dns=systemd-resolved`
-> (in `[main]` of `/etc/NetworkManager/NetworkManager.conf`) and `/etc/resolv.conf`
-> became a symlink to the systemd-resolved stub (it was `foreign`). This fixed the
-> Tailscale `tailscale.com/s/resolve-nm` warning and enabled MagicDNS
-> (`*.chimaera-heptatonic.ts.net` resolves via `100.100.100.100`).
+> **Fix resolve-nm (21/09/2026):** NetworkManager passou a usar `dns=systemd-resolved`
+> (em `[main]` do `/etc/NetworkManager/NetworkManager.conf`) e o `/etc/resolv.conf`
+> virou symlink para o stub do systemd-resolved (era `foreign`). Isso resolveu o
+> aviso do Tailscale `tailscale.com/s/resolve-nm` e habilitou o MagicDNS
+> (`*.chimaera-heptatonic.ts.net` resolve via `100.100.100.100`).
 
 ### Kuaray
-| Item | Value |
+| Item | Valor |
 |---|---|
-| Resolver | Tailscale MagicDNS (`100.100.100.100`) |
-| Local DNS | Pi-hole on port 53 (for LAN devices) |
-| Upstream | Cloudflare (configured in Pi-hole) |
+| Resolvedor | Tailscale MagicDNS (`100.100.100.100`) |
+| DNS Local | Pi-hole na porta 53 (para dispositivos LAN) |
+| Upstream | Cloudflare (configurado no Pi-hole) |
 
 ### Ybytu
-| Item | Value |
+| Item | Valor |
 |---|---|
-| Resolver | Oracle Metadata DNS (`169.254.169.254`) + MagicDNS |
-| Local DNS | AdGuard Home on port 53 |
-| Upstream | Cloudflare (configured in AdGuard) |
+| Resolvedor | Oracle Metadata DNS (`169.254.169.254`) + MagicDNS |
+| DNS Local | AdGuard Home na porta 53 |
+| Upstream | Cloudflare (configurado no AdGuard) |
 
 ### Ybyra
-| Item | Value |
+| Item | Valor |
 |---|---|
-| Resolver | Oracle Metadata DNS (`169.254.169.254`) + MagicDNS |
-| Local DNS | None (no local DNS server) |
+| Resolvedor | Oracle Metadata DNS (`169.254.169.254`) + MagicDNS |
+| DNS Local | Nenhum (sem servidor DNS local) |
 | Upstream | Oracle Metadata → Cloudflare |
 
-> **Fix MagicDNS (21/09/2026):** `tailscale set --accept-dns=true` was set with
-> `CorpDNS: false` (MagicDNS did not inject into systemd-resolved — `getent` returned
-> empty even though `dig @100.100.100.100` worked). After enabling it,
-> `resolvectl status tailscale0` shows `Current Scopes: DNS` + `DNS Domain:
-> chimaera-heptatonic.ts.net` and `getent hosts kuaray...` resolves correctly.
+> **Fix MagicDNS (21/09/2026):** `tailscale set --accept-dns=true` estava com
+> `CorpDNS: false` (MagicDNS não injetava no systemd-resolved — `getent` retornava
+> vazio apesar de `dig @100.100.100.100` funcionar). Após habilitar:
+> `resolvectl status tailscale0` mostra `Current Scopes: DNS` + `DNS Domain:
+> chimaera-heptatonic.ts.net` e `getent hosts kuaray...` resolve corretamente.
 
-## Domains
+## Domínios
 
-| Domain | Resolved by |
+| Domínio | Resolvido por |
 |---|---|
 | `*.chimaera-heptatonic.ts.net` | Tailscale MagicDNS |
 | `ybytuvcn.oraclevcn.com` | Oracle DNS |
 | `ybyravcn.oraclevcn.com` | Oracle DNS |
-| LAN local names | Pi-hole (kuaray) / AdGuard (ybytu) |
-| General Internet | Cloudflare via Pi-hole or AdGuard |
+| Nomes locais LAN | Pi-hole (kuaray) / AdGuard (ybytu) |
+| Internet geral | Cloudflare via Pi-hole ou AdGuard |
 
-## Useful Commands
+## Comandos Úteis
 
 ```bash
 # Ver resolução de um nome

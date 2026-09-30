@@ -4,47 +4,54 @@ tags: [homelab, service, wake-on-lan, wol, power, psicopompo, kavure]
 
 # Wake-on-LAN Relay
 
-Lightweight service that wakes servers remotely via Magic Packet (WoL), reachable over Tailscale.
+Serviço leve que acorda servidores remotamente via Magic Packet (WoL), acessível via Tailscale.
 
-**Server:** kavure / psicopompo
+**Servidores:** kururu (emissor dedicado 24/7 com no-break) / kavure / psicopompo
 
 ## Stack
 
-| Component | Technology |
+| Componente | Tecnologia |
 |---|---|
-| HTTP server | Python `http.server` (homelab standard) |
-| WoL CLI | `wakeonlan` (perl, Arch extra / Ubuntu apt) |
-| Systemd | `wol-relay.service` |
-| Security | Tailscale ACL (only tailnet hosts can reach it) |
-| Port | `9096` |
+| Emissor Canônico 24/7 | `kururu-wake` (Rust nativo, porta `9096` no nó `kururu`) |
+| Emissor Redundante (Psicopompo) | `wol-relay` (Rust nativo compilado de `kururu-wake`, porta `9096`) |
+| Emissor Redundante (Kavure) | `wol-relay` (Rust nativo compilado de `kururu-wake`, porta `9096`) |
+| Systemd / Init | `wol-relay.service` (hosts x86) / `/system/etc/install-recovery.sh` (kururu) |
+| Segurança | Tailscale ACL (só hosts da tailnet alcançam) |
+| Porta | `9096` |
 
-## Architecture
+## Arquitetura
 
 ```
-ybytu (Homepage:3001)
-  ├─ "Ligar Kavure"     → Tailscale → psicopompo:9096/wake → wakeonlan <MAC-kavure>
-  └─ "Ligar Psicopompo" → Tailscale → kavure:9096/wake     → wakeonlan <MAC-psicopompo>
+Qualquer nó da Tailnet (Celular, Notebook, Ybytu, etc.)
+  │
+  ├─► kururu:9096/wake/psicopompo ──► Magic Packet LAN (192.168.3.255:9) ──► Acorda Psicopompo
+  └─► kururu:9096/wake/kavure     ──► Magic Packet LAN (192.168.3.255:9) ──► Acorda Kavure
 ```
 
-Each host runs a relay that wakes the **other** host on the local LAN.
+> **Por que Kururu é o nó canônico para WoL?**
+> 1. **Consumo ínfimo (~1W) e 24/7 na tomada**: Diferente do psicopompo e kavure, kururu nunca é desligado.
+> 2. **Bateria integrada (No-break de hardware)**: Permite enviar WoL mesmo em transições de energia.
+> 3. **Conexão Direta ao AP Principal (`Cratos`)**: O Kavure fica atrás de repetidor Wi-Fi (que bloqueia pacotes broadcast L2). Kururu transmite em broadcast direto para o segmento `192.168.3.255:9`.
 
-## Hosts and MACs
+## Hosts e MACs
 
-| Host | Interface | MAC | Tailscale IP | Relay wakes |
+| Host | Interface | MAC | IP Tailscale | Função WoL |
 |---|---|---|---|---|
-| psicopompo | `eno1` | `d0:94:66:de:8b:58` | `100.82.51.112` | kavure |
-| kavure | `enp1s0` | `d0:94:66:ad:f3:c4` | `100.124.146.77` | psicopompo |
+| **kururu** | `mlan0` | `24:f5:aa:7c:e3:1e` | `100.127.188.45` | **Emissor Primário 24/7** (`kururu-wake`) |
+| **psicopompo** | `eno1` | `d0:94:66:de:8b:58` | `100.82.51.112` | Alvo (acordado via kururu ou kavure) |
+| **kavure** | `enp1s0` | `d0:94:66:ad:f3:c4` | `100.124.146.77` | Alvo (acordado via kururu ou psicopompo) |
 
-## Files
+## Arquivos
 
-| File | Path | Hosts |
+| Arquivo | Caminho | Hosts |
 |---|---|---|
-| Script | `/usr/local/bin/wol-relay.py` | psicopompo + kavure |
-| Service | `/etc/systemd/system/wol-relay.service` | psicopompo + kavure |
-| Env | `/etc/wol-relay.env` | psicopompo + kavure |
-| Deploy script | `/tmp/opencode/deploy-wol-relay.sh` | temporary (remove after use) |
+| Rust Daemon & CLI | `/usr/local/bin/kururu-wake` / `/usr/local/bin/wol-relay` | kururu, psicopompo, kavure (Rust binário nativo) |
+| Boot Persistence | `/system/etc/install-recovery.sh` | kururu |
+| Configuração de Alvos | `/etc/kururu-wake.conf` | kururu, psicopompo, kavure |
+| Service Nativo | `/etc/systemd/system/wol-relay.service` | psicopompo, kavure |
+| Script Legado (Arquivado) | `scripts/archive/wol-relay.py` | vault `agentic-ai` (referência técnica histórica) |
 
-### Env files
+### Configuração de Alvos (`/etc/kururu-wake.conf`)
 
 **psicopompo** (`/etc/wol-relay.env`):
 ```
@@ -62,21 +69,29 @@ WOL_PORT=9096
 
 ## API
 
-| Endpoint | Method | Response |
+### Kururu (Rust Nativo — Canônico 24/7)
+
+| Endpoint | Método | Descrição | Resposta Exemplo |
+|---|---|---|---|
+| `GET /wake/psicopompo` | GET | Acorda Psicopompo via broadcast direto LAN | `{"status":"ok","target":"psicopompo","mac":"d0:94:66:de:8b:58","emitted":true}` |
+| `GET /wake/kavure` | GET | Acorda Kavure via broadcast direto LAN | `{"status":"ok","target":"kavure","mac":"d0:94:66:ad:f3:c4","emitted":true}` |
+| `GET /health` | GET | Verificação de integridade do relay | `{"status":"online","service":"kururu-wol-relay","node":"kururu"}` |
+
+### Hosts x86 Legados (psicopompo / kavure)
+
+| Endpoint | Método | Resposta |
 |---|---|---|
-| `GET /wake` | Sends Magic Packet | `200 {"status":"sent","target":"<host>","mac":"<mac>"}` |
+| `GET /wake` | Envia Magic Packet cruzado | `200 {"status":"sent","target":"<host>","mac":"<mac>"}` |
 | `GET /health` | Health check | `200 {"status":"ok"}` |
 
 ## Homepage
 
-Entries in Homepage's `services.yaml` (ybytu):
+Entradas recomendadas no `services.yaml` do Homepage (ybytu):
 
-- **Psicopompo group** → "Ligar Kavure": `href: http://100.82.51.112:9096/wake`
-- **Kavure group** → "Ligar Psicopompo": `href: http://100.124.146.77:9096/wake`
+- **Grupo Psicopompo** → "Ligar Psicopompo": `href: http://100.127.188.45:9096/wake/psicopompo`
+- **Grupo Kavure** → "Ligar Kavure": `href: http://100.127.188.45:9096/wake/kavure`
 
-Both use `siteMonitor` for the health chip.
-
-## Maintenance
+## Manutenção
 
 ```bash
 # Status
@@ -97,12 +112,12 @@ curl http://100.82.51.112:9096/health
 curl http://100.124.146.77:9096/health
 ```
 
-## WoL Prerequisites
+## Pré-requisitos WoL
 
-For WoL to work, the target machine needs:
+Para o WoL funcionar, a máquina alvo precisa ter:
 
-1. **WoL enabled in the BIOS** (already done on psicopompo and kavure)
-2. **WoL enabled on the network interface:**
+1. **WoL habilitado na BIOS** (já feito em psicopompo e kavure)
+2. **WoL habilitado na interface de rede:**
    ```bash
    # Verificar
    ethtool eno1 | grep "Wake-on"
@@ -111,21 +126,21 @@ For WoL to work, the target machine needs:
    # Habilitar (persistente via systemd-networkd ou /etc/conf.d/network)
    sudo ethtool -s eno1 wol g
    ```
-3. **Wired interface connected** (WoL does not work over Wi-Fi)
+3. **Interface cabeada conectada** (WoL não funciona via Wi-Fi)
 
-## Initial deploy (01/09/2026)
+## Deploy inicial (01/09/2026)
 
-1. `wakeonlan` installed via pacman (psicopompo) and apt (kavure)
-2. Script + service + env deployed via SCP/SSH
-3. Kavure: port 9096 (9093 taken by docker-proxy)
-4. Homepage updated with WoL entries
+1. `wakeonlan` instalado via pacman (psicopompo) e apt (kavure)
+2. Script + service + env deployados via SCP/SSH
+3. Kavure: porta 9096 (9093 ocupada por docker-proxy)
+4. Homepage atualizado com entradas de WoL
 
 ## Boot-race fix (22/09/2026)
 
-**Problem:** `wol-relay` failed on boot with `bind: Cannot assign requested address` — `WOL_LISTEN_ADDR=100.82.51.112` (TS IP) came up before tailscaled assigned the IP. On top of that, the unit had `Restart=unless-stopped` (**docker syntax, invalid in systemd** → ignored, no auto-restart).
+**Problema:** `wol-relay` falhava no boot com `bind: Cannot assign requested address` — `WOL_LISTEN_ADDR=100.82.51.112` (IP TS) subia antes do tailscaled atribuir o IP. Além disso, o unit tinha `Restart=unless-stopped` (**sintaxe docker, inválida no systemd** → ignorada, sem auto-restart).
 
-**Fix (homelab canonical standard — same as the 10/08 syncthing fix):**
-1. `/etc/wol-relay.env` → `WOL_LISTEN_ADDR=127.0.0.1` (local bind, never 0.0.0.0 nor the volatile TS IP)
-2. `tailscale serve --bg --tcp 9096 tcp://127.0.0.1:9096` — tailscaled exposes `100.82.51.112:9096` on the tailnet (state persists in tailscaled)
+**Fix (padrão canônico do homelab — mesmo do syncthing 10/08):**
+1. `/etc/wol-relay.env` → `WOL_LISTEN_ADDR=127.0.0.1` (bind local, nunca 0.0.0.0 nem IP TS volátil)
+2. `tailscale serve --bg --tcp 9096 tcp://127.0.0.1:9096` — tailscaled expõe `100.82.51.112:9096` na tailnet (estado persiste no tailscaled)
 3. `Restart=on-failure` (systemd-correct) + drop-in `After/Wants=tailscaled-wait.service`
-4. Validation: `curl http://100.82.51.112:9096/health` → `{"status":"ok"}` ✅
+4. Validação: `curl http://100.82.51.112:9096/health` → `{"status":"ok"}` ✅

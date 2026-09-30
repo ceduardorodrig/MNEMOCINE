@@ -4,33 +4,33 @@ tags: [homelab, service, navidrome, media]
 
 # Navidrome
 
-Music streaming — Subsonic-API compatible server.
+Streaming de música — servidor Subsonic-API compatível.
 
-**Server:** kavure (migrated 09/08/2026)
-**Port:** `4533`
+**Servidor:** kavure (migrado 09/08/2026)
+**Porta:** `4533`
 **URL:** `http://kavure.chimaera-heptatonic.ts.net:4533`
 
 ## Stack
 
-| Container | Image | Role |
+| Container | Imagem | Função |
 |---|---|---|
-| navidrome | deluan/navidrome:latest | Music streaming |
+| navidrome | deluan/navidrome:latest | Streaming de música |
 
-## Access
+## Acesso
 
 `http://kavure.chimaera-heptatonic.ts.net:4533`
 
-## Compatible Clients
+## Clientes Compatíveis
 
 - **Ultrasonic** (Android)
-- **SonicWeb** (browser)
+- **SonicWeb** (navegador)
 - **Substreamer** (iOS)
-- **Tauon Music Box** (Linux) — integration with `localhost:7813`
+- **Tauon Music Box** (Linux) — integração com `localhost:7813`
 
-## Integration
+## Integração
 
-Music managed by **Lidarr**, which downloads and organizes the tracks automatically. Navidrome reads the music library and serves it to the clients.
+Música gerenciada pelo **Lidarr** que baixa e organiza as faixas automaticamente. O Navidrome lê a biblioteca de música e serve para os clientes.
 
-## Data
+## Dados
 
-Music library mounted as a Docker volume on kuaray's disks.
+Biblioteca de música montada como volume Docker nos discos do kuaray.

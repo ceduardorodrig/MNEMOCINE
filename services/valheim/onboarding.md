@@ -2,89 +2,107 @@
 tags: [homelab, service, valheim, tutorial]
 ---
 
-# Valheim — Onboarding (Players)
+# Valheim — Onboarding (Jogadores)
 
-Guide for joining the **Mnemocine Vikings** Valheim server (kavure).
+Guia para entrar no servidor de Valheim **Mnemocine Vikings** (kavure).
 
-> Access only over the tailnet — anyone not on Tailscale needs manual access via IP.
+> Acesso só pela tailnet — quem não estiver na Tailscale precisa de acesso manual via IP.
 
-## Connection details
+## Dados de conexão
 
-| Item | Value |
+| Item | Valor |
 |---|---|
-| Server name | `Mnemocine Vikings` |
+| Nome do servidor | `Mnemocine Vikings` |
 | IP (Tailscale) | `100.124.146.77` |
-| Port | `2456` (UDP) |
-| **Password** | in the sops store (`VALHEIM_SERVER_PASS`) |
-| World | `Fimbulvetr` |
-| Version | 1.0.12 (Deep North) |
+| Porta | `2456` (UDP) |
+| **Senha** | no store sops (`VALHEIM_SERVER_PASS`) |
+| Mundo | `Fimbulvetr` |
+| Versão | **1.0.16** (Deep North) — atualiza sozinho às 03:00 |
 
-## How to join
+## Como entrar
 
-1. Accept the `kavure` host on your tailnet (if you haven't already).
-2. Open Valheim → **Join Game**.
-3. Add the server manually:
+1. Aceitar o host `kavure` na sua tailnet (se ainda não tiver).
+2. Abrir Valheim → **Join Game**.
+3. Adicionar servidor manualmente:
    - IP: `100.124.146.77`
-   - Port: `2456`
-4. Connect → use the server password from the sops store (`VALHEIM_SERVER_PASS`).
+   - Porta: `2456`
+4. Conectar → digitar a senha (ver `VALHEIM_SERVER_PASS` no store sops).
 
-> The server is **private** (`public=false`) — it does not appear in the server list. Only reachable via direct IP on the tailnet.
+> O servidor é **privado** (`public=false`) — não aparece na lista de servidores. Só acessível via IP direto na tailnet.
 
 ## Mods
 
-The client downloads the mods automatically when connecting (BepInEx + 4 QoL mods). If the game asks you to install them, accept — the server sends the list.
+O servidor roda BepInEx com mods **server-side** — quem conecta com o jogo vanilla entra normal, sem instalar nada.
 
-### Installed mods (4)
+### Client-side (cada jogador instala no PC)
 
-| Mod | Role |
-|---|---|
-| Gizmo | Building rotation (Ctrl+scroll) |
-| FuelEternal | Fire never goes out |
-| CameraTweaks | Customizable zoom and FOV |
-| SmoothServer | Network performance (Compression disabled, map not shared) |
+| Mod | Função | Para quem |
+|---|---|---|
+| Gizmo (ComfyMods) | Rotação de construção (Ctrl+scroll) | todos |
+| CameraTweaks (Searica) | Zoom e FOV customizável | todos |
+| Server Devcommands (JereKuusela) | devcommands de **admin** (god/fly/spawn) | **só admins** |
 
-### Admin commands (F5)
+Instalação: BepInExPack + o mod, via r2modman/Thunderstore Mod Manager no PC.
 
-Valheim 1.0 has native commands via the console:
+> **Corrigido em 26/09/2026:** esta seção antes afirmava que "o cliente baixa os mods automaticamente ao conectar (BepInEx + 4 mods QoL)". **Não acontece** — mods client-side não são baixados pelo servidor; cada um instala no PC.
 
-1. Press **F5** to open the console.
-2. Type `devcommands` → Enter (enables developer mode).
-3. Useful commands:
-   - `god` — invincibility mode
-   - `fly` — free flight
-   - `pos` — shows coordinates
-   - `freefly` — free camera
-   - `event` — random events
-   - `stopevent` — stops the current event
+### Console (F5) — como abrir
 
-> ⚠️ Commands are **local** — they only affect whoever typed them. There is no remote admin via RCON like in Zomboid.
+O console **não abre por padrão**. Faça isso **no seu PC**, uma vez:
 
-## Remote restart from your phone
+- **Settings → Gameplay → Enable Console** (o caminho normal), **ou**
+- parâmetro de launch `-console` no Steam.
 
-If you need to restart while away:
+Depois de conectar no servidor, **F5** abre o console. Sem esse passo o F5 não faz nada.
 
-1. Phone connected to **Tailscale** (MagicDNS).
+### O que cada perfil pode fazer
+
+| | Comandos | Precisa de quê |
+|---|---|---|
+| **Admin** (na lista) | `kick`, `ban`, `unban`, `banned`, `save` + `devcommands` (`god`, `fly`, `pos`, `freefly`, `event`, `stopevent`, …) | estar na lista de admin do servidor |
+| **Jogador normal** | `devcommands` só pra si mesmo (efeito local) | nada |
+
+> **Mod client-side:** os *devcommands* de admin (spawn, god, fly) exigem o mod **Server Devcommands** instalado **no seu PC** (Thunderstore → `JereKuusela/Server_devcommands`, junto do BepInExPack). O servidor já tem do lado dele — sem o mod no cliente, os comandos de admin não aparecem pra você. Os nativos (kick/ban/save) funcionam sem mod nenhum.
+
+> **Corrigido em 26/09/2026:** esta seção antes dizia *"os comandos são locais, não há admin remoto"*. **Estava errado** — o admin existe e é configurado no servidor (ver [[valheim-server#Admin — permissions.yaml]]). O que acontece é que quase ninguém estava na lista de admin.
+
+## Restart remoto pelo celular
+
+Se precisar reiniciar fora de casa:
+
+1. Celular conectado na **Tailscale** (MagicDNS).
 2. SSH: `tailscale ssh kavure@kavure`
-3. Run: `valheim-restart`
+3. Rodar: `valheim-restart`
 
-> The server saves automatically before the restart via `AUTO_BACKUP_ON_SHUTDOWN=1`.
+> O servidor salva automaticamente antes do restart via `AUTO_BACKUP_ON_SHUTDOWN=1`.
 
-## Automatic maintenance
+## Manutenção automática
 
-| Time | What happens |
+| Horário | O que acontece |
 |---|---|
-| 03:00 | Watchtower updates the image (steamcmd) |
-| 05:00 | Daily restart (timer `hl-valheim-restart`) |
-| 05:30 | Off-box backup (timer `hl-valheim-backup`) |
-| Every 30 min | Automatic container backup |
+| 03:00 | Watchtower atualiza a imagem (steamcmd) |
+| 05:00 | Restart diário (timer `hl-valheim-restart`) |
+| 05:30 | Backup off-box (timer `hl-valheim-backup`) |
+| A cada 30 min | Backup automático do container |
 
-## Admin (owner)
+## Admin
+
+**Admins do servidor:**
+
+| Jogador | Nome in-game | SteamID64 |
+|---|---|---|
+| Carlos (dono) | AhNo CaM | `76561198075365006` |
+| Titi / Twister / Lira | Lira | `76561198009545651` |
+| Henrique | BiM | `76561197988953037` |
+
+> Admin é por **conta Steam**, não por personagem — quem tem o ID na lista é admin em todos os personagens dela (Titi, Twister e Lira são a mesma conta).
 
 - **SSH:** [`ssh-runbook`](ssh-runbook.md) — start/stop/restart/backup
-- **Console:** `devcommands` in the game (F5)
+- **In-game:** F5 (com Enable Console ligado) → `god`, `fly`, `pos`, `kick <player>`, `save`
+- **Pedir admin:** mandar o SteamID64 (ou o `V_` que aparece no overlay F2 dentro do jogo) pro dono — ele adiciona na lista
 
 ## See also
 
-- [[valheim-server]] — Valheim server (Docker)
-- [[ssh-runbook]] — Operation via SSH
-- [[kavure]] — Target server
+- [[valheim-server]] — Servidor Valheim (Docker)
+- [[ssh-runbook]] — Operação via SSH
+- [[kavure]] — Servidor de destino

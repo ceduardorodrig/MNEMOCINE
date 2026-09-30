@@ -2,18 +2,18 @@
 tags: [homelab, network, docker, monitoring]
 ---
 
-# Service Topology
+# Topologia de Serviços
 
-Mapping of dependencies between homelab services.
+Mapeamento de dependências entre os serviços do homelab.
 
 ## Psicopompo
 
-> **State (07/08/2026):** `sumaenimahub` stack (StênioBOT, Umami) **migrated to kavure** — psicopompo is now **role=gpu** (vision/audio/ollama GPU workers via standalone `gpu.yml`, connected to kavure's Swarm overlay) + build-node. Portainer, Crafty, Glances, dockerproxy, watchtower, autoheal **active**.
+> **Estado (07/08/2026):** stack `sumaenimahub` (StênioBOT, Umami) **migrada para o kavure** — o psicopompo agora é **role=gpu** (GPU workers vision/audio/ollama via `gpu.yml` standalone, conectados à overlay do Swarm do kavure) + build-node. Portainer, Crafty, Glances, dockerproxy, watchtower, autoheal **ativos**.
 
-### Docker Networks
+### Redes Docker
 
 ```
-sumaenima_sumaenima-net (overlay do Swarm do kavure)  — GPU workers
+sae-net (overlay do Swarm do kavure)  — GPU workers
 ├── steniobot_vision ────→ valkey (kavure), api (kavure) via overlay
 ├── steniobot_audio ─────→ valkey (kavure), api (kavure) via overlay
 └── steniobot_ollama ────→ porta 11434 (API no kavure alcança via overlay)
@@ -33,7 +33,7 @@ bridge (172.17.0.0/16)
 └── autoheal
 ```
 
-### Dependencies
+### Dependências
 
 ```mermaid
 graph LR
@@ -51,9 +51,9 @@ graph LR
     end
 ```
 
-### Shared Volumes
+### Volumes Compartilhados
 
-| Volume | Mount | Service |
+| Volume | Montagem | Serviço |
 |---|---|---|
 | `steniobot_valkey` | `/data` | steniobot_valkey |
 | `umami_db` | `/var/lib/postgresql/data` | umami_db |
@@ -64,7 +64,7 @@ graph LR
 
 ## Ybytu
 
-### Docker Networks
+### Redes Docker
 
 ```
 bridge (172.17.0.0/16)
@@ -81,7 +81,7 @@ homepage_default (172.18.0.0/16)
 └── homepage ───────────→ dockerproxy:DOCKER_HOST → porta 3001
 ```
 
-### Dependencies
+### Dependências
 
 ```mermaid
 graph LR
@@ -97,7 +97,7 @@ graph LR
 
 ## Ybyra
 
-### Docker Networks
+### Redes Docker
 
 ```
 bridge (172.17.0.0/16)
@@ -108,10 +108,10 @@ bridge (172.17.0.0/16)
 └── syncthing ──────────→ porta 8384, 22000
 ```
 
-### Native Services
-- **nginx**: Port 80. Hosts the frontend SPA (Primary Edge) and acts as a reverse proxy for the API.
+### Serviços Nativos
+- **nginx**: Porta 80. Hospeda o SPA frontend (Borda Primária) e atua como proxy reverso para a API.
 
-### Dependencies
+### Dependências
 
 ```mermaid
 graph LR
@@ -126,11 +126,11 @@ graph LR
 
 ## Kuaray
 
-> **⚠️ DEPRECATED (28/08/2026):** node removed from the active topology. Services on kuaray no longer take part in any operational role; the reference below is historical.
+> **⚠️ DEPRECIADO (28/08/2026):** nó retirado da topologia ativa. Serviços em kuaray não fazem mais parte de nenhum papel operacional; referência abaixo é histórica.
 
-> **State (10/08/2026):** arr-stack + infra run via **docker-compose** (`/home/kuaray/homelab/{serviço}/`, config-as-code). **HA, Pi-hole, Navidrome, Calibre migrated to kavure** (09/08). Watchtower re-enabled (09/08). `calibre-web` removed (library lost 08/08); **Kavita removed 10/08** (no longer used).
+> **Estado (10/08/2026):** arr-stack + infra rodam via **docker-compose** (`/home/kuaray/homelab/{serviço}/`, config-as-code). **HA, Pi-hole, Navidrome, Calibre migrados para o kavure** (09/08). Watchtower reativado (09/08). `calibre-web` removido (biblioteca perdida 08/08); **Kavita removido 10/08** (não era mais usado).
 
-### Docker Networks
+### Redes Docker
 
 ```
 bridge (172.17.0.0/16)
@@ -158,7 +158,7 @@ big-bear-vert_default
 └── vert (também na bridge)
 ```
 
-### *arr Stack Dependencies
+### Dependências do *arr Stack
 
 ```mermaid
 graph LR
@@ -177,27 +177,27 @@ graph LR
     end
 ```
 
-### Detailed Dependencies
+### Dependências Detalhadas
 
-| Service | Depends on | Service / Resource |
+| Serviço | Depende de | Serviço / Recurso |
 |---|---|---|
-| **lidarr** | → prowlarr | Torrent indexers |
+| **lidarr** | → prowlarr | Indexers de torrent |
 | | → transmission | Downloader |
-| | → soularr | Alternate downloader (Soulseek) |
-| **prowlarr** | → flaresolverr | Cloudflare resolver |
-| **soularr** | → slskd | Soulseek client |
-| **navidrome** | → lidarr | Library organization |
-| **watchtower** | → dockerproxy | Docker API |
-| **homepage (ybytu)** | → dockerproxy (kuaray?) | Container status | |
+| | → soularr | Download alternativo (Soulseek) |
+| **prowlarr** | → flaresolverr | Resolver Cloudflare |
+| **soularr** | → slskd | Cliente Soulseek |
+| **navidrome** | → lidarr | Organização da biblioteca |
+| **watchtower** | → dockerproxy | API Docker |
+| **homepage (ybytu)** | → dockerproxy (kuaray?) | Status dos containers | |
 
 ## Kavure
 
-> **State (16/08/2026):** **Project Zomboid active** + **Zomboid Control Panel** + **dockerproxy** + **`ops` infra** + **Sumænimá sae-core (Swarm manager)**. **Received from kuaray (09/08):** **Home Assistant** (`:10000` funnel), **Pi-hole** (`:53` tailscale, host network), **Navidrome** (`:4533`, music via NFS), **Calibre Web** (`:8083`, books via NFS). **AioStreams** (`:3000`) + **Comet** (`:8000`) migrated 09/08. **HA reconfigured 16/08** (Bluetooth caps + HACS). **Mosquitto removed from kuaray 16/08** (unused). Host on **America/Sao_Paulo**.
+> **Estado (16/08/2026):** **Project Zomboid ativo** + **Zomboid Control Panel** + **dockerproxy** + **infra `ops`** + **Sumænimá sae-core (Swarm manager)**. **Recebidos do kuaray (09/08):** **Home Assistant** (`:10000` funnel), **Pi-hole** (`:53` tailscale, host network), **Navidrome** (`:4533`, música via NFS), **Calibre Web** (`:8083`, livros via NFS). **AioStreams** (`:3000`) + **Comet** (`:8000`) migrados 09/08. **HA reconfigurado 16/08** (caps Bluetooth + HACS). **Mosquitto removido do kuaray 16/08** (sem uso). Host em **America/Sao_Paulo**.
 
-### Docker Networks
+### Redes Docker
 
 ```
-sumaenima_sumaenima-net (overlay — Swarm, manager = kavure)
+sae-net (overlay — Swarm, manager = kavure)
 ├── sae-core_db ──────────→ PostgreSQL 16 (pgvector), /srv/data/sumaenimahub/volumes/
 ├── sae-core_valkey ──────→ cache/broker
 ├── sae-core_api ─────────→ FastAPI :9090 (publicada no host)
@@ -219,7 +219,7 @@ ops_default
 └── glances ─────────────→ porta 61208
 ```
 
-### Dependencies
+### Dependências
 
 ```mermaid
 graph LR
@@ -234,49 +234,49 @@ graph LR
     end
 ```
 
-## Cross-Server Dependencies
+## Dependências Cross-Server
 
-| Service | Server | Depends on | Server |
+| Serviço | Servidor | Depende de | Servidor |
 |---|---|---|---|
 | Syncthing | psicopompo | ↔ Syncthing | kuaray |
 | Syncthing | ybyra | ↔ Syncthing | psicopompo |
 | Homepage (dashboard) | ybytu | → dockerproxy | psicopompo (via Tailnet) |
 | Homepage (dashboard) | ybytu | → dockerproxy | kuaray (via Tailnet) |
 | Homepage (dashboard) | ybytu | → dockerproxy | kavure (via Tailnet) |
-| Sumænimá (SPA Frontend) | ybyra (primary) / kavure (standby) | → Sumænimá Backend API | **kavure** (port 9090, via Swarm overlay) |
-| Sumænimá GPU workers | psicopompo | → valkey/api/ollama | kavure (via overlay `sumaenima_sumaenima-net`) |
+| Sumænimá (SPA Frontend) | ybyra (primary) / kavure (standby) | → Sumænimá Backend API | **kavure** (porta 9090, via overlay Swarm) |
+| Sumænimá GPU workers | psicopompo | → valkey/api/ollama | kavure (via overlay `sae-net`) |
 
 ## Auto-Start & Health
 
-### Autoheal (4 servers)
-| Server | Container | Config | Status |
+### Autoheal (4 servidores)
+| Servidor | Container | Config | Status |
 |---|---|---|---|
-| psicopompo | autoheal | Monitors everything, 5s interval | ✅ healthy |
-| ybytu | autoheal | Monitors everything, 5s interval | ✅ healthy |
-| ybyra | autoheal | Monitors everything, 5s interval | ✅ healthy |
-| kuaray | autoheal-autoheal-1 | Monitors everything, 5s interval | ✅ healthy |
-| kavure | autoheal | Monitors everything (`AUTOHEAL_CONTAINER_LABEL=all`), 5s interval | ✅ healthy |
+| psicopompo | autoheal | Monitora todos, intervalo 5s | ✅ healthy |
+| ybytu | autoheal | Monitora todos, intervalo 5s | ✅ healthy |
+| ybyra | autoheal | Monitora todos, intervalo 5s | ✅ healthy |
+| kuaray | autoheal-autoheal-1 | Monitora todos, intervalo 5s | ✅ healthy |
+| kavure | autoheal | Monitora todos (`AUTOHEAL_CONTAINER_LABEL=all`), intervalo 5s | ✅ healthy |
 
 ### Watchtower
-| Server | Container | Config | Status |
+| Servidor | Container | Config | Status |
 |---|---|---|---|
-| psicopompo | watchtower | ✅ Active, cleanup=true, API 1.40, polling 24h | ✅ healthy |
-| ybytu | watchtower | ✅ Active, no auto-cleanup | ✅ healthy |
-| ybyra | watchtower | ✅ Active | ✅ healthy |
-| kuaray | watchtower | ✅ Active, cleanup=true, polling 24h | ✅ healthy |
-| kavure | watchtower | ✅ Active, cleanup=true, **schedule 03:00 (BRT)**, stop-timeout 30s | ✅ healthy |
+| psicopompo | watchtower | ✅ Ativo, cleanup=true, API 1.40, polling 24h | ✅ healthy |
+| ybytu | watchtower | ✅ Ativo, sem auto-cleanup | ✅ healthy |
+| ybyra | watchtower | ✅ Ativo | ✅ healthy |
+| kuaray | watchtower | ✅ Ativo, cleanup=true, polling 24h | ✅ healthy |
+| kavure | watchtower | ✅ Ativo, cleanup=true, **schedule 03:00 (BRT)**, stop-timeout 30s | ✅ healthy |
 
 ### Restart Policies
-| Server | Policies |
+| Servidor | Políticas |
 |---|---|
-| psicopompo | All `unless-stopped` or `always` |
-| ybytu | All `unless-stopped` or `always` |
-| ybyra | All `unless-stopped` |
-| kuaray | All `unless-stopped` or `always` |
-| kavure | All `unless-stopped` (pz-server, panel, dockerproxy, ops) |
+| psicopompo | Todos `unless-stopped` ou `always` |
+| ybytu | Todos `unless-stopped` ou `always` |
+| ybyra | Todos `unless-stopped` |
+| kuaray | Todos `unless-stopped` ou `always` |
+| kavure | Todos `unless-stopped` (pz-server, panel, dockerproxy, ops) |
 
-### Systemd (auto-start on boot)
-| Service | psicopompo | ybytu | ybyra | kuaray | kavure |
+### Systemd (auto-start no boot)
+| Serviço | psicopompo | ybytu | ybyra | kuaray | kavure |
 |---|---|---|---|---|---|
 | docker | ✅ enabled | ✅ enabled | ✅ enabled | ✅ enabled | ✅ enabled |
 | tailscaled | ✅ enabled | ✅ enabled | ✅ enabled | ✅ enabled | ✅ enabled |

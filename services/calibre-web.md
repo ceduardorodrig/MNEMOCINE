@@ -4,22 +4,22 @@ tags: [homelab, service, calibre-web, media]
 
 # Calibre-web Automated
 
-Ebook server with automatic downloads.
+Servidor de ebooks com download automático.
 
-**Server:** kavure (migrated 09/08/2026)
-**Port:** `8083`
+**Servidor:** kavure (migrado 09/08/2026)
+**Porta:** `8083`
 **URL:** `http://kavure.chimaera-heptatonic.ts.net:8083`
 
 ## Stack
 
-| Container | Image | Role |
+| Container | Imagem | Função |
 |---|---|---|
-| calibre-web-auto | crocodilestick/calibre-web-automated:latest | Ebook server + automatic download |
+| calibre-web-auto | crocodilestick/calibre-web-automated:latest | Ebook server + download automático |
 
-## Access
+## Acesso
 
 `http://kavure.chimaera-heptatonic.ts.net:8083`
 
-## Operation
+## Funcionamento
 
-Web interface for reading and managing ebooks. The "automated" version includes automatic book downloads based on configurable rules.
+Interface web para leitura e gerenciamento de ebooks. A versão "automated" inclui download automático de livros baseado em regras configuráveis.
