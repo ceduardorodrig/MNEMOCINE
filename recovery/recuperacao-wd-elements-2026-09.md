@@ -4,8 +4,10 @@ tags: [homelab, recovery, storage, hardware, usb, kernel, psicopompo, handoff]
 
 # Recuperação — WD Elements SE 1TB (MORIBUNDO) — set/2026
 
-> **Status:** 🔄 EM ANDAMENTO (iniciado 29/09/2026)
-> **Máquina:** psicopompo (CachyOS, kernel 7.2.8-1-cachyos-bore)
+> **Status:** ⏸ **PAUSADO** — parada programada em 30/09/2026 01:50 (iniciado 29/09/2026)
+> **Onde parou:** mapa `fase1a_700-1000.map` com **218,61 GB pendentes** (parede ≈ 820,86 GB)
+> → procedimento de **retomada em §8.1** (nenhum processo rodando, nada a perder)
+> **Máquina:** psicopompo (CachyOS, kernel 7.2.8-1-cachyos-bore — boot no **LTS** pendente, ver §8.1)
 > **Arquivos de trabalho:** `/mnt/HDD_SATA/recuperacao-elements/` (scratch — apagar no fim)
 > **Tracking detalhado:** `RECUPERACAO_TRACKING_2026.md` no diretório acima
 > **Destino dos arquivos recuperados:** `/mnt/SSHD/recuperacao/`
@@ -106,7 +108,7 @@ inconsistente → **congelamento total**.
 |---|---|---|
 | 1 | **SysRq habilitado** (`kernel.sysrq = 1`) | `/etc/sysctl.d/99-homelab-sysrq.conf` |
 | 2 | **Watchdog de hardware** | `RuntimeWatchdogSec=30s` em `/etc/systemd/system.conf` → `intel_oc_wdt` **active** |
-| 3 | **`reset-guard.sh`** | vigia o journal e, após **3 resets**, mata a sessão e faz `unbind` do disco |
+| 3 | **`reset-guard.sh` (v6)** | vigia o journal **permanentemente**; 1ª tempestade (**3 resets/45 s**) → `SIGINT` + drenagem (sem unbind se o disco está presente); **2ª tempestade com I/O já parado** = disco travou → `unbind`+`bind`; **KILL em 12 s** se o `SIGINT` não derrubar o ddrescue (com backup do mapfile); reaplica `timeout=5` **a cada reset** |
 | 4 | **SCSI timeout = 5 s** | `/sys/block/sdX/device/timeout` (não persistente — reaplicar após reboot) |
 
 **Efeito:** no pior caso a máquina **reinicia sozinha em ~30 s** em vez de congelar para sempre,
@@ -119,11 +121,38 @@ sudo cp /etc/systemd/system.conf.bak-pre-watchdog /etc/systemd/system.conf
 sudo systemctl daemon-reexec
 ```
 
+### Duas quedas reais (30/09) — o que elas provaram
+
+| | Crash n.º 1 (00:18:06) | Crash n.º 2 (00:57:03) |
+|---|---|---|
+| Guarda | **viva, NÃO disparou** (4 resets / limiar 5-90 s) | **disparou e encerrou** após a `PARADA` |
+| I/O | corria normalmente | `SIGINT` não derrubou o ddrescue → 8 resets **sem vigia** (00:55:11–00:56:31) |
+| Sequência | `offline` 00:17:08 → oops 00:18:06 (58 s) | `offline` 00:56:43 → oops 00:57:03 (20 s) |
+| Reboot | watchdog 00:18:56 | watchdog 00:57:48 |
+
+Assinatura idêntica nos dois: `Device offlined - not ready after error recovery` →
+`BUG: kernel NULL pointer dereference, address: 00000000000001b8` em
+`scsi_complete+0x3f/0x270` (a partir de `usb_stor_control_thread`) → watchdog reinicia.
+
+- **Causa raiz = bug do kernel** no error recovery do `usb-storage` com este disco falhando
+  (**crash n.º 1 aconteceu sem nenhuma intervenção nossa** — prova documental). O `unbind`
+  nosso **não** é o gatilho.
+- O que o bug da guarda (n.º 2) fez foi **perder a chance de conter**: sem vigia, a escalada
+  seguiu até o `offline`. Corrigido na **v6** (guarda persistente, KILL, 2 estágios, `timeout=5`
+  reaplicado) — **reduz a probabilidade, não zera** (a janela dos 3 primeiros resets fica).
+- Evidência adicional do n.º 2: o `SIGINT` **não regravou o mapfile** (mtime ficou em 00:53) →
+  por isso a v6 faz `cp` do mapa antes do KILL e a retomada prevê backup por sessão.
+
+**Pendência abordada ao usuário (ainda não executada):** boot no **LTS** como aposta
+complementar contra o bug do kernel + apertar o gatilho para **2/30 s**.
+
 ### O que **não** foi mexido (preservar otimizações CachyOS)
 - `nowatchdog` do cmdline **intacto** (é o tweak real de performance — desliga NMI/lockup detectors).
 - Nenhuma mudança em scheduler/BORE/OMD/governors/sysctl de performance.
-- Decisão consciente: **manter o kernel `linux-cachyos-bore`**, sem bootar o LTS
-  (`linux-cachyos-lts 6.18.52` está instalado e poderia fugir do bug, mas não foi adotado).
+- Decisão **pendente**: adotar o boot no **LTS** (`linux-cachyos-lts 6.18.52` já instalado;
+  Limine 12.9.0 traz a entrada `linux-cachyos-lts` = `default_entry: 2`, `timeout: 5`,
+  `remember_last_entry: yes`) — aposta contra o bug do kernel, **sem garantia**. Enquanto não
+  se decide, segue o `bore` 7.2.8 (com as duas quedas já sobrevividas pelo watchdog).
 
 ### Documentação oficial consultada
 - `systemd-system.conf(5)`: *"By default, RuntimeWatchdogSec= defaults to 0 (off)"*;
@@ -255,13 +284,43 @@ distintos do disco não mede degradação — mede apenas o quanto ainda não ex
 - [x] **Proteções anti-congelamento** (sysrq + watchdog + reset-guard)
 - [x] **Sintaxe do PhotoRec decifrada** + lista curada de 79 famílias (`carve.sh`)
 - [x] **Telemetria SMART** contínua (`monitor-smart.sh`)
-- [ ] 🔄 **Carve da cauda 570–631 GB** → `/mnt/SSHD/recuperacao/01_carve_cauda`
-- [ ] **Fase 1a — imagem 658 → 1000 GB** (dado nunca tentado; 2 passadas: `-n` + retry)
+- [x] 🔄 **Carve da cauda 570–631 GB** → `/mnt/SSHD/recuperacao/01_carve_cauda` — **OK: 141 arq / 31 GB**
+- [x] **Carve 658–790 GB** → `02_carve_658-790` — **51 arq / 38 GB** (interrompido 00:15; última pasta pode estar truncada → **re-rodar**)
+- [ ] 🔄 **Fase 1a — imagem 700 → 1000 GB** (2 passadas: `-n` + retry) — **pausada em 820,86 GB, pendente 218,61 GB**
 - [ ] **Fase 5d — inventário NTFS** (`ntfsls -R -f -l`) para medir o que foi salvo
 - [ ] Fase 1b/c — 630–658 GB e atoleiro 576–599 GB (já cobertos; baixa prioridade)
 - [ ] Fase 4 — 0–570 GB (já coberto pelo rescue antigo; só se sobrar tempo)
 - [ ] `fdupes` contra os 530 GB do RESGATE + organização para o cliente
 - [ ] Relatório final + limpeza do scratch + fechamento deste doc
+
+### 8.1 Retomada após a pausa (30/09/2026 01:50)
+
+Nenhum processo rodando e **nada a perder** — o mapa é o único estado que importa.
+Passos, na ordem:
+
+1. **Identificar os 3 discos USB por serial** (as letras mudam a cada reboot/replug):
+   `lsblk -dn -o NAME,SERIAL,SIZE,TRAN` → MORIBUNDO `WD-WX51A68876FE`,
+   RESGATE `WD-WXW1A976UPD4`, SSHD `0123456789ABCDEF` (ignorar fantasmas de 0 B).
+2. **Remontar**: `/mnt/SSHD` (rw) e `/mnt/RESGATE` (ro) — caem a cada reboot. Conferir se os
+   carves `01_carve_cauda.*` e `02_carve_658-790.*` sobreviveram.
+3. **`echo 5 > /sys/block/<sdX>/device/timeout`** (volta a 30 a cada reboot — e a cada reset).
+4. **Relançar a fase 1a** (retoma do mapfile):
+
+   ```bash
+   cd /mnt/HDD_SATA/recuperacao-elements
+   sudo bash -c 'setsid nohup env GUARDMAX=3 JANELA=45 SKIP_STORM=1000000000 REST=30 \
+     bash supervisor.sh fase1a_700-1000.map 700 1000170586112 f1a >> supervisor-f1a.log 2>&1 < /dev/null &'
+   bash monitor-smart.sh    # telemetria SMART (≤ 15 min entre leituras)
+   ```
+
+5. **Conferir a guarda v6** disparar e **sobreviver** a uma tempestade (não pode mais encerrar
+   após a `PARADA`) e vigiar se o kernel ainda emite `Device offlined`.
+6. **Decisões em aberto com o usuário**: boot no **LTS** · gatilho **2/30 s** · backup do
+   mapfile após cada sessão · re-rodar o carve 02 · reescrever `pipeline.sh` (apagado por
+   corrompido).
+
+> Proteções persistentes seguem **ativas** (rollback no §6): `kernel.sysrq=1` e
+> `RuntimeWatchdogSec=30s`.
 
 ### Telemetria (29/09 19:09)
 ```

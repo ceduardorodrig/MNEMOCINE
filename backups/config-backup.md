@@ -26,6 +26,7 @@ Cada host (05:00) → /usr/local/bin/config-backup (systemd timer hl-config-back
 
 | Hora | Job |
 |---|---|
+| 04:45 | **mnemocine-docs-sync (psicopompo)** — publica a doc do vault no repo **público** `MNEMOCINE` (ver [`mnemocine-docs-sync.md`](mnemocine-docs-sync.md)) |
 | 04:55 | **noctalia-config-export (psicopompo, user)** — `noctalia config export` → `~/.config/noctalia/merged-config.toml` (camada efetiva: declarativa + overrides GUI) |
 | 05:00 | config-backup (todos) |
 | 05:00 | zomboid-restart (kavure, inalterado) |
@@ -62,6 +63,8 @@ Cada host (05:00) → /usr/local/bin/config-backup (systemd timer hl-config-back
 | ybyra | `/home/ubuntu/homelab`, `docker-compose.ybyra.yml` | `*.tar.gz`/`*.zip`/`*.tgz`/`*.tar` |
 
 **Excluídos globalmente (segredos — NUNCA vão pro espelho):** `.env`, `secrets.yaml`, `slskd.yml`, `passwd`, `config.xml` (API keys), `*.db`, `*.log`, `*.lock`, `.venv`, `node_modules`, `.git`, `.cache`, `.stversions`. Segredos vivem no **store sops/age** (`/mnt/NVME_PCI/secrets/`), que sincroniza criptografado via Syncthing.
+
+**`mnemocine/` é excluído no psicopompo (30/09/2026):** `/mnt/NVME_PCI/homelab/mnemocine` é **derivado** — o `mnemocine-docs-sync` copia do vault `agentic-ai/mnemocine` e publica no repo público `MNEMOCINE`. O circuito privado não precisa versionar uma segunda cópia da mesma documentação, e a cópia intermediária ficava **congelada** (o sync não tinha timer), gerando 97 divergências e re-acusando segredos já corrigidos no espelho. Ver [`mnemocine-docs-sync.md`](mnemocine-docs-sync.md).
 
 ## Como adicionar um serviço/host novo
 
