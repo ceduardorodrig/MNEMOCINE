@@ -8,16 +8,16 @@ Bot de relatoria com IA para reuniões institucionais.
 
 **Servidor:** kavure (Swarm manager, role: core) — migrado do psicopompo em 07/08/2026
 **Stack:** `sae-core` (Docker Swarm) no kavure; GPU workers no psicopompo (role: gpu)
-**Porta:** `9090` (publicada no host do kavure para monitoria via Tailscale)
-**URL interna:** `http://api:9090` (overlay network `sae-net`)
-**URL Tailscale:** `http://100.124.146.77:9090`
+**Porta:** `9090` — **somente na overlay `sae-net`** (VIP `10.0.2.20:9090`). **Não é publicada no host**: verificado em 02/10/2026 (`docker service inspect sae-core_api` → `Endpoint.Ports: null`; `ss -ltn` no kavure sem 9090; `curl 100.124.146.77:9090` → sem conexão)
+**URL interna (caminho real):** `http://api:9090` (overlay `sae-net`)
+~~**URL Tailscale:** `http://100.124.146.77:9090`~~ — **não existe mais**; alcançar pela borda: `http://ybyra.chimaera-heptatonic.ts.net/api/health` (**200** verificado 02/10/2026)
 **Funnel:** `{{TAILSCALE_FUNNEL_DOMAIN}}` → `https` (via tunnel no ybyra)
 
 ## Stack (Docker Swarm)
 
 | Service | Imagem | Portas | Função |
 |---|---|---|---|
-| sae-core_api | sumaenima-server:latest | `0.0.0.0:9090` | Aplicação Rust Axum 0.8 + React 19 WASM Client |
+| sae-core_api | sumaenima-server:latest | **`—`** (só overlay; VIP `10.0.2.20:9090` — *não* publicado no host) | Aplicação Rust Axum 0.8 + React 19 WASM Client |
 | sae-core_db | postgres:16-alpine | — | Banco de dados principal |
 | sae-core_valkey | valkey/valkey:8-alpine | — | Cache distribuído + sessão |
 | sae-core_backup | sumaenimahub-backup-sentinel:latest | `0.0.0.0:9092` | Backup automático (Borg + pg_dump) |
@@ -101,12 +101,13 @@ Peça no chat para um agente executar `sumaenima-ctl start`.
 
 | Tipo | URL |
 |---|---|
-| Overlay Swarm (outros serviços) | `http://api:9090` |
-| Tailscale (interno, kavure) | `http://100.124.146.77:9090` |
-| Proxy Ybyra (borda externa) | `http://{{SUMAENIMA_DOMAIN}}/api/` |
+| Overlay Swarm (outros serviços) | `http://api:9090` ✅ |
+| ~~Tailscale (interno, kavure)~~ | ~~`http://100.124.146.77:9090`~~ **não publicado no host** (02/10/2026) |
+| Proxy Ybyra (borda externa) | `http://{{SUMAENIMA_DOMAIN}}/api/` ✅ |
 | Funnel (público) | `https://{{TAILSCALE_FUNNEL_DOMAIN}}` |
-| Health check | `http://100.124.146.77:9090/api/health` |
-| API docs | `http://100.124.146.77:9090/docs` (Swagger) |
+| **Health check (canônico)** | `http://ybyra.chimaera-heptatonic.ts.net/api/health` → **200** (backup: `:9092/health` do sentinel) |
+| ~~Health check antigo~~ | ~~`http://100.124.146.77:9090/api/health`~~ — **probe quebrado** (monitor #50 do Uptime Kuma; ver [`network/topology.md`](../network/topology.md)) |
+| API docs (Swagger) | via borda: `…/api/docs` (não há `:9090/docs` direto) |
 
 ## Backup
 

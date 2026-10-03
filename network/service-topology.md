@@ -9,6 +9,7 @@ Mapeamento de dependências entre os serviços do homelab.
 ## Psicopompo
 
 > **Estado (07/08/2026):** stack `sumaenimahub` (StênioBOT, Umami) **migrada para o kavure** — o psicopompo agora é **role=gpu** (GPU workers vision/audio/ollama via `gpu.yml` standalone, conectados à overlay do Swarm do kavure) + build-node. Portainer, Crafty, Glances, dockerproxy, watchtower, autoheal **ativos**.
+> **Correção (02/10/2026):** **Portainer e Crafty não existem mais no psicopompo** (8 containers: autoheal, dockerproxy, glances, node-exporter, promtail, registry, steniorec, watchtower). Ver [`network/topology.md`](../network/topology.md) §Subredes Docker.
 
 ### Redes Docker
 

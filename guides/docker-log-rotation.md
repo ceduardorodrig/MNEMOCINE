@@ -56,6 +56,12 @@ nome de arquivo → a coleta de log de container pararia.
 >
 > ⚠️ A doc avisa: *"Existing containers **don't** use the new logging configuration
 > automatically"* — só containers **novos** herdam. Por isso a camada 2.
+>
+> 🛑 **Regra de ouro (02/10/2026):** ao editar este `daemon.json`, **nunca adicionar
+> `"live-restore": true`** — os 3 hosts são **nós Swarm** e a chave faz o `dockerd`
+> **recusar a subir** no próximo boot (`failed to start cluster component … incompatible
+> with swarm mode`). Isso deixou o psicopompo 2 dias sem daemon (30/09) e o kavure sem
+> core (02/10). Ver [`AGENTS.md`](../AGENTS.md) §`live-restore` PROIBIDO em host Swarm.
 
 ### Camada 2 — por serviço (aplicação imediata, sem restart de daemon)
 

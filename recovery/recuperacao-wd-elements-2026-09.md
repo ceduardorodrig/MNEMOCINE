@@ -2,15 +2,17 @@
 tags: [homelab, recovery, storage, hardware, usb, kernel, psicopompo, handoff]
 ---
 
-# Recuperação — WD Elements SE 1TB (MORIBUNDO) — set/2026
+# Recuperação — WD Elements SE 1TB (MORIBUNDO) — set–out/2026
 
-> **Status:** ⏸ **PAUSADO** — parada programada em 30/09/2026 01:50 (iniciado 29/09/2026)
-> **Onde parou:** mapa `fase1a_700-1000.map` com **218,61 GB pendentes** (parede ≈ 820,86 GB)
-> → procedimento de **retomada em §8.1** (nenhum processo rodando, nada a perder)
-> **Máquina:** psicopompo (CachyOS, kernel 7.2.8-1-cachyos-bore — boot no **LTS** pendente, ver §8.1)
-> **Arquivos de trabalho:** `/mnt/HDD_SATA/recuperacao-elements/` (scratch — apagar no fim)
-> **Tracking detalhado:** `RECUPERACAO_TRACKING_2026.md` no diretório acima
-> **Destino dos arquivos recuperados:** `/mnt/SSHD/recuperacao/`
+> **Status:** ✅ **CONCLUÍDO** em 02/10/2026 — **1.704 de 1.831 arquivos recuperados**
+> **(93,1% por contagem · 94,6% por volume · 56,55 GB de 59,75 GB)**
+> **Entrega:** `/mnt/RESGATE/ENTREGA/` — nomes e pastas originais, 1 cópia por arquivo,
+> com `_MANIFESTO.tsv` (hash) e `00_RELATORIO.md`. Ver **§10**.
+> **Perdido:** 127 arquivos · 3,20 GB (2 `.mp4` de iPhone = 2,2 GB, 51 JPEG, 1 CR2, resto config)
+> **Disco moribundo:** `WD-WX51A68876FE` — `FAILED`, **não é mais tocado**, preservado
+> **Máquina:** psicopompo (CachyOS, kernel 7.2.8-1-cachyos-bore) — **2 dias sem queda**
+> **Arquivos de trabalho:** `/mnt/HDD_SATA/recuperacao-elements/` (scratch)
+> **Tracking detalhado:** `RECUPERACAO_TRACKING_2026.md` no diretório de trabalho
 
 ## 1. Contexto
 
@@ -242,13 +244,27 @@ rendimento por unidade de desgaste do disco que está morrendo.
 
 | Métrica | Valor |
 |---|---|
-| **Arquivos com conteúdo** | **2.009** |
-| **Volume total de dados** | **64,29 GB** |
+| **Arquivos com conteúdo** | **2.009 linhas → 1.831 caminhos únicos** |
+| **Volume total de dados** | **59,75 GB** (⚠️ não 64,29 GB — ver correção abaixo) |
 | Pastas | 271 |
+
+> ### ⚠️ Correção de 02/10: o volume estava errado em 7,3%
+>
+> O inventário tem **178 caminhos duplicados**. A soma original fazia
+> `tot += s` dentro do laço mas guardava `inv[p] = s` (deduplicando por chave) —
+> ou seja, contava os duplicados duas vezes.
+>
+> ```
+> somando LINHAS (errado) : 64,29 GB
+> somando ÚNICOS (certo)  : 59,75 GB
+> ```
+>
+> O número errado circulou por três documentos. **Todo relatório que cite
+> "64,29 GB" precisa ser lido como 59,75 GB.**
 
 | Tipo | Volume | Arquivos |
 |---|---|---|
-| `.mov` (vídeo Canon) | **40,63 GB** | 268 |
+| `.mov` (vídeo Canon) | **37,58 GB** | 242 |
 | `.cr2` (RAW Canon) | **13,81 GB** | 572 |
 | `.jpg` | **5,14 GB** | 1.039 |
 | `.mp4` | 4,10 GB | 42 |
@@ -332,6 +348,143 @@ o disco está degradando mais rápido e a operação deve ser encurtada.
 
 ### Perdas aceitas
 - 576–599 GB (atoleiro) e onde o ddrescue não passar. **Não reiniciar trabalho.**
+
+---
+
+## 10. ✅ Resultado final e o que a operação ensinou (02/10/2026)
+
+### 10.1 Números
+
+```
+ARQUIVOS QUE EXISTIAM      1.831  ·  59,75 GB
+RECUPERADOS                1.704  ·  56,55 GB     93,1% contagem · 94,6% volume
+PERDIDOS                     127  ·   3,20 GB
+```
+
+| tipo | recuperados | total |
+|---|---|---|
+| `.cr2` (RAW Canon) | **513** | 514 |
+| `.mov` (QuickTime iPhone) | **237** | 242 |
+| `.jpg` | **917** | 968 |
+| `.mp4` | **24** | 29 |
+| `.png` | 11 | 13 |
+| config (`.ini`/`.txt`/`.db`/`.lnk`) | 0 | 38 |
+
+Entrega em `/mnt/RESGATE/ENTREGA/` — **nome e pasta originais** (vêm do `$MFT`),
+uma cópia por arquivo, com `_MANIFESTO.tsv` (sha256) e `00_RELATORIO.md`.
+
+**Como isso foi provado, não estimado:** cada fragmento carveado foi casado contra
+o `$MFT` por **tamanho exato em bytes + assinatura válida no cabeçalho**. Só isso
+permite dizer "este é o seu arquivo" em vez de "este arquivo se parece com o seu".
+
+### 10.2 🔬 O travamento era o TRANSPORTE USB, não a mídia
+
+A fase final de leitura (0–570 GB) alternava entre 0 e 85 MB/s. A leitura
+ingênua: "o disco tem regiões frias". **O `dmesg` do host desmentiu:**
+
+```
+usb 2-2: reset SuperSpeed USB device number 2 using xhci_hcd
+```
+
+**Reset de porta USB a cada 36,86 s, sem parar** (delta medido: 36,85 / 36,86 /
+36,86 — precisão que cabo não produz). 203 resets no buffer do kernel.
+
+Cada reset **derruba a leitura em voo**. Os "236 read errors" não são setores
+ruins — são transferências cortadas. E o ponto de parada duro:
+
+```
+sd 6:0:0:0: [sda] FAILED Result: hostbyte=DID_ABORT driverbyte=DRIVER_OK cmd_age=215s
+I/O error, dev sda, sector 1059942400        (= byte 542.690.508.800)
+```
+
+`driverbyte=DRIVER_OK` → o driver estava saudável; **quem abortou foi o USB**.
+
+Depois de um **power cycle físico** (desligar/religar o cabo), o reset storm
+acabou — erros caíram de 236 → 1 em 4 min — mas a leitura virou **0,3 MB/s**, e
+caiu para 0,05 MB/s. ETA do ddrescue para os 27 GB restantes: **19 dias**.
+Os 27 GB foram aceitos como perda.
+
+### 10.3 ⚠️ SMART mente em disco em agonização
+
+| | 29/09 | 02/10 |
+|---|---|---|
+| `Reallocated_Sector_Ct` | 0 | 0 |
+| `Current_Pending_Sector` | 2342 | 2342 |
+| `UDMA_CRC_Error_Count` | 0 | 0 |
+| `SMART overall-health` | **FAILED** | **FAILED** |
+| `TemperatureCelsius` | 32 | **48** |
+
+O disco já estava `FAILED` no primeiro dia — **não degradou durante a operação**
+(o §21.3 do tracking tem a retificação de uma leitura errada minha).
+
+O que mudou: **temperatura +16 °C** depois de 12 h de leitura contínua.
+
+> **`Reallocated_Sector_Ct = 0` não significa "mídia boa".** Significa que o
+> firmware **parou de realocar porque parou de conseguir ler**. Durante horas o
+> `ddrescue` reportou `bad areas: 0` enquanto o disco não entregava um byte.
+>
+> **O único indicador confiável de vida do disco é o `read_bytes` de
+> `/proc/<pid>/io` do processo que está lendo.** SMART serve para diagnóstico,
+> não para decidir se a operação está indo bem.
+
+### 10.4 🐛 Bug de validação que custou 53 vídeos (9,5 GB)
+
+O validador de assinatura aceitava só `ftyp` para `.mov`/`.mp4`. **Vídeo
+QuickTime de iPhone não usa `ftyp`:**
+
+```
+00 00 00 08  'wide'  <size u32>  'mdat'  ...
+```
+
+Resultado: 184 de 242 `.mov` dados como recuperados. Os outros 58 foram
+descartados por um validador meu, **não por defeito do dado**. Corrigido para
+aceitar `wide`+`mdat`, `mdat`, `moov`, `free`, `skip` → **237 de 242**.
+
+> **Regra:** *"não casou"* significa **"não sei casar"**, não "não existe".
+> Casamento de 90% em vez de 78% deveria ter disparado a pergunta *"por que os
+> outros 22% não casaram?"* **antes** de virar número final. A resposta estava
+> nos primeiros 32 bytes de um arquivo de 636 MB.
+
+### 10.5 O dado órfão — 730 GB sem dono conhecido
+
+O disco tinha 59,75 GB referenciados pelo `$MFT`. O acervo carveado tinha
+**908,7 GB com só 12,95% de zeros** — ou seja, **~790 GB de conteúdo real**.
+
+Diferença de ~730 GB: **clusters de arquivos apagados que não foram
+sobrescritos**. Não é lixo por definição — pode ser material antigo do usuário.
+**Nada foi apagado.** Deduplicação já medida: **275,6 GB de conteúdo idêntico
+em 15.829 grupos** (o mesmo arquivo às vezes carveado 3×, em 3 offsets).
+
+> ⚠️ **Decisão em aberto com o usuário:** onde esse excedente deve ficar.
+> Não cabe junto da entrega no RESGATE (331 GB livres, entrega ocupa 57 GB).
+
+### 10.6 Cobertura da imagem
+
+| faixa | lido | situação |
+|---|---|---|
+| 0–570 GB | **539,11 GB** (94,6%) | ✅ principal faixa lida |
+| 570–632 GB | — | ✅ carve direto (141 arquivos) |
+| 632–700 GB | 0,003 GB | ❌ **fisicamente irrecuperável** — testado, abandonado |
+| 658–790 GB | — | ✅ carve (109 arquivos) |
+| 790–1000 GB | 299,33 GB (99,7%) | ✅ carve (444 arquivos) |
+| 542,7–570 GB | — | ❌ taxa 0,05 MB/s, ETA 19 dias — aceito |
+
+`irrecuperável (x): 0` — o ddrescue **nunca** precisou marcar um bloco como
+definitivamente morto. O que não entrou é "não tentado" ou "abortado".
+
+### 10.7 ⛔ Perigo operacional: dois discos idênticos em portas vizinhas
+
+| Porta | vid:pid | Serial | Papel |
+|---|---|---|---|
+| `2-2` | `1058:25fe` | `WD-WX51A68876FE` | MORIBUNDO |
+| `2-3` | `1058:25a2` | `WD-WXW1A976UPD4` | **RESGATE (571 GB)** |
+
+Mesmo modelo (`WDC WD10SMZW-11Y0TS0`), **mesmo root hub**, portas adjacentes.
+Puxar o cabo errado teria matado o dado do usuário. Sempre confirmar por
+`dmesg` qual saiu antes de religar.
+
+O `hostdev` do QEMU casa por `vendor`/`product` (`1058:25fe`), então **não pega o
+RESGATE por engano** — produtos diferentes. Mas a verificação manual foi feita.
 
 ## 9. Referências
 

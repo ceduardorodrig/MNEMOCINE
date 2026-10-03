@@ -79,7 +79,7 @@ Root tag. Every file inside `mnemocine` must have it.
 - `#download` — Torrent, Usenet, Soulseek
 - `#dns` — AdGuard, Pi-hole
 - `#automation` — Home Assistant, MQTT
-- `#monitoring` — Portainer, Homepage, Glances
+- `#monitoring` — Uptime Kuma, Homepage, Glances, Prometheus/Grafana
 - `#gaming` — Crafty, Steam, Minecraft
 - `#storage` — Discos, pools, volumes, montagens
 - `#cloud` — Cloud storage, remotes, sincronização off-site

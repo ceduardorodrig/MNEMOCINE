@@ -105,10 +105,10 @@ Os containers usam o mount **no mesmo caminho antigo** — sem alterar compose:
 ## Performance e gargalo (kuaray em WiFi)
 
 - **Escrita local no psicopompo:** ~1 GB/s (btrfs, rápido).
-- **Escrita NFS a partir do kuaray:** ~3,6 MB/s — o **gargalo é o link físico do kuaray**, que está em **WiFi** (`wlp6s0`, rede "Cratos"; ethernet `enp7s0` sem cabo → `unavailable`). Latência até o kuaray: 74–190 ms (vs 2 ms do kavure, wired).
+- **Escrita NFS a partir do kuaray:** ~3,6 MB/s — o **gargalo é o link físico do kuaray**, que está em **WiFi** (`wlp6s0`, rede "Cratos"; ethernet `enp7s0` sem cabo → `unavailable`). Latência até o kuaray: 74–190 ms (vs **0,17–0,28 ms** do kavure, cabeado — medido em 02/10/2026; era 2 ms na medição anterior via Wi-Fi/extensor).
 - ⚠️ O `async` ajuda, mas **não resolve**: o limite é a rota física. Enquanto o kuaray estiver em WiFi, imports/rescans do Lidarr serão lentos.
 - **Solução:** plugar **cabo de rede** no `enp7s0` do kuaray (esperado ~80–110 MB/s). Sem cabo, a funcionalidade opera normalmente — apenas lento.
-- O **kavure** é wired (`192.168.3.41`, 2 ms) — NFS do sumaenimā/zomboid sem gargalo.
+- O **kavure** é cabeado (`192.168.3.41`, **0,17–0,28 ms**) — NFS do sumaenimā/zomboid sem gargalo. Desde **02/10/2026** ele passou pelo switch gigabit `IT-BLUE LE-4203` (antes: extensor Wi-Fi); vazão bruta medida na LAN: **912 Mbps up / 858 Mbps down** (93% da linha) — ver [`topology.md`](topology.md) §Link Físico.
 
 ## Testes (07/08/2026)
 
