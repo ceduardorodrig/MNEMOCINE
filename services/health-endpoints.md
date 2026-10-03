@@ -8,6 +8,24 @@ tags: [homelab, service, steniobot, monitoring, docker, server, psicopompo, ybyr
 >
 > ⚠️ **Pós-migração (07/08/2026):** o core (`sae-core`) migrou do psicopompo para o **kavure** (100.124.146.77). O monitor #50 no Uptime-Kuma passou a apontar para `http://100.124.146.77:9090/api/health` (Kavure - Sumænimá API). O monitor #49 (backup health) aponta para `http://100.124.146.77:9092/health`. Ver `services/steniobot.md` e `network/topology.md`.
 >
+> 🛑 **Monitor #50 QUEBRADO (apurado 02/10/2026) — a porta 9090 não existe no host.**
+> `docker service inspect sae-core_api` → `Endpoint.Ports: null`; `ss -ltn` no kavure sem
+> 9090; `curl http://100.124.146.77:9090/api/health` → **sem conexão**. Só a borda
+> responde: `http://ybyra.chimaera-heptatonic.ts.net/api/health` → **200** (monitor #4 ✓).
+>
+> **Causa raiz (histórico git do `sumaenima-hub`):** **nenhum commit do
+> `provisioning/stacks/core.yml` jamais teve `9090:9090`** — só o healthcheck interno
+> (`curl 127.0.0.1:9090`). A publicação "de 07/08" (§`Porta 9090 publicada`, logo abaixo)
+> foi feita **fora do config-as-code** (`docker service update --publish-add`) e foi
+> **zerada** por um `docker stack deploy` posterior, que reconcilia a spec com o arquivo.
+> Hoje o `core.yml` publica **apenas `9092` (backup) e `8766` (asciline)**.
+>
+> **Opções de correção (pendente de decisão):**
+> | Opção | Como | Trade-off |
+> |---|---|---|
+> | **A** — corrigir o monitor | Apontar #50 para `…/api/health` da borda (ou para `:9092/health` já coberto) | Zero risco, mas perde-se a checagem "física" do kavure |
+> | **B** — restaurar a porta | Adicionar `ports: ["9090:9090"]` ao `core.yml` + `docker stack deploy` | Devolve o monitor #50 **e** o acesso direto por Tailscale, mas expõe a API fora da overlay (regra de exposição mínima: hoje só a borda fala com ela) |
+>
 > ✅ **29/08/2026 — widget "Sumænimá Backup" corrigido:** o health server do backup (`backup_health_server.py`, BaseHTTPRequestHandler) não implementava `do_HEAD` — probes **HEAD** do Homepage/Uptime Kuma recebiam **501**, exibido como erro no dashboard. Adicionado `do_HEAD` (GET e HEAD → 200). Endpoint monitorado: `http://100.124.146.77:9092/health` (kavure).
 
 ---

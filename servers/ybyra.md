@@ -9,6 +9,18 @@ tags: [homelab, server, ybyra, docker, monitoring, tailscale]
 **Swarm role:** `primary` — nó worker do Docker Swarm (stack `sae-edge`)
 
 > **Atualizado 28/08/2026:** `apt dist-upgrade` completo (41 pacotes, incl. Docker engine → 29.7.2) + reboot. Kernel **6.17.0-1016 → 6.17.0-1020-oracle**. Swarm services e borda primária OK pós-reboot.
+>
+> **🛡️ Bomba do `live-restore` desarmada preventivamente (02/10/2026):** o ybyra é o
+> **3º nó do Swarm** e recebeu `"live-restore": true` no `daemon.json` em 29/09 —
+> opção **incompatível com Swarm**, cujo erro só aparece no **próximo start** do daemon.
+> **Nunca detonou** porque o host tinha uptime de 5 semanas. Correção: backup
+> `/etc/docker/daemon.json.bak-20261002` → chave removida → `systemctl reload docker`
+> (10 containers, **zero downtime**; o estado `LiveRestore=true` continua só na instância
+> em execução e vale até o próximo restart). Sem isso, o **próximo reboot derrubaria a
+> borda primária** (nginx, tunnel, umami) — e é exatamente esse tipo de falha que derrubou
+> kavure (02/10) e psicopompo (30/09). Regra + runbook: [`AGENTS.md`](../AGENTS.md)
+> §`live-restore` PROIBIDO em host Swarm · registro do incidente:
+> [`guides/docker-registry.md`](../guides/docker-registry.md).
 
 ## Hardware
 

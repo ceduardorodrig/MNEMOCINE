@@ -210,7 +210,11 @@ a **tag é parte do contrato** — `:latest` compartilhado esconde divergência 
 | kuaray | ❌ | ❌ | `pending` (verificar) | — |
 
 **Pendências registradas (não bloqueiam o StênioREC):**
-- kavure: criar `tailscaled-wait.service` e adicionar `wol-relay` à espera
+- kavure: ~~criar `tailscaled-wait.service` e adicionar `wol-relay` à espera~~ —
+  **obsoleto para o `wol-relay` desde 02/10/2026**: o bind passou a `127.0.0.1` +
+  `tailscale serve`, então o daemon **não depende do IP da tailnet no boot** (o serve
+  simplesmente aparece quando o tailscaled sobe). Ordem NFS continua pelo
+  `nfs-ordering.conf` (já existente)
 - kuaray: investigar `Swarm.LocalNodeState=pending` (uptime > 30 dias)
 - ybyra/ybytu: units de backup com `After=network` sem espera de tailnet
 

@@ -28,6 +28,36 @@ tags: [homelab, server, kavure, docker, storage, gaming, todo, miracena]
 > `docs/swarm-tailscale-troubleshooting.md` §8 no hub.
 > **Pendência conhecida:** este nó não tem `tailscaled-wait.service` (só o drop-in do Docker) —
 > avaliar replicar o padrão canônico.
+> **Link físico novo + validação do switch (02/10/2026):** o kavure saiu do
+> **extensor/repetidor Wi-Fi** e passou a ser **cabeado** no switch gigabit
+> `IT-BLUE LE-4203` (8p · 16 Gbps · 11,52 Mpps · não administrável). Interface
+> `enp1s0` negocia **1000 Mb/s full-duplex**, latência LAN **0,17–0,28 ms**, vazão
+> medida **912 Mbps up / 858 Mbps down** (93% da linha). Ficha e método reproduzível em
+> [`network/topology.md`](../network/topology.md) §Link Físico.
+> **Incidente Docker (02/10/2026):** o `"live-restore": true` adicionado ao
+> `daemon.json` em 29/09 é **incompatível com Swarm** → no boot das 13:08 o `dockerd`
+> subiu, **carregou os containers e abortou**:
+> `failed to start cluster component: --live-restore ... incompatible with swarm mode`
+> → 3 tentativas → `start-limit-hit` → **daemon morto**. O `live-restore` mantinha os 33
+> containers já iniciados **vivos como órfãos** (falso "tudo rodando" enquanto
+> `docker ps` respondia `Cannot connect`). **Fix:** remover `live-restore` (backup
+> `daemon.json.bak-20261002`) → `systemctl reset-failed docker && start` → religar os 24
+> containers `unless-stopped` que o daemon parou no takeover → Swarm voltou **Leader**
+> (3/3 nós Ready), sae-core 1/1. Regra nova e runbook: [`AGENTS.md`](../AGENTS.md)
+> §`live-restore` PROIBIDO em host Swarm.
+> **Pendência cosmética:** 13 entradas-fantasma (`12 dead` + `1 exited`) ainda aparecem
+> no `docker ps -a` — são registros de **tasks antigas do Swarm** (29/09 e anteriores)
+> cujas camadas já não existiam; os diretórios foram removidos do disco (37 = 37) e a
+> lista em memória **limpa sozinha no próximo restart do daemon** (sem downtime imediato
+> — não reiniciar o core só por isso).
+> **✅ WoL RESOLVIDO (02/10/2026):** o teste das 14:07 falhou por causa da **BIOS** —
+> `Deep Sleep Control` (**default** `Enabled in S4 and S5` no OptiPlex 3060) desligava a
+> NIC em S5; **desabilitado pelo usuário na BIOS**. Na noite do mesmo dia o host
+> **acordou via rede em 29s** (5 magic packets do psicopompo) e o boot provou a nova
+> **persistência**: `Wake-on: g` sozinho (`wol@enp1s0` + netplan `wakeonlan: true` — o
+> `ethtool -s` puro é runtime-only e foi zerado pelo reboot das 13:08). Pós-boot:
+> Swarm 3/3 e 37/37 containers. Runbook, tempos medidos e diagnóstico físico da LED:
+> [`services/wol-relay.md`](../services/wol-relay.md) §Validação de ponta a ponta.
 
 ## Hardware (confirmado em 05/08/2026)
 
@@ -39,12 +69,12 @@ tags: [homelab, server, kavure, docker, storage, gaming, todo, miracena]
 | **Disco Sistema** | **Kingston SA400S3 223 GB SATA 2.5"** (LVM: 100 GB em `/`, 120 GB livres no VG) |
 | **Disco Futuro (comprar)** | **M.2 SATA 2280 1 TB** (SO/Docker) + **HDD 3.5" 4–8 TB** (storage) |
 | **GPU** | Quadro P1000 — **FORA DO PLANO: capacitor solto no repaste**, aguardando reparo |
-| **Rede** | Gigabit Ethernet + Wi-Fi |
-| **SO** | **Ubuntu 24.04.4 LTS** (kernel 6.8.0-139) |
+| **Rede** | Gigabit Ethernet (`enp1s0`, **cabeada no switch**) + Wi-Fi (legada) |
+| **SO** | **Ubuntu 24.04.4 LTS** (kernel **6.8.0-142**, conferido em 02/10/2026) |
 | **Filesystem** | **LVM + ext4** (subiquity) |
 | **Tailscale** | `100.124.146.77` — `kavure` |
 | **Acesso** | `tailscale ssh kavure@kavure` (usuário `kavure`, sudo NOPASSWD — `/etc/sudoers.d/kavure-nopasswd`, 10/09/2026) |
-| **LAN** | `192.168.3.41/24` via **extensor Wi-Fi** (IP fixo na LAN **desnecessário** — acesso é pela tailnet) |
+| **LAN** | `192.168.3.41/24` **via switch gigabit `IT-BLUE LE-4203` (cabo, desde 02/10/2026)** — antes era extensor Wi-Fi. IP fixo segue desnecessário: acesso é pela tailnet |
 
 > **SSD é SATA 2.5"** — o **slot M.2 2280 está livre** (aceita SATA M.2 ou NVMe). O Kingston 2.5" vira **reserva** quando o M.2 1 TB chegar.
 

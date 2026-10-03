@@ -125,36 +125,62 @@ necessariamente religado pelo restart-manager).
 `containerd`, `tailscaled`, `NetworkManager`…). Um `dockerd` com Swarm leva mais que
 10 s para encerrar → o systemd mata com SIGKILL.
 
-**Fix aplicado (psicopompo):** `live-restore: true` no `/etc/docker/daemon.json`,
-aplicado com **`systemctl reload docker`** — a doc oficial é explícita:
-
-> *"On Linux, you can avoid a restart (and avoid any downtime for your containers) by
-> reloading the Docker daemon."*
+**Fix aplicado em 29/09/2026 — ✗ ERRADO · REVERTIDO EM 02/10/2026:** a escolha foi
+habilitar `live-restore`, o que resolveu o sintoma imediato mas era **incompatível com o
+Swarm** dos 3 hosts:
 
 ```json
 { "live-restore": true, "...": "restante do daemon.json inalterado" }
 ```
 
-- **Por que é seguro com o Swarm** — a doc: *"The live restore option only pertains to
-  **standalone** containers, and not to Swarm services."* Serviços do Swarm
-  continuam sob o manager.
-- **Efeito:** containers standalone (registry, promtail, glances, steniorec…) agora
-  **sobrevivem** a restart/upgrade do daemon.
-- **Verificação:** `docker info --format '{{.LiveRestoreEnabled}}'` → `true`, e os
-  containers seguiram **sem interrupção** (uptimes preservados após o reload).
-- **Ressalvas da doc:** vale para upgrades de **patch** do Docker (não de major); se
-  opções do daemon mudarem, o restore pode não reconectar (parar containers à mão);
-  com o daemon fora por muito tempo, o buffer FIFO de log (64K) pode encher.
-- **Reverter:** remover a chave e `systemctl reload docker`
-  (backup: `/etc/docker/daemon.json.bak-liverestore-20260929`).
-- **Aplicado nos 3 hosts em 29/09/2026** — psicopompo, **kavure** (37 containers, é o
-  manager do Swarm) e **ybyra** (10 containers). Todos com `sysctl reload` e
-  **zero interrupção**: kavure 37→37 e ybyra 10→10 containers vivos após o reload, e o
-  Swarm seguiu `Ready/Active` com o kavure `Leader` e 10/10 serviços `1/1`.
-  Validado com `dockerd --validate --config-file` **antes** de aplicar em cada host.
-  > Nuance de host: **só o psicopompo** tinha o `DefaultTimeoutStopSec=10s` do CachyOS
-  > (`/usr/lib/systemd/system.conf.d/00-timeout.conf`); kavure e ybyra têm **30 s** —
-  > por isso o SIGKILL do incidente aconteceu só no psicopompo.
+> ⚠️ **O que a doc oficial realmente diz:** *"The live restore option only pertains to
+> **standalone** containers, and not to Swarm services"* — é uma **limitação**, não um
+> aval de compatibilidade. Com Swarm ativo o `dockerd` **se recusa a subir**:
+> `failed to start cluster component: --live-restore daemon configuration is incompatible
+> with swarm mode`
+> ([moby/swarmkit#2381](https://github.com/moby/swarmkit/issues/2381) ·
+> [docker/docs#16059](https://github.com/docker/docs/issues/16059) ·
+> [live-restore](https://docs.docker.com/engine/daemon/live-restore/)).
+
+**Por que ficou latente:** o daemon só lê o `daemon.json` no **start**. A chave entrou
+via `systemctl reload` nos 3 hosts com o daemon já rodando — e detonou no **próximo
+reboot** de cada um:
+
+| Host | Detonou em | Consequência |
+|---|---|---|
+| psicopompo (worker) | reboot **30/09 00:58** | **2 dias sem daemon** · Swarm sem worker |
+| kavure (manager) | reboot **02/10 13:08** | sae-core inteiro fora · `docker ps` inoperante |
+| ybyra (borda primária) | **não detonou** — config limpa preventivamente em 02/10 | desarmada |
+
+**Efeito colateral que mascara o sintoma:** o `live-restore` mantém **vivos** os
+containers que o daemon já tinha subido antes de abortar → no kavure, **33 containers
+rodavam como órfãos** enquanto `docker ps` respondia `Cannot connect to the Docker
+daemon`. Parecia "alguns serviços no ar", mas não havia gerência alguma.
+
+**Correção (02/10/2026, nos 3 hosts):** remover a chave (backup
+`daemon.json.bak-20261002`) → `systemctl reset-failed docker && systemctl start docker`
+→ religar os `unless-stopped` que o daemon parou no takeover → validar `docker node ls`
+(3/3 `Ready`). Runbook completo: [`AGENTS.md`](../AGENTS.md)
+§`live-restore` PROIBIDO em host Swarm.
+
+**Fix correto para o problema original (SIGKILL durante upgrade):** aumentar o timeout de
+parada do daemon — **não** habilitar `live-restore`:
+
+```ini
+# /etc/systemd/system/docker.service.d/timeout.conf
+[Service]
+TimeoutStopSec=60s
+```
+
+aplicado com `sudo systemctl daemon-reload`. É o mesmo padrão que o kavure já usa no
+drop-in `nfs-ordering.conf` (`TimeoutStopSec=30s`).
+
+> Nuance de host (mantida): **só o psicopompo** tem o `DefaultTimeoutStopSec=10s` do
+> CachyOS (`/usr/lib/systemd/system.conf.d/00-timeout.conf`); kavure e ybyra têm **30 s**
+> — por isso o SIGKILL do incidente original aconteceu só no psicopompo.
+>
+> 🔖 **Pendência:** aplicar o drop-in `TimeoutStopSec=60s` no psicopompo para fechar a
+> falha original (registry não religado após SIGKILL).
 
 **Recuperação manual (se algum container não voltar):**
 

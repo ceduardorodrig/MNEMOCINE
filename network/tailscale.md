@@ -11,10 +11,10 @@ tags: [homelab, network, tailscale]
 | Máquina | IP Tailscale | Papel |
 |---|---|---|
 | psicopompo | `100.82.51.112` | Dev + GPU workers (StênioBOT) |
-| ybytu | `100.115.253.109` | Exit Node, DNS |
+| ybytu | `100.115.253.109` | Exit Node, DNS, Peer Relay (`:40000/udp`) |
 | ybyra | `100.66.224.34` | Cloud — borda primária |
 | kuaray | `100.94.209.99` | Multimídia — Funnel Home Assistant |
-| kavure | `100.124.146.77` | Servidor de serviços dedicado (Project Zomboid, painel, aiostreams, comet) |
+| kavure | `100.124.146.77` | Servidor de serviços dedicado, Swarm Manager, Peer Relay (`:40000/udp`) |
 | anansi | `100.71.232.79` | Android |
 | kururu | `100.127.188.45` | Nó headless dedicado (Samsung SM-T110 / Alpine Linux) |
 
@@ -241,6 +241,54 @@ O `serve.json` define como o Funnel roteia o tráfego:
 ## Serve (rede interna)
 
 Nenhum serve configurado atualmente (apenas funnels para exposição externa).
+
+## Tailscale Peer Relays (02/10/2026)
+
+Os **Peer Relays** permitem utilizar dispositivos dentro da própria tailnet como servidores de relay de alta taxa de transferência (throughput) para conexões cliente-a-cliente quando conexões diretas não forem possíveis (ex: sob CGNAT severo ou firewall restritivo), antes de cair no fallback dos DERP públicos.
+
+### Nós Configurados como Peer Relay
+
+| Host | IP Tailscale | Porta UDP | Bind / Status |
+|---|---|---|---|
+| **ybytu** | `100.115.253.109` | `40000` | `0.0.0.0:40000` / `[::]:40000` (`tailscaled`) |
+| **kavure** | `100.124.146.77` | `40000` | `0.0.0.0:40000` / `[::]:40000` (`tailscaled`) |
+
+### Comandos de Configuração no Host
+
+```bash
+# Ativar porta de relay peer no tailscaled
+sudo tailscale set --relay-server-port=40000
+
+# Verificar se a porta foi gravada nas preferências
+sudo tailscale debug prefs | grep RelayServerPort
+
+# Verificar o listener UDP ativo
+sudo ss -ulpn | grep 40000
+```
+
+### Autorização na Política de Acesso (ACL / Grants)
+
+Para que outros nós da Tailnet sejam autorizados pelo control plane a rotear através dos nós de Peer Relay, a política de ACL (`policy.hujson` via GitOps no repo `MNEMOCINE-ACL`) deve conter a capability `tailscale.com/cap/relay`:
+
+```jsonc
+"grants": [
+  {
+    "src": ["autogroup:member"],
+    "dst": ["100.115.253.109", "100.124.146.77"], // ybytu e kavure
+    "app": {
+      "tailscale.com/cap/relay": []
+    }
+  }
+]
+```
+
+### Como Verificar o Uso
+
+Quando um nó da tailnet estiver utilizando um peer relay para alcançar outro dispositivo:
+```bash
+tailscale status | grep peer-relay
+```
+O campo de conexão reportará `peer-relay` em vez de `relay` (DERP) ou `direct`.
 
 ## Configuração dos Servidores
 

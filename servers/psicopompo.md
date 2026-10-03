@@ -110,6 +110,20 @@ Configuração "swap file for hibernation with zram" (padrão ArchWiki): o **zra
 
 **Cuidados:** evitar suspender com CPU quente (aviso `intel_pch_thermal: S0ix might fail` ≥66C no journal); AER RxErr na GPU para observar.
 
+## Wake-on-LAN (02/10/2026)
+
+> **✅ Validado:** o psicopompo **acorda via rede em 54s** (S5 → magic packet emitido
+> pelo kavure; ninguém tocou no power). É ele quem **acorda o kavure** (par a par) e é
+> um dos 3 emissores — ver [`services/wol-relay.md`](../services/wol-relay.md).
+>
+> - **Persistência (F1):** NM `802-3-ethernet.wake-on-lan magic` + `wol@eno1` (enabled)
+>   — o `ethtool -s wol g` puro é runtime-only; após o boot das 21:07 o `Wake-on: g`
+>   **sobreviveu sozinho**.
+> - **Pré-condições confirmadas:** NIC `Supports Wake-on: pumbg` · ACPI `GLAN *enabled`
+>   · BIOS com `Wake on LAN` + `AC Recovery`.
+> - **Relay local:** `wol-relay` em `127.0.0.1:9096` (target `kavure`), exposto na
+>   tailnet via `tailscale serve` (`100.82.51.112:9096`).
+
 ## Política de idle do desktop Hyprland/Noctalia (24/09/2026)
 
 O desktop usa o **Idle Behavior nativo do Noctalia**, sem `hypridle` ou `swayidle` adicionais. A política persistida em `~/.local/state/noctalia/settings.toml` é:
@@ -173,24 +187,44 @@ Nenhum atualmente (tráfego Sumænimá é roteado via Nginx proxies em ybyra e k
 > **Syncthing: ATIVO** (22/09 — user unit `syncthing.service` canônica; ver `services/syncthing.md` p/ fix das unidades duplicadas). **Rclone:** CLI ativo (backup off-site + mount); **GUI removida 26/08** (nunca usada, RC daemon sem auth — ver `services/rclone.md`).
 > **Build node (06/09):** builder padronizado no **`default`** (docker driver) — `default-builder` (container BuildKit) e builder remoto morto `kavure` removidos; GC do BuildKit configurado no `daemon.json` (`defaultKeepStorage=30GB`); timer mensal `docker-prune.timer` (dia 01, 04:00). Snapper padronizado (reconstruível → sem snapshot): config `hdd` removida, `ssd` sem config; `nvme`/`backup` mantêm timeline. Limpeza recuperou ~570GB (`btrfs` Used 1.22TiB→652GB; `containerd-data` ~396G→~59G, `docker-data` ~99G→~1.8G). Ver [`guides/docker-disk-cleanup.md`](../guides/docker-disk-cleanup.md) e [`backups/snapshots-psicopompo.md`](../backups/snapshots-psicopompo.md).
 
-### `live-restore` — containers sobrevivem ao restart do daemon (29/09/2026)
+### `live-restore` — ✗ REVERTIDO (adicionado 29/09/2026 · removido 02/10/2026)
 
-`"live-restore": true` adicionado ao `/etc/docker/daemon.json`, aplicado com
-**`systemctl reload docker`** (sem downtime — caminho documentado pelo Docker).
+> ⚠️ **Estado atual: `"live-restore": true` NÃO existe mais** neste host. Backup em
+> `/etc/docker/daemon.json.bak-20261002`. A opção é **incompatível com o Swarm** —
+> ver [`AGENTS.md`](../AGENTS.md) §`live-restore` PROIBIDO em host Swarm.
 
-**Gatilho:** durante um `pacman -Syu` o hook disparou `systemctl restart
-docker.service` duas vezes; o `dockerd` estourou o timeout de parada e levou
-**SIGKILL** (o CachyOS define `DefaultTimeoutStopSec=10s` **global** em
+**O que se tentou resolver (29/09/2026):** durante um `pacman -Syu` o hook disparou
+`systemctl restart docker.service` duas vezes; o `dockerd` estourou o timeout de parada
+e levou **SIGKILL** (o CachyOS define `DefaultTimeoutStopSec=10s` **global** em
 `/usr/lib/systemd/system.conf.d/00-timeout.conf`) → o container **registry** morreu e
-**não voltou** (`Exited (2)`), apesar de `restart: unless-stopped`.
+**não voltou** (`Exited (2)`), apesar de `restart: unless-stopped`. A solução adotada na
+época foi o `live-restore`, que mantém standalone vivos durante o restart do daemon.
 
-Com `live-restore`, containers **standalone** (registry, promtail, glances,
-steniorec…) sobrevivem a restart/upgrade do daemon. **Não afeta serviços do Swarm** —
-doc oficial: *"only pertains to standalone containers, and not to Swarm services"*.
-Verificado: `docker info --format '{{.LiveRestoreEnabled}}'` → `true`, containers sem
-interrupção. **Aplicado nos 3 hosts** (psicopompo/kavure/ybyra) em 29/09/2026.
-Detalhes, ressalvas e reversão em
-[`guides/docker-registry.md`](../guides/docker-registry.md) §Resiliência.
+**Por que foi um tiro no pé:** o psicopompo é **nó worker do Swarm**. Com
+`live-restore` + Swarm, o Docker **recusa a subir**:
+
+```
+failed to start cluster component: --live-restore daemon configuration
+is incompatible with swarm mode
+```
+
+Como o daemon só lê o `daemon.json` no **start**, o erro ficou latente — e detonou no
+reboot de **30/09 00:58**, deixando o psicopompo **2 dias sem daemon** (containers
+sobreviveram como órfãos pelo próprio `live-restore`, mascarando o problema) e o Swarm
+**sem worker**. O mesmo detonou no kavure (manager) em **02/10 13:08**.
+
+**Recuperação aplicada (02/10/2026):**
+1. `cp daemon.json daemon.json.bak-20261002` → remover só `"live-restore": true`
+   (mantidos `data-root`, `runtimes.nvidia`, `builder.gc`, `log-driver`/`log-opts`);
+2. `systemctl reset-failed docker && systemctl start docker` → daemon **active**,
+   8/8 containers, Swarm worker `Ready`;
+3. `registry` religado (falhou `Exit(2)` na largada; `docker start registry` → `:5000` OK).
+
+**Problema original permanece em aberto (pendência):** sem `live-restore`, um SIGKILL do
+`dockerd` durante upgrade volta a derrubar os standalone. A correção canônica não é
+`live-restore`, e sim **aumentar o timeout de parada** do daemon — drop-in com
+`TimeoutStopSec=60s` (mesmo padrão já usado no kavure via `nfs-ordering.conf`).
+Detalhes em [`guides/docker-registry.md`](../guides/docker-registry.md) §Resiliência.
 
 ## Programas Nativos
 

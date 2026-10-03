@@ -62,7 +62,10 @@ Ordem atual (cloud no final):
 >
 > **26/08/2026:** **Mosquitto removido do dashboard** (container já removido do kuaray em 16/08 — entrada órfã) e **Rclone GUI removido** (webgui desativado/deletado no psicopompo — porta `46295` liberada; o siteMonitor do homepage era a única conexão à porta). Backup da config: `services.yaml.bak-20260826`.
 >
-> **01/09/2026:** **Wake-on-LAN adicionado** — entradas "Ligar Kavure" (grupo Psicopompo) e "Ligar Psicopompo" (grupo Kavure) com `href` para o relay WoL (`wol-relay.py`, porta `9096`) + `siteMonitor` pro chip de saúde. Ver [`wol-relay`](wol-relay.md).
+> **01/09/2026:** **Wake-on-LAN adicionado** — entradas "Ligar Kavure" (grupo Psicopompo) e "Ligar Psicopompo" (grupo Kavure) com `href` para o relay WoL (binário Rust `wol-relay`/`kururu-wake`, porta `9096` — o `wol-relay.py` original foi arquivado em `scripts/archive/`) + `siteMonitor` pro chip de saúde. Ver [`wol-relay`](wol-relay.md).
+> **02/10/2026:** ✅ **WoL resolvido e validado** — teste real: kavure **29s** / psicopompo **54s** após soft-off, sem tocar no power; a causa da falha era a BIOS `Deep Sleep Control`. Ver [`wol-relay.md`](wol-relay.md) §Validação de ponta a ponta.
+>
+> **03/10/2026:** ⚡ **WoL Smart Dispatcher implementado no Ybytu (`100.115.253.109:9096`)**: os botões foram alinhados aos seus respectivos grupos ("Ligar Psicopompo" no card do Psicopompo e "Ligar Kavure" no card do Kavure). O endpoint agora aponta para o despachante central com auto-failover (tenta o Kururu primeiro; se o Kururu estiver offline, aciona automaticamente o par x86 em fallback). Backup: `services.yaml.bak-20261003`.
 >
 > **29/08/2026:** **`Sumænimá (Borda Secundária)` removido do grupo Kuaray** — kuaray deprecado no Sumænimá (borda secundária deixa de usar `kuaray:8085`); o standby agora vive no **kavure** (ver `network/service-topology.md`). Grupo Kuaray mantém apenas serviços de mídia/automação do Homelab. **`Sumænimá Backup`** (grupo Kavure) volta a ficar ✅ — o health server `:9092` passou a responder **HEAD** (bug do widget: `BaseHTTPRequestHandler` sem `do_HEAD` → 501 em probe HEAD do Homepage; corrigido 29/08). Monitor aponta para `http://100.124.146.77:9092/health`.
 >

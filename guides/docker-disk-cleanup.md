@@ -17,6 +17,23 @@ O Docker 29.x usa o **containerd snapshotter**. Os dados ficam em dois lugares f
 
 > ⚠️ `du -sh /mnt/NVME_PCI/docker-data/rootfs` **superconta**: são mount points de overlay cujos dados físicos vivem no `containerd-data` (ex.: ~94GB "aparentes" quando o real é ~1GB).
 
+> 🛑 **Efeito colateral real (kavure, apurado em 02/10/2026):** apagar camadas de imagem
+> **sem antes remover os containers registrados** que as referenciam cria
+> **entradas-zumbi**. No próximo boot o log enche de
+> `failed to load container mount … RW layer not found` e elas aparecem como **`[Dead]`
+> sem nome** — e **não saem pelo `docker rm`** (`No such container`, nem por ID curto,
+> nem por ID completo, nem por nome; `docker inspect` devolve `[]`; `container prune`
+> reclama 0B). Foram **12 tasks antigas do Swarm** (api/db/valkey/backup/umami-db).
+> Único caminho encontrado:
+>
+> ```bash
+> sudo rm -rf /var/lib/docker/containers/<ID_COMPLETO>   # 64 hex, sem o 0x
+> # a lista em memória do `docker ps -a` limpa sozinha no próximo restart do daemon
+> ```
+>
+> **Prevenção:** antes de podar camadas, remover primeiro os containers registrados
+> (`docker ps -aq --filter status=exited`), e nunca deletar `snapshots/`/`content/` à mão.
+
 ### Dois builders (06/09: padronizado para UM)
 
 - **`default`** (docker driver) — embutido no daemon, **não pode ser removido**. Cache vive em `docker-data/buildkit`. Foi onde ~247GB de cache acumularam (builds antigos / `docker build`).

@@ -49,7 +49,7 @@ graph TD
 | `61208/tcp` | `127.0.0.1` + `100.82.51.112` | **Glances** | Telemetria de CPU/RAM/GPU e métricas locais | [`service-topology.md`](service-topology.md) |
 | `9100/tcp` | `100.82.51.112` / `tailscale0` | **Node Exporter** | Coleta Prometheus de métricas do sistema operacional | [`../services/`](../services/) |
 | `9080/tcp` | `127.0.0.1` (Localhost) | **Promtail** | Agente de logs do Loki (endpoint HTTP/health) | [`../services/`](../services/) |
-| `9096/tcp` | `100.82.51.112` / `tailscale0` | **wol-relay** | Daemon Wake-on-LAN para acionamento remoto via Homepage | [`service-topology.md`](service-topology.md) |
+| `9096/tcp` | `127.0.0.1` (loopback) + `100.82.51.112` via `tailscale serve` | **wol-relay** | Daemon Wake-on-LAN — acorda o **kavure**; bind `127.0.0.1` (padrão canônico), exposto só na tailnet | [`../services/wol-relay.md`](../services/wol-relay.md) |
 | `9092/tcp` | `0.0.0.0` (Swarm Ingress) | **Swarm Ingress Mesh** | Roteamento dinâmico multi-host de serviços do cluster | [`../services/`](../services/) |
 | `7946/tcp,udp` | `tailscale0` (filtrado via UFW) | **Docker Swarm Gossip** | Plano de controle distribuído do cluster Swarm | [`../services/`](../services/) |
 | `4789/udp` | `100.82.51.112` / `tailscale0` | **Docker VXLAN Overlay** | Encapsulamento de rede para containers do Swarm | [`../services/`](../services/) |
@@ -61,11 +61,17 @@ graph TD
 
 ### 2.2. Kavure (`100.124.146.77`) — Swarm Manager & Serviços Core
 
+> 📌 **Revisão de binds (02/10/2026):** comparado com o `provisioning/stacks/core.yml`
+> (espelho no NAS, 29/09), **só `9092` (backup) e `8766` (asciline, `mode: host`) são
+> publicados no host** — `api`, `valkey` e `db` vivem **apenas na overlay `sae-net`**
+> (`Endpoint.Ports: null`, VIP `10.0.2.20`). As linhas corrigidas abaixo refletem isso;
+> **pendência:** o monitor #50 do Uptime Kuma aponta para `:9090` (quebrado).
+
 | Porta / Proto | Bind / Interface | Serviço | Justificativa Técnica | Documentação Canônica |
 |---|---|---|---|---|
-| `9090/tcp` | `100.124.146.77` / `tailscale0` | **sae-core_api** | API Core REST & Websocket do Sumænimá Hub | [`../services/`](../services/) |
+| `9090/tcp` | ~~`100.124.146.77` / `tailscale0`~~ → **`sae-net` (overlay — não publicado no host)** | **sae-core_api** | API Core REST & Websocket do Sumænimá Hub. **Corrigido 02/10/2026:** `Endpoint.Ports: null` — não há bind no host; alcance é pela borda do ybyra (`/api/health` → 200). O monitor #50 do Uptime Kuma (`100.124.146.77:9090`) está **quebrado** e precisa ser corrigido ou o port publicado (pendência). *Atenção:* o `9090` do **psicopompo** é outro serviço — `steniorec` (ver §2.1) | [`../services/steniobot.md`](../services/steniobot.md) |
 | `5432/tcp` | `sae-net` (overlay — **não** publicado no host) | **PostgreSQL (sae-core_db)** | Banco relacional persistente SQLx. **Não** há bind na tailnet: o serviço é alcançado apenas de dentro da overlay (verificado 29/09/2026) | [`../services/`](../services/) |
-| `6379/tcp` | `100.124.146.77` / `tailscale0` | **Valkey (sae-core_valkey)** | Barramento Pub/Sub de eventos e cache em memória | [`../services/`](../services/) |
+| `6379/tcp` | ~~`100.124.146.77` / `tailscale0`~~ → **`sae-net` (overlay — não publicado no host)** | **Valkey (sae-core_valkey)** | Barramento Pub/Sub de eventos e cache em memória. **Corrigido 02/10/2026:** o `core.yml` não tem bloco `ports` para o valkey — acessível só de dentro da overlay | [`../services/steniobot.md`](../services/steniobot.md) |
 | `2377/tcp` | `100.124.146.77` / `tailscale0` | **Swarm Manager** | Gerenciamento e orquestração do cluster Docker Swarm | [`../services/`](../services/) |
 | `7946/tcp,udp` | `100.124.146.77` / `tailscale0` | **Swarm Gossip** | Descoberta e heartbeat entre nós do cluster | [`../services/`](../services/) |
 | `4789/udp` | `100.124.146.77` / `tailscale0` | **Swarm VXLAN** | Rede overlay para comunicação direta entre containers | [`../services/`](../services/) |
@@ -90,7 +96,9 @@ graph TD
 | `8766/tcp` | `100.124.146.77` / `tailscale0` | **sae-core_asciline** | Interface terminal Asciiline do Hub | [`../services/`](../services/) |
 | `9091/tcp` | `100.124.146.77` / `tailscale0` | **Prometheus** | Banco de séries temporais de monitoramento | [`../services/`](../services/) |
 | `9093/tcp` | `100.124.146.77` / `tailscale0` | **Alertmanager** | Roteador de alertas e notificações | [`../services/`](../services/) |
+| `9096/tcp` | `127.0.0.1` (loopback) + `100.124.146.77` via `tailscale serve` | **wol-relay** | Daemon Wake-on-LAN — acorda o **psicopompo**; era `0.0.0.0` e foi fechado para a LAN em 02/10/2026 (endpoint sem auth) | [`../services/wol-relay.md`](../services/wol-relay.md) |
 | `25565/tcp` | LAN + `tailscale0` | **Minecraft Dominium** | Servidor de jogo Minecraft Dominium | [`../services/crafty.md`](../services/crafty.md) |
+| `40000/udp` | `0.0.0.0`, `[::]` (`tailscaled`) | **Tailscale Peer Relay** | Relay ponto a ponto de alta vazão para conexões cliente-a-cliente | [`tailscale.md`](tailscale.md) |
 
 ---
 
@@ -120,6 +128,8 @@ graph TD
 | `8083/tcp` | `tailscale0` | **Ntfy** | Servidor de notificações push para incidentes e alertas | [`service-topology.md`](service-topology.md) |
 | `9100/tcp` | `tailscale0` | **Node Exporter** | Exportador de métricas do host Ybytu | [`../services/`](../services/) |
 | `61208/tcp` | `tailscale0` | **Glances** | Telemetria do host Ybytu | [`service-topology.md`](service-topology.md) |
+| `40000/udp` | `0.0.0.0`, `[::]` (`tailscaled`) | **Tailscale Peer Relay** | Relay ponto a ponto de alta vazão para conexões cliente-a-cliente | [`tailscale.md`](tailscale.md) |
+| `9096/tcp` | `0.0.0.0` / `tailscale0` | **wol-dispatcher** | Smart WoL Dispatcher com auto-failover (Kururu ➔ par x86) | [`../services/wol-relay.md`](../services/wol-relay.md) |
 
 ---
 

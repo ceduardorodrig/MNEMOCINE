@@ -97,7 +97,18 @@ Diferente de um servidor comum x86 ou de uma placa SBC tradicional (como Raspber
 
 #### 13. Emissor de Wake-on-LAN Resiliente (WOL Relay da LAN) ⚡
 - **Conceito:** Servidor de acionamento remoto para ligar o `psicopompo` ou o `kavure` de qualquer lugar do mundo.
-- **O Desafio Atual:** O Kavure está conectado atrás de um repetidor Wi-Fi, o que com frequência barra o encaminhamento de pacotes broadcast L2 (`192.168.3.255:9`). Além disso, se o Psicopompo estiver desligado e o Kavure cair, não há quem emita o pacote mágico.
+- **O Desafio Atual (atualizado 02/10/2026):**
+  - ~~O Kavure atrás de repetidor Wi-Fi (bloqueava broadcast L2 `192.168.3.255:9`).~~
+    **Obsoleto:** desde 02/10 o kavure é **cabeado** no switch gigabit `IT-BLUE LE-4203`
+    → o broadcast chega normalmente a ele.
+  - **✅ Resolvido em 02/10/2026:** o teste das 14:07 falhou por **BIOS**
+    (`Deep Sleep Control = Enabled in S4 and S5`, default do OptiPlex 3060) — corrigido e
+    **validado à noite**: kavure acorda em **29s** e psicopompo em **54s**, nos dois
+    sentidos, com persistência `wol@.service`. Ver
+    [`services/wol-relay.md`](../services/wol-relay.md) §Validação de ponta a ponta.
+  - **O argumento original virou design:** um host em soft-off só volta se **outro nó
+    vivo** emitir o pacote — por isso as **3 camadas** (kururu 24/7+bateria acorda os
+    dois; psicopompo ⇄ kavure se acordam mutuamente). Quórum: basta 1 nó vivo.
 - **A Solução Kururu:**
   - O Kururu está permanentemente ligado na tomada (com bateria de backup), na mesma sub-rede `192.168.3.0/24`.
   - Pode escutar uma rota simples autenticada (via SSH ou pequeno micro-serviço em Rust na porta 9096):
