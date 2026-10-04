@@ -20,8 +20,10 @@ Proxy de streaming para players de mídia.
 
 ## Acesso
 
-- **Tailscale:** `http://kavure.chimaera-heptatonic.ts.net:3000`
-- **Público:** `https://kavure.chimaera-heptatonic.ts.net:10000` (via Funnel)
+- **Tailscale:** `http://kavure.chimaera-heptatonic.ts.net:3000` (`100.124.146.77:3000`)
+- **Público:** `https://kavure.chimaera-heptatonic.ts.net:10000` (via Tailscale Funnel)
+
+> 📌 **Binds de Rede (04/10/2026):** O container publica tanto em `100.124.146.77:3000` (Zona 1 - Tailnet) quanto em `127.0.0.1:3000` (Zona 0 - Loopback). O bind em loopback é necessário para que o daemon do Tailscale Funnel consiga encaminhar o tráfego público recebido na porta `10000` sem expor o serviço na LAN física (`0.0.0.0`). Configuração em `/home/kavure/homelab/aiostreams/compose.yml`.
 
 ## Funcionamento
 

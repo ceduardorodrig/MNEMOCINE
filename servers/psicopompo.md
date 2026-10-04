@@ -23,7 +23,7 @@ tags: [homelab, server, psicopompo, gaming, docker, storage, power, gpu, nvidia,
 | **HDD SATA** | 932 GB (Seagate 1TB) — `/mnt/HDD_SATA` — Montado permanentemente (BTRFS) |
 | **HDD SATA (Backup)** | 932 GB (1TB) — `/mnt/BACKUP` — Montado permanentemente (BTRFS) |
 | **MicroSD** | 116 GB — `/dev/sdd1` — exFAT — MICROSDXC |
-| **Swap** | 46 GB (ZRAM) + 48 GB swapfile `/swap` (hibernação) |
+| **Swap** | 46.9 GB (ZRAM zstd puro, prioridade 100) — sem swap lento em disco |
 | **Tailscale IP** | 100.82.51.112 |
 | **Tailscale DNS** | psicopompo.chimaera-heptatonic.ts.net |
 | **Rede** | Intel I219-LM Gigabit Ethernet |
@@ -62,53 +62,21 @@ O driver NVIDIA cria múltiplos sinks HDMI duplicados (6× `alsa_output.pci-0000
 - **GPU workers do Sumænimá** (StênioREC / vision / audio / ollama) + build-node (07/08/2026 — o core `sae-core` migrou para o kavure)
 - Sincronização (Syncthing) e Rclone (CLI ativo — off-site Drive + mount; GUI removida 26/08)
 
-## Hibernação (21/08/2026)
+## Gerenciamento de Energia e Performance Máxima (03/10/2026)
 
-> **Estado:** ativa e testada (desligamento S4 + resume completo). A opção "Hibernar" aparece no KDE Plasma (PowerDevil) porque `logind` responde `CanHibernate=yes`.
+> **Decisão e Arquitetura Canônica:** 
+> - **Performance Máxima PCIe:** Barramento travado em velocidade máxima permanente (`pcie_aspm=off pci=noaer`), eliminando *exit latency* em jogos e tarefas de IA/CUDA, com **Resizable BAR (ReBAR) 100% ativo** (8.192 MiB).
+> - **Aposentadoria de Suspend e Hibernate:** Devido a restrições físicas de hardware do Dell Precision 3630 (PCH C246 a 66°C–67°C sob a GPU, bug de ACPI S3/S4 da Dell e watchdog de hardware), os estados S3/S0ix e S4 foram desativados formalmente no systemd (`AllowSuspend=no`, `AllowHibernation=no`). O sistema opera com boot ultrarrápido pelo NVMe (~8s) e desligamento limpo (Shutdown S5) infalível.
+> - **Remoção de Swap em Disco (+48 GB Livres):** O subvolume Btrfs `/swap` e o arquivo `/swap/swapfile` de 48 GB foram removidos. O sistema opera exclusivamente com os 46.9 GB de ZRAM comprimido em RAM (zstd, prioridade 100).
 
-Configuração "swap file for hibernation with zram" (padrão ArchWiki): o **zram (pri 100)** continua como swap ativo para uso normal; o **swapfile em disco (pri 1)** fica ocioso e é usado apenas como destino da imagem de hibernação (`logind` ignora zram na hora de hibernar).
-
+### Sumário de Configuração Permanente
 | Item | Valor |
 |---|---|
-| Subvolume `/swap` | btrfs, **irmão de `/@`** (top-level id=5) → fora dos snapshots snapper |
-| Swapfile | `/swap/swapfile` — 48 GB, NOCOW, `btrfs filesystem mkswapfile --size 48g --uuid clear` |
-| `resume=` | `UUID=ffc60b3e-2f31-47bb-b51e-4eb785af8647` (btrfs root) |
-| `resume_offset=` | `17188552` (`btrfs inspect-internal map-swapfile -r /swap/swapfile`) |
-| Cmdline fonte | `/etc/default/limine` → `KERNEL_CMDLINE[default]+=... resume=... resume_offset=...` |
-| Initramfs | systemd-based (`base systemd ...`) → resume nativo, sem hook extra |
-| fstab | `UUID=ffc60b3e... /swap btrfs subvol=/swap,noatime 0 0` + `/swap/swapfile none swap defaults,pri=1 0 0` |
-
-**Manutenção / cuidados:**
-- **Após restaurar snapshot:** o `resume_offset` pode mudar se o swapfile for recriado → rodar `limine-update` (recalcula e regenera cmdline/initramfs).
-- **Backups:** `/swap` (48 GB) fica fora dos snapshots snapper do `/@` e deve ser **excluído** das rotinas de backup que varrem `/` (senão infla os backups).
-- **Segurança:** root sem LUKS → a imagem de hibernação fica **sem criptografia** no disco (aceito — homelab local).
-- **Wake imediato:** teclado/mouse continuarem ligados durante S4 é normal (USB powered da Dell). Para hibernar de fato, aguardar os LEDs do gabinete apagarem antes de religar.
-- Backups de config criados na implementação: `/etc/fstab.bak-hibernacao`, `/etc/default/limine.bak-hibernacao`.
-
-## Suspend / Sleep (22/09/2026)
-
-> **Estado:** ✅ funcionando — **2 testes completos**: (1) runtime `mem_sleep=s2idle` → resume OK; (2) **caminho permanente do drop-in** → journal prova `PM: suspend entry (s2idle)` + `nvidia-resume` OK + mesma sessão continuou (21:49). Pronto para qualquer reboot.
-
-**Sintoma original (madrugada 22/09):** suspend via menu Noctalia → tela apagou, máquina "desligou sozinha" e depois **cold boot** — o resume **nunca executou** (0 logs de `Waking up from S3`; `nvidia-resume.service` nunca rodou).
-
-**Causa raiz (case documentado):** a firmware anuncia **deep (S3)** mas não acorda → ArchWiki *Power management* §Changing suspend method: *"faulty firmware advertises support for deep sleep, while only `s2idle` is supported"*.
-
-**Diagnóstico que foi descartado (verificado antes de concluir):**
-- Preservação de VRAM NVIDIA **correta** (`UseKernelSuspendNotifiers: 1` + `TemporaryFilePath: /var/tmp` — verificação oficial ArchWiki §Preserve video memory; driver 615.71.09 usa o mecanismo 595+)
-- Wake sources OK (`XHC` USB enabled) · inhibitors normais (4× delay) · `MODULES=()` (sem early KMS → ressalva de hibernação da doc não aplica)
-- Erro AER RxErr (correctable) recorrente no port `0000:00:01.0` (**PEG0 = GPU**) — **monitorar** se causar problemas futuros
-
-**Fix aplicado (ArchWiki §Changing suspend method):**
-1. Teste runtime (provou): `echo s2idle | sudo tee /sys/power/mem_sleep` → suspend OK
-2. **Persistente:** `/etc/systemd/sleep.conf.d/60-freeze.conf`:
-   ```ini
-   [Sleep]
-   SuspendState=freeze   # systemd-suspend.service escreve "freeze" em /sys/power/state
-   ```
-
-**Hibernação NÃO afetada (separação por design):** `SuspendState=` (suspend → `/sys/power/state`) e `HibernateMode=` (hibernação → `/sys/power/disk`) são opções independentes de serviços distintos — `systemd-sleep.conf(5)`. Config de hibernação (21/08) intocada.
-
-**Cuidados:** evitar suspender com CPU quente (aviso `intel_pch_thermal: S0ix might fail` ≥66C no journal); AER RxErr na GPU para observar.
+| Memória & Swap | 48 GB RAM ECC + 46.9 GB ZRAM (zstd, pri 100) — sem swap em disco |
+| Cmdline Limine | `quiet nowatchdog splash rw rootflags=subvol=/@ root=UUID=... nvidia-drm.modeset=1 nvidia.NVreg_EnableResizableBar=1 nvidia.NVreg_RegistryDwords=RMUseSwI2c=0x01;RMI2cSpeed=100 pcie_aspm=off pci=noaer` |
+| Systemd Drop-in | `/etc/systemd/sleep.conf.d/60-freeze.conf` (`AllowSuspend=no`, `AllowHibernation=no`) |
+| Wakeup Filter | `/etc/systemd/system/disable-acpi-spurious-wakeup.service` (desativa ruídos ACPI, mantém `GLAN` e trava ASPM disabled via `setpci`) |
+| Interface Noctalia | `~/.config/noctalia/config.toml`: `1: Lock`, `2: Logout`, `3: Reboot`, `4: Shutdown` |
 
 ## Wake-on-LAN (02/10/2026)
 

@@ -23,7 +23,7 @@ tags: [homelab, backup, snapshot, snapper, btrfs, psicopompo]
 - **`nvme`/`backup`**: timeline horária (timer `snapper-timeline.timer` ativo) — protege vault, configs espelhadas, backups e dados.
 - **`hdd` removida (06/09):** HDD_SATA = SteamLibrary (306G) — reconstruível, não merece snapshot. Config + 16 snapshots + `.snapshots` apagados (`snapper -c hdd delete-config`).
 - **`ssd` sem config:** SSD_SATA = `@scryfall` (cache Scryfall p/ kavure) — reconstruível.
-- **qgroups**: desabilitadas (sem lentidão). **Swap**: zram (ativo, pri 100) + swapfile `/swap` 48G (hibernação, pri 1) — subvolume `/swap` é **irmão de `/@`** (top-level), fora dos snapshots do `root`. **updatedb**: `.snapshots` em `PRUNENAMES`.
+- **qgroups**: desabilitadas (sem lentidão). **Swap**: zram (ativo, pri 100, 46.9G zstd) — sem swap lento em disco (o subvolume `/swap` foi aposentado em 03/10/2026, liberando 48 GB no NVMe). **updatedb**: `.snapshots` em `PRUNENAMES`.
 
 ## Comandos
 

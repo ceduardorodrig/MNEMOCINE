@@ -105,7 +105,7 @@ tags: [homelab, server, kavure, docker, storage, gaming, todo, miracena]
 - Servidor de jogos — **Project Zomboid** (Docker — `danixu86/project-zomboid-dedicated-server`, **ativo** desde 06/08/2026) + **Minecraft Dominium** (Crafty, **ativo** desde 08/08/2026 — ver [`crafty`](../services/crafty.md)) + **Valheim** (Docker — `mbround18/valheim:3`, **ativo** desde 09/09/2026 — ver [`valheim-server`](../services/valheim/valheim-server.md))
 - Painel de gestão do Zomboid (Zomboid Control Panel)
 - Monitoramento — **Glances ativo** (`:61208`, 07/08/2026); **watchtower** (auto-update, schedule 03:00 BRT) e **autoheal** ativos; portainer planejado
-- Streaming — **aiostreams** (`:3000`, funnel `kavure.chimaera-heptatonic.ts.net:8443`) e **comet** (`:8000`), migrados do kuaray em **09/08/2026** (ver [`aiostreams`](../services/aiostreams.md) e [`comet`](../services/comet.md))
+- Streaming — **aiostreams** (`:3000`, funnel `kavure.chimaera-heptatonic.ts.net:10000`) e **comet** (`:8000`), migrados do kuaray em **09/08/2026** (ver [`aiostreams`](../services/aiostreams.md) e [`comet`](../services/comet.md))
 - **Miracena Stack** (10/09/2026) — CMS + Automatização + Sites: Directus (`:8055`), WordPress (`:8085`), n8n (`:5678`), Nginx Proxy Manager (`:81` admin, `:8180` HTTP, `:8445` HTTPS), PostgreSQL (compartilhado: Directus + n8n), Redis, MariaDB. Deployed em `/srv/data/miracena/` com resource limits (~5.6 GB RAM total). **Tailscale Funnel** ativo em `miracena.chimaera-heptatonic.ts.net` (HTTPS público → NPM → WordPress). Ver [`miracena-stack`](../services/miracena-stack.md)
 
 ## Layout de Storage
