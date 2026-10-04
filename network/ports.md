@@ -79,7 +79,7 @@ graph TD
 | `9100/tcp` | `100.124.146.77` / `tailscale0` | **Node Exporter** | Exportador de métricas do host Kavure | [`../services/`](../services/) |
 | `61208/tcp` | `100.124.146.77` / `tailscale0` | **Glances** | Telemetria do host (CPU/RAM/disco) | [`service-topology.md`](service-topology.md) |
 | `2375/tcp` | `100.124.146.77` / `tailscale0` | **docker-socket-proxy** | Proxy Docker monitorado pelo Homepage | [`../services/homepage.md`](../services/homepage.md) |
-| `3000/tcp` | `100.124.146.77` / `tailscale0` | **AioStreams** | Servidor de agregação de streams | [`../services/aiostreams.md`](../services/aiostreams.md) |
+| `3000/tcp` | `127.0.0.1` (loopback) + `100.124.146.77` / `tailscale0` | **AioStreams** | Servidor de agregação de streams (Tailnet + Funnel público :10000) | [`../services/aiostreams.md`](../services/aiostreams.md) |
 | `3001/tcp` | `100.124.146.77` / `tailscale0` | **Zomboid Control Panel** | Painel web de gestão do servidor Project Zomboid | [`../servers/kavure.md`](../servers/kavure.md) |
 | `3002/tcp` | `100.124.146.77` / `tailscale0` | **Grafana** | Dashboards de observabilidade e métricas | [`../services/`](../services/) |
 | `3100/tcp` | `100.124.146.77` / `tailscale0` | **Loki** | Coletor e indexador central de logs do homelab | [`../services/`](../services/) |

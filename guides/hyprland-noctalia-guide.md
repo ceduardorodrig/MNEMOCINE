@@ -493,17 +493,16 @@ with-smooth-motion %command%
 
 **Backup das configs de gaming (ativado 21/09):** `~/.config/hypr`, `~/.config/noctalia`, `~/.config/uwsm` (22/09 — cursor/NVIDIA), `~/.config/environment.d`, `~/.config/steam-launch-options`, `~/.local/state/noctalia` agora são espelhados pelo `config-backup` (05:00) → NAS + git + restic + snapper. O `noctalia config export` roda 04:55 (timer user) gerando `merged-config.toml` na pasta espelhada. Ver [`../backups/config-backup.md`](../backups/config-backup.md).
 
-## 💾 Swap: ZRAM + hibernação (configurado corretamente)
+## 💾 Swap: ZRAM puro de alta velocidade (03/10/2026)
 
-| Swap | Tamanho | Prioridade | Uso |
-|---|---|---|---|
-| `/dev/zram0` (zstd) | 46.9G (`zram-size = ram`) | **100** | Usado primeiro (compressed RAM) |
-| `/swap/swapfile` | 48G | **1** | Só hibernação (`resume=`) |
+| Swap | Tamanho | Prioridade | Algoritmo | Uso |
+|---|---|---|---|---|
+| `/dev/zram0` | 46.9G (`zram-size = ram`) | **100** | zstd | Swap comprimido ultrarrápido em RAM (sem desgaste de SSD) |
 
 Confirmação:
 - `zram-generator.conf` → `swap-priority = 100` ✅
-- `/etc/fstab` → `/swap/swapfile ... pri=1` ✅
-- Kernel params: `resume=UUID=ffc60b3e... resume_offset=60761344` → hibernação usa o swapfile ✅
+- Swap em disco e hibernação removidos (economia de 48 GB no NVMe) ✅
+- Performance PCIe em velocidade máxima constante (`pcie_aspm=off`) e ReBAR 8 GB ✅
 
 ## 📦 Descoberta importante: pacotes CachyOS Hyprland
 
