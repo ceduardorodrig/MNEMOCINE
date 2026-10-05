@@ -1,13 +1,13 @@
 ---
-tags: [homelab, servico, miracena, stack, docker, n8n, directus, wordpress, nuxt, kavure]
+tags: [homelab, servico, miracena, stack, docker, n8n, directus, wordpress, nuxt, kuaray]
 ---
 
 # Miracena - Stack de Infraestrutura
 
-**Servidor:** Kavure (Dell OptiPlex 3060 SFF)
-**Data de Deploy:** 10/09/2026
+**Servidor:** Kuaray (Dell Inspiron 14R — migrado em 04/10/2026 para liberar RAM do Kavure)
+**Data de Deploy Inicial:** 10/09/2026 (Kavure) · **Migração Kuaray:** 04/10/2026
 **Projeto Canônico & Governança:** Miracena (Incubação temporária no Homelab)
-**Ambiente:** Servidor Kavure (instância dedicada isolada)
+**Ambiente:** Servidor Kuaray (instância dedicada isolada via Docker Compose)
 
 ## Stack Deployada
 
@@ -29,18 +29,18 @@ tags: [homelab, servico, miracena, stack, docker, n8n, directus, wordpress, nuxt
 - **WordPress (site):** https://miracena.chimaera-heptatonic.ts.net/
 
 ### Interno (via Tailscale — requer Tailscale conectado)
-- **Nuxt3 Frontend:** http://kavure.chimaera-heptatonic.ts.net:3003
-- **WordPress:** http://kavure.chimaera-heptatonic.ts.net:8085
-- **Directus:** http://kavure.chimaera-heptatonic.ts.net:8055
-- **n8n:** http://kavure.chimaera-heptatonic.ts.net:5678
-- **NPM Admin:** http://kavure.chimaera-heptatonic.ts.net:81
+- **Nuxt3 Frontend:** http://kuaray.chimaera-heptatonic.ts.net:3003
+- **WordPress:** http://kuaray.chimaera-heptatonic.ts.net:8085
+- **Directus:** http://kuaray.chimaera-heptatonic.ts.net:8055
+- **n8n:** http://kuaray.chimaera-heptatonic.ts.net:5678
+- **NPM Admin:** http://kuaray.chimaera-heptatonic.ts.net:81
 
 ### Credenciais
 
 #### Nginx Proxy Manager
 - **Email:** ceduadorodrig@gmail.com
 - **Senha:** (no .env — NPM_ADMIN_PASSWORD / SOPS)
-- **URL:** http://kavure.chimaera-heptatonic.ts.net:81
+- **URL:** http://kuaray.chimaera-heptatonic.ts.net:81
 
 #### n8n
 - **Usuario:** edu
@@ -61,7 +61,7 @@ tags: [homelab, servico, miracena, stack, docker, n8n, directus, wordpress, nuxt
 - **Flows:** 3 flows ativos (Novo Membro, Tarefa Criada, Proposta Criada) — limite free tier atingido
 
 #### WordPress
-- **Setup:** http://kavure.chimaera-heptatonic.ts.net:8085 (primeiro acesso cria admin)
+- **Setup:** http://kuaray.chimaera-heptatonic.ts.net:8085 (primeiro acesso cria admin)
 - **Status:** ⏳ Aguardando configuração
 
 ## PostgreSQL Compartilhado
@@ -73,7 +73,7 @@ Um único PostgreSQL (`miracena-postgres`) serve **dois bancos separados**:
 | `miracena` | `miracena` | Directus |
 | `n8n` | `n8n` | n8n |
 
-**Critério:** homelab com RAM limitada (12 GB); compartilhar instância reduz overhead. Bancos isolados, sem cross-reference. Padrão aceito para ambientes não-críticos.
+**Critério:** homelab com RAM limitada (12 GB no Kavure / 5.7 GB no Kuaray); compartilhar instância reduz overhead. Bancos isolados, sem cross-reference. Padrão aceito para ambientes não-críticos.
 
 ## Tailscale Funnel
 
@@ -92,7 +92,7 @@ O container `miracena-tunnel` conecta-se à tailnet como hostname `miracena` e e
 }
 ```
 
-**Limitação do Tailscale MagicDNS:** subdomínios (`site.miracena.xxx`, `cms.miracena.xxx`) não resolvem — o DNS só registra o hostname do nó (`miracena.chimaera-heptatonic.ts.net`). Serviços internos (Directus, n8n) ficam acessíveis pelas portas mapeadas em `kavure.chimaera-heptatonic.ts.net:{porta}`.
+**Limitação do Tailscale MagicDNS:** subdomínios (`site.miracena.xxx`, `cms.miracena.xxx`) não resolvem — o DNS só registra o hostname do nó (`miracena.chimaera-heptatonic.ts.net`). Serviços internos (Directus, n8n) ficam acessíveis pelas portas mapeadas em `kuaray.chimaera-heptatonic.ts.net:{porta}`.
 
 ## Estrutura de Arquivos
 

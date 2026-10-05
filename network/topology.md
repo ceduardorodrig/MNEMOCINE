@@ -43,7 +43,8 @@ graph TB
         roteador ---|cabo| switch
         psicopompo ---|eno1 192.168.3.100 · 1000 Mb/s| switch
         kavure ---|enp1s0 192.168.3.41 · 1000 Mb/s| switch
-        kuaray ---|wlan 192.168.3.53| roteador
+        kuaray ---|enp7s0 192.168.3.200 · 100 Mb/s| switch
+        kuaray -.-|wlan 192.168.3.53 fallback| roteador
         kururu ---|wlan 192.168.3.55| roteador
     end
 
@@ -69,7 +70,7 @@ Até 02/10/2026 só o psicopompo era cabeado — o kavure chegava pela rede via
 passaram a ficar atrás de um switch gigabit de 8 portas:
 
 ```
-Internet → Roteador (192.168.3.1) ⇄ switch IT-BLUE LE-4203 ⇄ { psicopompo, kavure }
+Internet → Roteador (192.168.3.1) ⇄ switch IT-BLUE LE-4203 ⇄ { psicopompo, kavure, kuaray }
 ```
 
 ### Ficha técnica
@@ -130,7 +131,7 @@ dd if=/dev/zero bs=1M count=1024 | pv -r | nc -q5 192.168.3.41 5202
   normalmente pelo switch — **validado em 02/10/2026 nos dois sentidos** (kavure
   acorda em **29s**, psicopompo em **54s**), melhoria direta em relação ao caminho
   antigo via extensor Wi-Fi. Ver [`services/wol-relay.md`](../services/wol-relay.md).
-- **Uso das portas:** psicopompo e kavure; **6 portas livres** para expansão.
+- **Uso das portas:** psicopompo (1 Gbps), kavure (1 Gbps) e kuaray (100 Mbps); **5 portas livres** para expansão (kuaray cabeado em 04/10/2026).
 
 ## Tabela de IPs
 
@@ -139,7 +140,7 @@ dd if=/dev/zero bs=1M count=1024 | pv -r | nc -q5 192.168.3.41 5202
 | psicopompo | `100.82.51.112` | `192.168.3.100/24` | eno1 |
 | ybytu | `100.115.253.109` | `10.0.0.136/24` | ens3 |
 | ybyra | `100.66.224.34` | `10.0.0.40/24` | ens3 |
-| kuaray | `100.94.209.99` | `192.168.3.53/24` | wlp6s0 |
+| kuaray | `100.94.209.99` | `192.168.3.200/24` (cabo) · `192.168.3.53/24` (Wi-Fi) | enp7s0 (primária) · wlp6s0 |
 | kavure | `100.124.146.77` | `192.168.3.41/24` | enp1s0 |
 | sumaenima | `100.85.140.67` | (nó Tailscale do tunnel container no ybyra) | — |
 
@@ -300,14 +301,24 @@ dd if=/dev/zero bs=1M count=1024 | pv -r | nc -q5 192.168.3.41 5202
 | Porta | Serviço | Acesso |
 |---|---|---|
 | 22 | SSH | LAN + Tailscale |
-| 53 | Pi-hole DNS | LAN |
 | 139, 445 | Samba | LAN |
-| 1883 | MQTT | LAN + Docker |
-| 8085 | Nginx (Borda Secundária - SPA) | ~~Deprecado 29/08~~ — kuaray saiu do papel; standby agora é `proxy-standby` no **kavure** (sem porta publicada, serve via overlay/failover) |
-| 8123 | Home Assistant | Tailscale + Funnel |
-| 3000 | aiostreams | Tailscale + Funnel |
-| 10000 | Funnel HA | **Público** (via Tailscale Funnel) |
-| 8443 | Funnel aiostreams | **Público** (via Tailscale Funnel) |
+| 3003 | Nuxt 3 Miracena | Tailscale (`100.94.209.99:3003`) |
+| 3030 | Vert | LAN + Tailscale |
+| 5030 | Slskd (Soulseek) | LAN + Tailscale |
+| 5678 | n8n Miracena | Tailscale (`100.94.209.99:5678`) |
+| 8055 | Directus Miracena | Tailscale (`100.94.209.99:8055`) |
+| 8085 | WordPress Miracena | Tailscale (`100.94.209.99:8085`) |
+| 81 | NPM Admin Miracena | Tailscale (`100.94.209.99:81`) |
+| 8180 | NPM HTTP Miracena | Tailscale (`100.94.209.99:8180`) |
+| 8191 | Flaresolverr | LAN + Tailscale |
+| 8265 | Soularr | LAN + Tailscale |
+| 8384 | Syncthing Web UI | LAN + Tailscale |
+| 8445 | NPM HTTPS Miracena | Tailscale (`100.94.209.99:8445`) |
+| 8686 | Lidarr | LAN + Tailscale |
+| 9091 | Transmission Web UI | LAN + Tailscale |
+| 9696 | Prowlarr | LAN + Tailscale |
+| 51413 | Transmission BitTorrent | LAN + Tailscale (TCP/UDP) |
+| 443 | Funnel Miracena | **Público** (`https://miracena.chimaera-heptatonic.ts.net`) |
 
 ### Kavure
 | Porta | Serviço | Acesso |
