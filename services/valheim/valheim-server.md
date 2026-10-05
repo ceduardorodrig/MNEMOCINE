@@ -318,12 +318,13 @@ Subir o `FloorBytes` até o `CeilingBytes` (`131072`) foi considerado e **recusa
 | Mod | Versão | Função |
 |---|---|---|
 | Server_devcommands | 1.115 | Devcommands + admin tools |
-| SmoothServer | **0.6.1** | Performance de rede |
 | FuelEternal | 1.2.1 | Fogo nunca apaga |
+| NoodlesMcDoodles | **1.0.12** | Simulação de zonas e criaturas no servidor (anti-desync/anti-rubberbanding) |
 
 **Todos os mods são server-side** — clientes vanilla conectam sem problema.
 
-> **0.6.0 → 0.6.1 em 29/09/2026:** o `MODS` usa wildcard (`Nosferatu-SmoothServer-*`), então o odin **baixa a última versão a cada recreate** do container — foi nesse boot que subiu de 0.6.0 para 0.6.1 (25 modules). Não é uma decisão, é comportamento do wildcard; se quiser travar versão, fixar o nome completo no compose.
+> **NoodlesMcDoodles (04/10/2026):** Adicionado `Wubarrk-NoodlesMcDoodles-*` no compose. Transfere a responsabilidade da simulação de zonas (monstros, criaturas, plantações, forjas, portas) para o servidor dedicado, evitando que o primeiro jogador a entrar na zona atue como "host" local para os demais. Com a desinstalação do SmoothServer em 05/10/2026, o Noodles assumiu 100% dos hooks com `forced-off features: none`, operando em modo `FarOrShared` com autoridade total do servidor. Admins podem usar comandos no console in-game (`F5`): `noodles status`, `noodles disable`, `noodles enable`.
+> - **Ajustes de Estabilidade (05/10/2026 via hot-reload):** `T9_PingInflationMs = 100` (evita throttles prematuros em oscilações normais de Wi-Fi/relay), `T1_GlobalRateBps = 524288` (teto dobrado para 512 KB/s por jogador) e `T9_LossThreshold = 0.95` (tolerância a variações de rede).
 
 ### Mods client-side (instalar no cliente, não no servidor)
 
@@ -336,6 +337,7 @@ Subir o `FloorBytes` até o `CeilingBytes` (`131072`) foi considerado e **recusa
 
 | Mod | Motivo |
 |---|---|
+| SmoothServer (Nosferatu) | Removido em 05/10/2026 após desyncs e anomalias em lutas de boss (Yagluth) e conflitos de interpolação; NoodlesMcDoodles assumiu o controle unificado com `forced-off features: none` |
 | Gizmo (ComfyMods) | Client-side only — removido do servidor em 16/09/2026; cada jogador instala no cliente |
 | CameraTweaks (Searica) | Client-side only — removido do servidor em 16/09/2026; cada jogador instala no cliente |
 | BuildCamera (Azumatt) | Kickava clientes vanilla (`EnforceClientMod: true`); sem demanda |

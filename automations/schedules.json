@@ -773,18 +773,18 @@
     },
     {
       "id": "miracena-backup",
-      "host": "kavure",
+      "host": "kuaray",
       "name": "miracena-backup",
       "type": "systemd-timer",
       "schedule_cron": "35 5 * * *",
       "tz": "America/Sao_Paulo",
       "command": "hl-miracena-backup.timer (systemd unit)",
-      "purpose": "Dump PG/MariaDB + sync uploads/NPM do Miracena -> NFS /mnt/BACKUP/miracena-server-kavure/. Timer ativado 13/09 (estava desativado).",
+      "purpose": "Dump PG/MariaDB + sync uploads/NPM do Miracena -> NFS /mnt/BACKUP/miracena-server-kavure/. Migrado para o Kuaray (04/10/2026).",
       "enabled": true,
       "notify": "ntfy /backup (falha)",
       "health_file": "/srv/health/miracena-backup-last-ok",
-      "doc": "services/miracena.md",
-      "notes": "Timer habilitado 13/09/2026"
+      "doc": "services/miracena-stack.md",
+      "notes": "Migrado do Kavure para o Kuaray em 04/10/2026"
     }
   ],
   "os_default_not_managed": [

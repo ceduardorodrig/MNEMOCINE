@@ -19,7 +19,7 @@ Servidor NFS no psicopompo (`nfs-utils`), config em `/etc/exports`:
 /mnt/BACKUP/zomboid-server-kavure	100.124.146.77(rw,async,no_subtree_check,all_squash,anonuid=1000,anongid=1000)
 /mnt/BACKUP/minecraft-server-kavure	100.124.146.77(rw,async,no_subtree_check,all_squash,anonuid=1000,anongid=1000)
 /mnt/BACKUP/valheim-server-kavure	100.124.146.77(rw,async,no_subtree_check,all_squash,anonuid=1000,anongid=1000)
-/mnt/BACKUP/miracena-server-kavure	100.124.146.77(rw,async,no_subtree_check,all_squash,anonuid=1000,anongid=1000)
+/mnt/BACKUP/miracena-server-kavure	100.94.209.99(rw,async,no_subtree_check,all_squash,anonuid=1000,anongid=1000) 192.168.3.200(rw,async,no_subtree_check,all_squash,anonuid=1000,anongid=1000)
 /mnt/BACKUP/configs-homelab	100.94.209.99(rw,async,no_subtree_check,all_squash,anonuid=1000,anongid=1000) 100.124.146.77(rw,async,no_subtree_check,all_squash,anonuid=1000,anongid=1000) 100.115.253.109(rw,async,no_subtree_check,all_squash,anonuid=1000,anongid=1000) 100.66.224.34(rw,async,no_subtree_check,all_squash,anonuid=1000,anongid=1000)
 /mnt/BACKUP/repos/git	100.94.209.99(rw,async,no_subtree_check,all_squash,anonuid=1000,anongid=1000) 100.124.146.77(rw,async,no_subtree_check,all_squash,anonuid=1000,anongid=1000) 100.115.253.109(rw,async,no_subtree_check,all_squash,anonuid=1000,anongid=1000) 100.66.224.34(rw,async,no_subtree_check,all_squash,anonuid=1000,anongid=1000)
 /mnt/SSD_SATA/scryfall-mirror	100.124.146.77(rw,async,no_subtree_check,all_squash,anonuid=1000,anongid=1000)
@@ -29,7 +29,7 @@ Servidor NFS no psicopompo (`nfs-utils`), config em `/etc/exports`:
 - **`async` (desde 07/08/2026):** o servidor responde sem aguardar flush em disco — acelera muito imports/backups. Trocado de `sync` (aplicado com `exportfs -ra`). Risco mínimo: biblioteca espelhada no Syncthing (folder `backup`) + backup off-box.
 
 - **`all_squash,anonuid=1000,anongid=1000`:** todos os clientes (mesmo root de container) escrevem como `edu` (uid 1000, dono da biblioteca). Root do cliente **não** vira root no servidor (seguro).
-- **Restrito aos IPs tailnet** do kuaray (`100.94.209.99`) e kavure (`100.124.146.77`). Para adicionar host, inclua o IP na linha + reexporte (`exportfs -arv`).
+- **Restrito aos IPs tailnet** do kuaray (`100.94.209.99`), kavure (`100.124.146.77`) e IP cabeado LAN (`192.168.3.200`). Para adicionar host, inclua o IP na linha + reexporte (`exportfs -arv`).
 - **Firewall (ufw):** portas `2049/tcp` (NFSv4) e `111/tcp` (rpcbind) liberadas só para os IPs acima.
 - **Blindagem do serviço (20/09/2026):** Drop-in `/etc/systemd/system/nfs-server.service.d/tailscale.conf` configurado com `After=tailscaled.service network-online.target`, `Wants=tailscaled.service network-online.target`, `Restart=on-failure` e `RestartSec=5s` para evitar falha de bind (`errno 99`) pós-reboot. Export do Miracena corrigido de espaço para TAB no `/etc/exports`.
 
@@ -41,6 +41,7 @@ Servidor NFS no psicopompo (`nfs-utils`), config em `/etc/exports`:
 100.82.51.112:/mnt/BACKUP/media/music /mnt/nas/media/music nfs4 rw,soft,timeo=30,retrans=2,_netdev,x-systemd.automount,x-systemd.mount-timeout=10s,x-systemd.idle-timeout=60s,nofail 0 0
 100.82.51.112:/mnt/BACKUP/configs-homelab /srv/backup-configs nfs4 rw,soft,timeo=30,retrans=2,_netdev,x-systemd.automount,x-systemd.mount-timeout=10s,x-systemd.idle-timeout=60s,nofail 0 0
 100.82.51.112:/mnt/BACKUP/repos/git /srv/backup-gitrepos nfs4 rw,soft,timeo=30,retrans=2,_netdev,x-systemd.automount,x-systemd.mount-timeout=10s,x-systemd.idle-timeout=60s,nofail 0 0
+100.82.51.112:/mnt/BACKUP/miracena-server-kavure /srv/data/miracena/offbox nfs4 rw,soft,timeo=30,retrans=2,_netdev,x-systemd.automount,x-systemd.mount-timeout=10s,nofail 0 0
 ```
 
 > **Regra Canônica de Montagem NFS via Tailnet:** Usar **`soft,timeo=30,retrans=2`** e **`x-systemd.mount-timeout=10s`** (sem `idle-timeout` para mounts Docker 24/7) em vez de `hard`. Se a VPN (Tailscale) cair ou o host for desligado antes do unmount, a opção `hard` causa deadlock no kernel (`hung_task_timeout` em `nfs4_file_flush`), travando o shutdown indefinidamente. Com `soft` e timeouts curtos do systemd, o kernel aborta I/O pendente e desliga limpo em segundos. **Drop-in Docker:** `/etc/systemd/system/docker.service.d/nfs-ordering.conf` (`After=remote-fs.target`, `TimeoutStopSec=30s`) em todos os hosts Docker.
@@ -49,7 +50,7 @@ Servidor NFS no psicopompo (`nfs-utils`), config em `/etc/exports`:
 
 ## Montagem no kavure (backup do Zomboid + Sumænimá)
 
-fstab do kavure (atualizado 10/09/2026):
+fstab do kavure (atualizado 04/10/2026):
 
 ```
 100.82.51.112:/mnt/BACKUP/zomboid-server-kavure /srv/data/zomboid/offbox nfs4 rw,soft,timeo=30,retrans=2,_netdev,x-systemd.automount,x-systemd.mount-timeout=10s,nofail 0 0
@@ -61,7 +62,6 @@ fstab do kavure (atualizado 10/09/2026):
 100.82.51.112:/mnt/BACKUP/media/music /srv/data/navidrome/music nfs4 rw,soft,timeo=30,retrans=2,_netdev,x-systemd.automount,x-systemd.mount-timeout=10s,nofail 0 0
 100.82.51.112:/mnt/BACKUP/media/books /srv/data/media/books nfs4 rw,soft,timeo=30,retrans=2,_netdev,x-systemd.automount,x-systemd.mount-timeout=10s,nofail 0 0
 100.82.51.112:/mnt/BACKUP/n8n-server-kavure	/srv/data/n8n/offbox nfs4 rw,soft,timeo=30,retrans=2,_netdev,x-systemd.automount,x-systemd.mount-timeout=10s,nofail 0 0
-100.82.51.112:/mnt/BACKUP/miracena-server-kavure /srv/data/miracena/offbox nfs4 rw,soft,timeo=30,retrans=2,_netdev,x-systemd.automount,x-systemd.mount-timeout=10s,nofail 0 0
 100.82.51.112:/mnt/SSD_SATA/scryfall-mirror /srv/data/scryfall-mirror nfs rw,soft,timeo=30,retrans=2,_netdev,x-systemd.automount,x-systemd.mount-timeout=10s,x-systemd.idle-timeout=60s,nofail 0 0
 100.82.51.112:/mnt/BACKUP/monitoring-server-kavure /srv/data/monitoring/offbox nfs4 rw,soft,timeo=30,retrans=2,_netdev,x-systemd.automount,x-systemd.mount-timeout=10s,nofail 0 0
 ```

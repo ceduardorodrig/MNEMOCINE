@@ -4,33 +4,28 @@ tags: [homelab, server, kuaray, docker, storage, media, home-assistant, automati
 
 # kuaray
 
-> ## ⚠️ DEPRECIADO (28/08/2026)
-> Nó **retirado da topologia ativa** — fora de qualquer papel operacional no homelab e no Sumænimá.
-> Deploys de Sumænimá (frontend/edge) **não** incluem mais kuaray (ver `deploy.py` / `deploy-sync.yml` no repo).
-> O conteúdo abaixo fica como **referência histórica/config-as-code** (serviços podem estar desligados a qualquer momento).
+> ## 🚀 REATIVADO (04/10/2026)
+> Nó **reintegrado à topologia ativa** com conexão Ethernet cabeada (`enp7s0`, 100 Mb/s, 0,28 ms de latência).
+> Assume o papel de hospedeiro da **Stack Miracena** (desafogando a RAM do Kavure) e da **Stack Multimídia** (*arr, torrent, Soulseek), com biblioteca montada via NFS do NAS Psicopompo e backups estruturados offbox e de configs.
 
-**Papel:** Servidor multimídia — *arr stack, streaming, automação residencial
+**Papel:** Servidor da Stack Miracena (Directus, WordPress, Nuxt, n8n, DBs) + Multimídia (*arr stack, streaming, downloads)
 **Shell padrão:** bash (`/bin/bash`)
 **Swarm role:** `standby` — nó worker do Docker Swarm (stack `sae-edge`, serviços standby com réplicas 0)
 
-> **Config-as-code (09/08/2026):** todos os containers do kuaray agora têm `compose.yml` em
-> `/home/kuaray/homelab/{serviço}/` (lidarr, prowlarr, transmission, slskd, soularr, flaresolverr,
-> vert, mosquitto, syncthing, glances, dockerproxy, autoheal) — espelhados no NAS via `config-backup`.
-> Segredos (ex: `TRANS_PASS`) ficam em `.env` (fora do espelho) / store sops.
-> **Atualizado 28/08/2026:** `apt dist-upgrade` + **repo Docker corrigido trixie→noble** + reboot. Kernel **7.0.0-28 → 7.0.0-30**. Stack Docker alinhada ao repo noble (Docker 29.7.2, containerd.io 2.3.3). watchtower permanece pausado.
-> **Migrados p/ kavure (09/08):** Home Assistant, Pi-hole, Navidrome, Calibre Web. **Kavita removido 10/08**.
-> **Mosquitto removido (16/08)** — sem dispositivos MQTT em uso; leftovers do HA antigo (`/home/kuaray/docker/homeassistant`) limpos (espelho no NAS preservado).
-> **Fix NFS (10/09/2026):** Corrigido `nofail,nofail` duplicado no fstab. Entries já usam `soft` (padrão homelab). Ver [`network/nfs.md`](../network/nfs.md).
-
-**Papel:** Servidor multimídia — *arr stack, streaming, automação residencial
-**Swarm role:** `standby` — nó worker do Docker Swarm (stack `sae-edge`, serviços standby com réplicas 0)
+> **Config-as-code (04/10/2026):** todos os containers do kuaray têm `compose.yml` em
+> `/srv/data/miracena/` (Miracena: postgres, mariadb, redis, directus, wordpress, nuxt, n8n, npm, tunnel) e
+> `/home/kuaray/homelab/{serviço}/` (mídia e infra: lidarr, prowlarr, transmission, slskd, soularr, flaresolverr,
+> vert, syncthing, glances, dockerproxy, autoheal) — espelhados no NAS via `config-backup` e `miracena-backup`.
+> Segredos ficam em `.env` (fora do espelho) / store sops.
+> **WoL no Kururu (04/10/2026):** Mapeado no `kururu-wake` e com botão touch no `kururu-display` (`MAC a4:1f:72:fb:9a:36`).
+> **Fix ASPM e Rede (04/10/2026):** `pcie_aspm=off` no GRUB e Power Drain destravaram o transceptor Realtek RTL810xE (`enp7s0`). Link estável em 100 Mb/s Full Duplex (`192.168.3.200`).
 
 ## Hardware
 
 | Item | Especificação |
 |---|---|
 | **SO** | Linux Mint 22.3 (Zena) |
-| **Kernel** | 7.0.0-30-generic |
+| **Kernel** | 7.0.0-38-generic |
 | **CPU** | Intel Core i5-4200U @ 1.60 GHz (max 2.60 GHz) — 2C/4T |
 | **GPU** | Intel HD Graphics (Haswell) + NVIDIA GeForce GT 740M |
 | **RAM** | 5.7 GB (3.4 GB em uso) |
@@ -39,7 +34,7 @@ tags: [homelab, server, kuaray, docker, storage, media, home-assistant, automati
 | **Disco Storage** | 932 GB HDD (Seagate 1TB) — `/dev/sdb1` (MBR, início em LBA 2048) — **reformatado 06/08/2026** (bad sectors LBA 8/32/34-39 evitados pela partição). **Degradado 28/08:** pending sectors 3→37, erro de leitura ~464 GB, fs com erros (reparado `e2fsck -fy`); montado com `nofail,errors=continue` |
 | **Tailscale IP** | 100.94.209.99 |
 | **Tailscale DNS** | kuaray.chimaera-heptatonic.ts.net |
-| **Rede** | Wi-Fi Qualcomm Atheros QCA9565 (`wlp6s0`: 192.168.3.53) + Ethernet Realtek RTL810xE |
+| **Rede** | Ethernet Realtek RTL810xE (`enp7s0`: 192.168.3.200/24 · 100 Mb/s Full Duplex — **ativado 04/10/2026**) + Wi-Fi Qualcomm Atheros QCA9565 (`wlp6s0`: 192.168.3.53/24 metric 600) |
 | **Usuário** | kuaray |
 | **Acesso** | `tailscale ssh kuaray@kuaray` (usuário `kuaray`, sudo NOPASSWD — `/etc/sudoers.d/kuaray-nopasswd`, 10/09/2026) |
 
@@ -56,66 +51,71 @@ tags: [homelab, server, kuaray, docker, storage, media, home-assistant, automati
 
 | URL | Proxy para | Serviço |
 |---|---|---|
-| ~~`kuaray.chimaera-heptatonic.ts.net:10000`~~ | — | Home Assistant (**funnel movido p/ kavure 09/08**) |
+| `https://miracena.chimaera-heptatonic.ts.net` | `miracena-nginx-proxy-manager:80` | Stack Miracena (WordPress / Landing / Directus) |
 
 ## Containers Docker
 
-> **Estado (06/08/2026, noite):** **19 containers ativos** — o stack de música (Lidarr, Navidrome, Transmission, slskd, Soularr) foi **reativado** após o HDD ser reformatado. **Duplicati removido** (06/08 — não cobria os dados de valor). Apenas **Kavita** e **Calibre-web** seguem parados (biblioteca de livros perdida; ver [Crise HDD 06/08](#crise-hdd-06082026)).
+> **Estado (04/10/2026):** **21 containers ativos** divididos entre a **Stack Miracena** (`/srv/data/miracena/`) e a **Stack Mídia/Infra** (`/home/kuaray/homelab/`).
 
-### Ativos
+### Stack Miracena (`/srv/data/miracena/`)
 
 | Container | Imagem | Portas | Função |
 |---|---|---|---|
-| pihole | pihole/pihole:latest | `0.0.0.0:53`, `0.0.0.0:8080` | DNS ad-blocking (Docker) |
+| miracena-postgres | postgres:16-alpine | `5432` (interno) | Banco PostgreSQL (Directus + n8n) |
+| miracena-mariadb | mariadb:11 | `3306` (interno) | Banco MariaDB (WordPress) |
+| miracena-redis | redis:7-alpine | `6379` (interno) | Cache Redis para Directus |
+| miracena-directus | directus/directus:latest | `100.94.209.99:8055` | Backend Headless CMS Directus |
+| miracena-wordpress | wordpress:latest | `100.94.209.99:8085` | CMS WordPress Miracena |
+| miracena-nuxt | node:22-alpine | `100.94.209.99:3003` | Frontend Nuxt 3 Miracena |
+| miracena-n8n | docker.n8n.io/n8nio/n8n:stable | `100.94.209.99:5678` | Automação e Workflows n8n |
+| miracena-nginx-proxy-manager | jc21/nginx-proxy-manager:latest | `100.94.209.99:81, 8180, 8445` | Reverse Proxy / Admin NPM |
+| miracena-tunnel | tailscale/tailscale:latest | Funnel HTTPS 443 | Ingress Tailscale Funnel oficial |
+
+### Stack Mídia e Homelab (`/home/kuaray/homelab/`)
+
+| Container | Imagem | Portas | Função |
+|---|---|---|---|
+| lidarr | lscr.io/linuxserver/lidarr:latest | `0.0.0.0:8686` | Gerenciamento de música (*arr) |
 | prowlarr | lscr.io/linuxserver/prowlarr:latest | `0.0.0.0:9696` | Indexer de torrent/usenet |
-| flaresolverr | ghcr.io/flaresolverr/flaresolverr:latest | `0.0.0.0:8191` | Proxy Cloudflare |
-| vert | ghcr.io/vert-sh/vert | `0.0.0.0:3030` | Proxy/content |
-| syncthing | linuxserver/syncthing:1.29.7 | `0.0.0.0:8384` | Sincronização |
-| glances | nicolargo/glances:latest | `0.0.0.0:61208` | Monitoramento |
-| dockerproxy | tecnativa/docker-socket-proxy:latest | `0.0.0.0:2375` | Proxy socket Docker |
-| watchtower | containrrr/watchtower:latest | — | Auto-update containers |
-| autoheal | willfarrell/autoheal:latest | — | Auto-restart containers |
-| lidarr | — | `0.0.0.0:8686` | Gerenciamento de música |
-| navidrome | — | `0.0.0.0:4533` | Streaming de música |
-| transmission | — | `0.0.0.0:9091`, `51413` | Cliente Torrent |
-| slskd | — | `0.0.0.0:5030` | Cliente Soulseek |
-| soularr | — | `0.0.0.0:8265` | Download Soulseek |
-
-### Exited (parados — livros ainda não restaurados)
-
-| Container | Portas | Função |
-|---|---|---|
-| calibre-web (cwa) | `0.0.0.0:8083` | Servidor de ebooks |
+| transmission | lscr.io/linuxserver/transmission:latest | `0.0.0.0:9091`, `51413` | Cliente BitTorrent |
+| slskd | slskd/slskd:latest | `0.0.0.0:5030` | Cliente Soulseek P2P |
+| soularr | mrusse08/soularr:latest | `0.0.0.0:8265` | Automação Soulseek ⇄ Lidarr |
+| flaresolverr | ghcr.io/flaresolverr/flaresolverr:latest | `0.0.0.0:8191` | Proxy Cloudflare Solver |
+| vert | ghcr.io/vert-sh/vert | `0.0.0.0:3030` | Web UI Vert |
+| syncthing | linuxserver/syncthing:1.29.7 | `0.0.0.0:8384` | Sincronização Syncthing |
+| glances | nicolargo/glances:latest | — | Telemetria Glances |
+| dockerproxy | tecnativa/docker-socket-proxy:latest | — | Proxy de socket Docker seguro |
+| watchtower | containrrr/watchtower:latest | `8080` (interno) | Atualização de containers |
+| autoheal | willfarrell/autoheal:latest | — | Auto-restart de containers não saudáveis |
 
 ## Programas Nativos
 
 | Programa | Função |
 |---|---|
-| go2rtc | Proxy WebRTC/RTSP (câmeras) |
-| Samba (nmbd/smbd) | Compartilhamento de arquivos (SMB) |
 | tailscaled | Agente Tailscale |
-| nginx | Borda Secundária (Serviço de backup, React static frontend, proxy reverso) |
+| Samba (nmbd/smbd) | Compartilhamento SMB |
+| ~~nginx~~ | **Desativado (04/10/2026)** — liberou a porta 8085 para o WordPress da Miracena |
 
 ## Portas Importantes
 
 | Porta | Serviço | Bind |
 |---|---|---|
-| 53 | Pi-hole (DNS) | `0.0.0.0` |
-| 139, 445 | Samba | `0.0.0.0` |
+| 3003 | Nuxt 3 Miracena | `100.94.209.99` |
 | 3030 | Vert | `0.0.0.0` |
-| 8080 | Pi-hole (admin) | `0.0.0.0` |
-| 8085 | Nginx (Borda Secundária) | `0.0.0.0` |
+| 5030 | Slskd (Soulseek) | `0.0.0.0` |
+| 5678 | n8n Miracena | `100.94.209.99` |
+| 8055 | Directus Miracena | `100.94.209.99` |
+| 8085 | WordPress Miracena | `100.94.209.99` |
+| 81 | NPM Admin Miracena | `100.94.209.99` |
+| 8180 | NPM HTTP Miracena | `100.94.209.99` |
 | 8191 | Flaresolverr | `0.0.0.0` |
-| 8384 | Syncthing | `0.0.0.0` |
+| 8265 | Soularr | `0.0.0.0` |
+| 8384 | Syncthing Web UI | `0.0.0.0` |
+| 8445 | NPM HTTPS Miracena | `100.94.209.99` |
+| 8686 | Lidarr | `0.0.0.0` |
+| 9091 | Transmission Web UI | `0.0.0.0` |
 | 9696 | Prowlarr | `0.0.0.0` |
-| 61208 | Glances | `0.0.0.0` |
-| 2375 | Docker proxy | `0.0.0.0` |
-| 22000 | Syncthing transfer | `0.0.0.0` |
-| 3389 | RDP (provavelmente xrdp) | `0.0.0.0` |
-| 18555 | Desconhecido | `0.0.0.0` |
-| 631 | CUPS (impressão) | `127.0.0.1` |
-
-> **Portas de serviços Exited** (não escutam, aguardando migração): 4533 (navidrome), 5030 (slskd), 8265 (soularr), 8083 (calibre-web), 8686 (lidarr), 9091/51413 (transmission).
+| 51413 | Transmission BitTorrent | `0.0.0.0` (TCP/UDP) |
 
 ## Observações
 
@@ -188,5 +188,20 @@ tags: [homelab, server, kuaray, docker, storage, media, home-assistant, automati
 - **Samba** (nmbd/smbd) roda como nativo para compartilhamento de arquivos na LAN.
 - **go2rtc** nativo (inativo desde a migração) — o HA no kavure usa o **go2rtc embutido** (porta `18554`); câmeras não configuradas.
 - **Duplicati removido (06/08/2026)** — o job cobria apenas `/DATA/AppData`; dados de valor (livros) não eram protegidos. Decisão: mídia consolidada no psicopompo; backup de configs estruturado (09/08).
-- Kernel atualizado para 6.17.0-23-generic.
+- Kernel atualizado para 7.0.0-38-generic.
 - Swap ativo: 5.4 GB em disco + 3.4 GB ZRAM (zram0).
+
+### Ativação da Rede Cabeada e Fix Realtek RTL810xE (04/10/2026)
+
+- **Contexto:** Kuaray foi cabeado ao switch gigabit `IT-BLUE LE-4203` (junto ao psicopompo e kavure).
+- **Problema no boot:** A interface `enp7s0` subia com `NO-CARRIER` / `Link detected: no`, e o kernel registrava timeouts recorrentes:
+  ```text
+  Generic FE-GE Realtek PHY r8169-0-700:00: r8169_apply_firmware failed: -110
+  Generic FE-GE Realtek PHY r8169-0-700:00: phy_poll_reset failed: -110
+  r8169 0000:07:00.0 enp7s0: Link is Down
+  ```
+- **Causas e Soluções aplicadas:**
+  1. **ASPM BIOS Conflict:** A BIOS Dell não cede controle de ASPM ao kernel Linux (`can't disable ASPM; OS doesn't have ASPM control`). Adicionado `pcie_aspm=off` em `/etc/default/grub` (`GRUB_CMDLINE_LINUX_DEFAULT="quiet splash pcie_aspm=off"`) + `update-grub` (backup `/etc/default/grub.bak-20261004`).
+  2. **Travamento elétrico do PHY (Auxiliary Power):** O chip PHY permaneceu travado em standby após semanas de uptime. Resolvido com **Power Drain (Cold Boot)**: desligamento total, fonte removida e botão power pressionado por 30s.
+  3. **NetworkManager autonegotiate:** Perfil `Wired connection 1` estava com `auto-negotiate: no`; ajustado para `yes` com prioridade 10.
+- **Resultado:** Link estabelecido em **100 Mb/s Full Duplex** (limite da placa Realtek RTL810xE Fast Ethernet). IP DHCP recebido: `192.168.3.200/24` (métrica 100 — rota default preferencial sobre o Wi-Fi `wlp6s0`, métrica 600). Latência LAN psicopompo ⇄ kuaray caiu de **~22 ms (Wi-Fi) para 0,28 ms (cabo)**.
