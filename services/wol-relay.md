@@ -332,6 +332,7 @@ curl http://100.127.188.45:9096/health   # kururu
   · **F1** persistência aplicada nos 2 hosts · bind do kavure → `127.0.0.1` ·
   **psicopompo acorda em 54s** (watcher no kavure) · **kavure acorda em 29s** (relay do
   psicopompo) · conf do kururu conferido completo.
+- **05/10/2026 — Validação do emissor canônico Kururu:** teste automatizado de ponta a ponta disparado pelo Kururu (`192.168.3.55:9096` via Wi-Fi → switch gigabit → `kavure`). Kavure desligou limpo em S5 às 18:48:16 e acordou em **39s** com 5 disparos. Causa de reset de BIOS anterior confirmada: bateria CMOS CR2032 do OptiPlex 3060 descarregada, que causava reset das configurações de standby se o cabo de energia fosse removido. Mantido energizado pelo no-break.
 
 ## Fontes
 

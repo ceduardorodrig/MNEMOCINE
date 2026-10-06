@@ -58,6 +58,8 @@ tags: [homelab, server, kavure, docker, storage, gaming, todo]
 > `ethtool -s` puro é runtime-only e foi zerado pelo reboot das 13:08). Pós-boot:
 > Swarm 3/3 e 37/37 containers. Runbook, tempos medidos e diagnóstico físico da LED:
 > [`services/wol-relay.md`](../services/wol-relay.md) §Validação de ponta a ponta.
+> **✅ Subnet Router Ativado (05/10/2026):** O kavure assumiu o papel de Subnet Router da tailnet para a sub-rede física da casa (`192.168.3.0/24`), com `autoApprovers` aprovado via GitOps (`MNEMOCINE-ACL` PR #3), permitindo acesso direto ao roteador `192.168.3.1` e dispositivos IoT. Ver [`network/tailscale.md`](../network/tailscale.md).
+> **✅ WoL via Kururu Validado (05/10/2026):** Teste de ponta a ponta com emissão direta pelo Kururu (Wi-Fi → Switch → Kavure): soft shutdown limpo → offline → acordou em **39s** com 5 magic packets. Causa raiz de resets prévios da BIOS identificada: **bateria-moeda CR2032 esgotada** — enquanto o host permanecer conectado ao no-break, a linha 5VSB mantém a CMOS intacta (`Deep Sleep Control = Disabled`); substituição física da pilha CR2032 agendada para manutenção futura.
 
 ## Hardware (confirmado em 05/08/2026)
 
