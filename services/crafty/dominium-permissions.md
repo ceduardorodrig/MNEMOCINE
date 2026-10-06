@@ -75,53 +75,49 @@ docker cp /backup/luckperms-h2-v2.mv.db crafty-controller:/crafty/servers/domini
 docker restart crafty-controller
 ```
 
-## Modpack (DOMINIUM-MODPACK)
+## Modpack (Dominium)
 
-O modpack é distribuído via **Packwiz + GitHub Pages** com auto-update.
+A **fonte de verdade é a instância do Prism Launcher** em psicopompo (`/home/edu/.local/share/PrismLauncher/instances/Dominium/`).
 
 | Item | Valor |
 |---|---|
-| Repositório | [ceduardorodrig/DOMINIUM-MODPACK](https://github.com/ceduardorodrig/DOMINIUM-MODPACK) |
-| Pack URL | `https://ceduardorodrig.github.io/DOMINIUM-MODPACK/pack.toml` |
-| Mod loader | Fabric 0.19.3 |
+| Cliente | Prism Launcher — instância `Dominium` (psicopompo) |
+| Mod loader | **Fabric 0.19.5** (cliente e servidor) |
 | MC Version | 1.21.1 |
-| Mods | 112 (Modrinth) |
+| Mods | **111 jars no cliente / 103 no servidor** → 77 compartilhados em versões idênticas, 33 client-only, 24 server-only |
+| Diretório do servidor | `/srv/data/minecraft/minecraftserver [dominium]/MINECRAFT SERVER/` (kavure) |
+| Scripts de sync | `dominium-sync-from-prism.sh` (psicopompo) + `sync_mods.py` (kavure) |
 
-### Atualizar mods
+> ⚠️ **Canal packwiz + GitHub Pages MORTO (06/10/2026):** o repo [ceduardorodrig/DOMINIUM-MODPACK](https://github.com/ceduardorodrig/DOMINIUM-MODPACK) e a Pack URL `https://ceduardorodrig.github.io/DOMINIUM-MODPACK/pack.toml` respondem **404** (privado ou removido), sem credencial git no kavure. O fluxo antigo (`packwiz update --all`, `packwiz mr add`, `deploy.sh`) **não funciona mais** — ver [[crafty]].
 
-```bash
-cd /home/edu/DOMINIUM-MODPACK
-packwiz update --all
-packwiz refresh
-git add -A
-git commit -m "Atualizar mods $(date +%d/%m/%Y)"
-git push
-```
+### Sincronizar servidor com o cliente (fluxo canônico desde 06/10/2026)
 
-### Adicionar mod novo
+Regras de ouro:
 
-```bash
-packwiz mr add <slug>
-packwiz refresh
-git add -A && git commit -m "Adicionar <mod>" && git push
-```
+1. **Fonte de verdade = a instância do Prism.** Não se edita mods "no servidor".
+2. Pareamento **por `id` do `fabric.mod.json`** (estável entre versões), **nunca por nome de arquivo**.
+3. Mods com `environment: "client"` **nunca** vão para o servidor; mods server-only são **preservados** (LuckPerms + `mods/luckperms/`, AdvancedBackups, Chunky, Ledger…).
+4. **Backup antes de mexer** (servidor parado ⇒ mundo estático): `/srv/data/minecraft/pre-update/<data>/` (local, rollback rápido) + `offbox/archive/pre-update-<data>/` (NAS, off-box).
+5. Servidor é subido/parado **pelo Crafty** (`POST /api/v2/servers/{id}/action/start_server`, API key `agentic.ai` no store sops).
 
-### Sincronizar servidor
-
-O servidor Crafty precisa dos mesmos mods (lado `server`/`both`). Use o script:
+Fluxo (3 passos):
 
 ```bash
-python3 "/mnt/NVME_PCI/minecraftserver [dominium]/sync_mods.py"
+# 1) kavure: parar o servidor pelo Crafty + snapshot pré-update (ver crafty.md)
+# 2) psicopompo: monta a lista (id + environment), empacota e envia via tailscale ssh
+bash /mnt/NVME_PCI/agentic-ai/mnemocine/scripts/dominium-sync-from-prism.sh
+# 3) kavure: aplica por id, preserva server-only, remove client-only e valida depends
+python3 "/srv/data/minecraft/minecraftserver [dominium]/sync_mods.py" --apply
 ```
 
-### Instalação limpa
+Ao terminar: subir pelo Crafty e conferir `Done (...)` em `MINECRAFT SERVER/logs/latest.log` (e o probe SLP `:9095`).
 
-Para testar a instalação do zero no PrismLauncher:
-1. `Adicionar Instância` → `Importar` → colar a Pack URL acima
-2. Baixar [packwiz-installer-bootstrap.jar](https://github.com/packwiz/packwiz-installer-bootstrap/releases)
-3. Colocar em `minecraft/` e configurar como comando de pré-lançamento
+> **Loader:** o Fabric Loader do servidor é atualizado com o instalador oficial dentro do container do Crafty:
+> `java -jar fabric-installer.jar server -mcversion 1.21.1 -loader <versão>` (sem `-downloadMinecraft`, para preservar o `server.jar`) e **apagar o `.fabric/`** em seguida.
+
+> **Instalação limpa no Prism:** o pack URL está morto — uma instalação do zero hoje só é possível copiando a instância `Dominium` do psicopompo ou reativando o canal de distribuição.
 
 ## See also
 - [[crafty]] — Crafty Controller
-- [[psicopompo]] — Servidor
-- [[psicopompo-gaming]] — Jogos no psicopompo
+- [[kavure]] — Servidor (hospeda o Dominium desde 08/08/2026)
+- [[mods-list]] — Lista de mods cliente/servidor
