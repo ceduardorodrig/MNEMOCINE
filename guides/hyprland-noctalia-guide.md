@@ -70,8 +70,17 @@ Isso é baseado no sinal de inibição, não em uma detecção universal de “v
 
 ### Fontes e manutenção
 
-- Não editar `~/.config/noctalia/merged-config.toml`: ele é gerado pelo exportador das 04:55 e será reescrito.
-- O `settings.toml` tem prioridade final sobre os TOML declarativos e está incluído no `config-backup`.
+**Hierarquia de config do Noctalia (o último vence), corrigida em 06/10/2026:**
+
+| Ordem | Camada | Origem |
+|---|---|---|
+| 1 | `~/.config/noctalia/*.toml` (ordem alfabética) | escrita à mão — `config.toml`, `screenshot.toml`… |
+| 2 | `~/.local/state/noctalia/settings.toml` | overrides da GUI (Settings) |
+
+- 🐞 **Bug corrigido (06/10/2026):** o exportador das 04:55 gravava `merged-config.toml` **na raiz** de `~/.config/noctalia/` — e o Noctalia carrega **todo `*.toml` solto nessa pasta**, em ordem alfabética, com o **último vencendo**. Como `merged-config.toml` ordena **depois** de `config.toml`, o dump **anulava o `config.toml`**; e o export seguinte recapturava a config efetiva (com o valor antigo) e o **reconsagrava**, congelando a chave para sempre.
+- ✅ **Correção:** o destino agora é a subpasta **`~/.config/noctalia/export/merged-config.toml`** — subpastas **não** são auto-carregadas (só via `[include]`), então o dump segue espelhado pelo `config-backup` sem virar camada de config. **Nunca** colocar `*.toml` avulso na raiz de `~/.config/noctalia/` (a única exceção são as camadas declarativas propositais).
+- ⚠️ **Ainda válido:** `settings.toml` (GUI) carrega **por último** e vence os TOML declarativos. Valor alterado na GUI sobrepõe o arquivo.
+- **Uso:** `screenshot.toml` existe justamente para ficar fora da sombra do dump; a política de print mora nele.
 - A janela e as verificações do backup permanecem conforme [`../backups/backup-rituals.md`](../backups/backup-rituals.md).
 - Não iniciar `hypridle`/`swayidle` em paralelo ao Noctalia.
 - Validar após alterações:
@@ -79,6 +88,8 @@ Isso é baseado no sinal de inibição, não em uma detecção universal de “v
 ```bash
 noctalia config validate
 noctalia config export full | rg -n -A25 '^\[idle\]'
+# garantir que NADA ficou na raiz além das camadas declarativas:
+fd -e toml . ~/.config/noctalia --max-depth 1
 ```
 
 Referências: [Noctalia Idle](https://docs.noctalia.dev/noctalia/services/idle/), [Noctalia Configuration](https://docs.noctalia.dev/noctalia/configuration/), [PR oficial `locked_timeout` #3388](https://github.com/noctalia-dev/noctalia/pull/3388), [correção do rearme no lock #4002](https://github.com/noctalia-dev/noctalia/pull/4002), [Hypridle](https://wiki.hypr.land/Hypr-Ecosystem/hypridle/).
@@ -200,8 +211,8 @@ A workspace que **abre no login** é decidida pela regra `default = true` em `~/
 | `F1` | Mute |
 | `F4` | Mute microfone |
 | `F7/F8` | Play/Pause, Próxima música |
-| `Print` | Screenshot região |
-| `Super + Print` | Screenshot tela inteira |
+| `Super + G` | Screenshot região — **Ctrl+C** copia · **Ctrl+S** salva em `~/Pictures/Screenshots` · **Enter** abre o editor de anotação · **Esc** cancela |
+| `Super + Ctrl + G` | Screenshot tela inteira |
 | `Super + P` | Color picker (hyprpicker) |
 
 ### Sessão (via Super + ALT + C)
@@ -220,6 +231,43 @@ A workspace que **abre no login** é decidida pela regra `default = true` em `~/
 |---|---|
 | `Super + +` | Zoom in |
 | `Super + -` | Zoom out |
+
+## Apps que abrem flutuantes (window rules)
+
+Isto é **Hyprland, não Noctalia**. As regras vivem em `~/.config/hypr/config/windowrules.lua` (`require("config.windowrules")` no `hyprland.lua`). No compositor **Umbriel** da Noctalia o equivalente seria `[[window_rule]] match.app_id = "…"` + `default_floating = true` (por isso a doc oficial do Noctalia mostra "window rules" — elas são do Umbriel).
+
+Já abrem flutuantes por padrão:
+
+- **KeePassXC** — flutuante, centralizado e 960×702 (adicionado 06/10/2026). Duas regras: a primeira (`class`) dá `float` + `center`; a segunda (`class` + `title = "KeePassXC$"`) aplica o `size` **só na janela principal** — os diálogos (Settings/Entry/Import…) têm títulos próprios e mantêm o tamanho natural.
+  - O regex cobre **3 identificadores**: `KeePassXC` (a class **real** medida — XWayland), `keepassxc` (o `StartupWMClass` do `.desktop`) e `org.keepassxc.KeePassXC` (app_id Wayland).
+  - Medição de referência: `hyprctl clients -j` → `class: KeePassXC`, `xwayland: true`, `floating: true`, `size: [960, 702]`, `at: [480, 210]`.
+- **Swash** (editor do fluxo de print `Super+G`) · **Yazi** · **kcalc** · **Ark** · **keditfiletype** · **Painel de Settings da Noctalia**
+- **Dolphin**: só a janela principal — usa `title = "negative:^(…)$"` para excluir diálogos de mover/copiar/propriedades do tamanho fixo
+- **Modais genéricos**: `class`/`title` contendo `dialog`, portais (`xdg-desktop-portal-gtk`), `hyprland-share-picker` (ver bloco `modalMatches`)
+
+> ⚠️ Regras são avaliadas **de cima para baixo**: para o mesmo efeito, a última vence.
+
+### 🐞 `size` NÃO aceita `max()`/`min()` (descoberto 06/10/2026)
+
+A wiki do Hyprland define `size` assim: *"Resizes a floating window. E.g. `{800, 600}` or `{"(monitor_w*0.5)", "(monitor_h*0.5)"}`"*. **Não existe `max()`/`min()` na API** (zero ocorrências na doc oficial).
+
+Quando a expressão é inválida, o Hyprland **descarta a regra inteira — inclusive o `float`** — e não reporta nada em `hyprctl configerrors`. Sintoma prático: a janela abre lado a lado (tiling) como se a regra nem existisse.
+
+**5 regras corrigidas em 06/10/2026** (todas convertidas para a forma válida):
+
+| App | Antes (inválido) | Depois | Verificação |
+|---|---|---|---|
+| **Swash** | `min_size` 0.35 quadrado | min `672×378` | ✅ `floating: true` — abre em 1120×760 (acima do mínimo) |
+| **kcalc** | 0.17 / 0.43 | `326×464` | ✅ `floating: true`, `size: [326, 464]` |
+| **Dolphin** | 0.50 / 0.55 + clamp | `960×594` + move sob o cursor | ✅ `floating: true`, `size: [960, 594]` |
+| **Picture-in-Picture** | 0.25 quadrado | `480×270` (16:9) | ⏳ não testável sem uma janela PiP real |
+| **Ark** | 0.40 / 0.40 | `768×432` | ⏳ a regra não tem `float` — só afeta janelas flutuantes da classe (diálogos) |
+
+⚠️ **Trade-off do Dolphin:** o clamp `max(20, min(cursor_x - …, monitor_w - window_w + 20))`, que impedia a janela de sair da tela, **não tem equivalente na API** — virou um `move` simples centralizado no cursor. A janela pode encostar/passar da borda; arraste ou use `Super + D` para reposicionar.
+
+> 💡 **Padrão ao criar regras novas:** use sempre `size = { "(monitor_w*0.5)", "(monitor_h*0.65)" }`. Nunca `max()`/`min()`.
+
+
 
 ## Scratchpad — O que é?
 
@@ -258,9 +306,10 @@ A barra no topo mostra:
 | `~/.config/hypr/config/workspaces.lua` | Regras por workspace: monitor, persistência, layout por workspace e **workspace inicial da sessão (`default = true` — só a 1)** |
 | `~/.config/hypr/config/binds.lua` | Todos os atalhos (incluindo controle da fita/colunas do scrolling) |
 | `~/.config/hypr/config/monitors.lua` | Configuração do monitor |
-| `~/.config/hypr/config/windowrules.lua` | Regras por app (gaming, picture-in-picture, float, etc.) |
+| `~/.config/hypr/config/windowrules.lua` | Regras por app (gaming, picture-in-picture, float, etc.) — ver [Apps que abrem flutuantes](#apps-que-abrem-flutuantes-window-rules) |
 | `~/.config/hypr/config/autostart.lua` | O que inicia com o Hyprland |
-| `~/.config/noctalia/config.toml` | Tema, barra, widgets |
+| `~/.config/noctalia/config.toml` | Tema, barra, widgets, sessão |
+| `~/.config/noctalia/screenshot.toml` | Política de captura de tela (print) — ver `[shell.screenshot]` |
 | `~/.config/uwsm/env` | Env da sessão gráfica (UWSM): cursor `HYPRCURSOR_THEME=McMojave` (nativo) + NVIDIA + toolkits |
 | `~/.config/xdg-desktop-portal/portals.conf` | Portal config (file picker KDE) |
 
@@ -491,7 +540,7 @@ with-smooth-motion %command%
 - `kernel.split_lock_mitigate` — `0` melhora certos jogos Wine (ArchWiki), não aplicado
 - V-Sync in-game + SM → conflito; limiter de FPS + SM → trava (ver quirk acima)
 
-**Backup das configs de gaming (ativado 21/09):** `~/.config/hypr`, `~/.config/noctalia`, `~/.config/uwsm` (22/09 — cursor/NVIDIA), `~/.config/environment.d`, `~/.config/steam-launch-options`, `~/.local/state/noctalia` agora são espelhados pelo `config-backup` (05:00) → NAS + git + restic + snapper. O `noctalia config export` roda 04:55 (timer user) gerando `merged-config.toml` na pasta espelhada. Ver [`../backups/config-backup.md`](../backups/config-backup.md).
+**Backup das configs de gaming (ativado 21/09):** `~/.config/hypr`, `~/.config/noctalia`, `~/.config/uwsm` (22/09 — cursor/NVIDIA), `~/.config/environment.d`, `~/.config/steam-launch-options`, `~/.local/state/noctalia` agora são espelhados pelo `config-backup` (05:00) → NAS + git + restic + snapper. O `noctalia config export` roda 04:55 (timer user) gerando `export/merged-config.toml` **dentro** de `~/.config/noctalia/` — mas em subpasta, que o Noctalia **não** auto-carrega (ver "Fontes e manutenção" acima; até 06/10 o dump ficava na raiz e anulava o `config.toml`). Ver [`../backups/config-backup.md`](../backups/config-backup.md).
 
 ## 💾 Swap: ZRAM puro de alta velocidade (03/10/2026)
 

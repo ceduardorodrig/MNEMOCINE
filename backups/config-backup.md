@@ -27,7 +27,7 @@ Cada host (05:00) → /usr/local/bin/config-backup (systemd timer hl-config-back
 | Hora | Job |
 |---|---|
 | 04:45 | **mnemocine-docs-sync (psicopompo)** — publica a doc do vault no repo **público** `MNEMOCINE` (ver [`mnemocine-docs-sync.md`](mnemocine-docs-sync.md)) |
-| 04:55 | **noctalia-config-export (psicopompo, user)** — `noctalia config export` → `~/.config/noctalia/merged-config.toml` (camada efetiva: declarativa + overrides GUI) |
+| 04:55 | **noctalia-config-export (psicopompo, user)** — `noctalia config export` → `~/.config/noctalia/export/merged-config.toml` (camada efetiva: declarativa + overrides GUI). **Subpasta de propósito** — o Noctalia só auto-carrega `*.toml` na raiz da pasta de config |
 | 05:00 | config-backup (todos) |
 | 05:00 | zomboid-restart (kavure, inalterado) |
 | 05:15 | zomboid-backup (kavure) |
@@ -37,6 +37,8 @@ Cada host (05:00) → /usr/local/bin/config-backup (systemd timer hl-config-back
 | dom 06:00 | restic check |
 
 > **Nota de política (24/09/2026):** o override `~/.local/state/noctalia/settings.toml` contém a política de idle do desktop Hyprland/Noctalia (lock 900 s; screen off desativado enquanto desbloqueado e 60 s quando bloqueado; lock+suspend desativado). Esse arquivo é espelhado junto com `~/.config/noctalia`; `merged-config.toml` é somente saída gerada e não deve ser editado manualmente.
+>
+> **⚠️ Correção de rota (06/10/2026):** o dump `merged-config.toml` passou a ser gravado em `~/.config/noctalia/export/` (subpasta). Antes ficava na **raiz** da pasta de config, onde o Noctalia o carregava como camada declarativa (ordem alfabética, último vence) — ordenando depois de `config.toml`, ele **anulava o config escrito à mão** e o export seguinte reconsagrava o valor antigo (chave congelada). Subpastas não são auto-carregadas, então `export/` é ponto cego do shell e o artefato continua versionado aqui no espelho. Detalhes em [`../guides/hyprland-noctalia-guide.md`](../guides/hyprland-noctalia-guide.md) → "Fontes e manutenção".
 
 ## Componentes
 
