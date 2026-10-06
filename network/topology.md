@@ -256,6 +256,7 @@ dd if=/dev/zero bs=1M count=1024 | pv -r | nc -q5 192.168.3.41 5202
 | GPU workers → API/Valkey | overlay `sae-net` → kavure |
 | Celular (4G) → Home Assistant | Tailscale Funnel → kuaray |
 | Celular (4G) → aiostreams | Tailscale Funnel → **kavure** |
+| Tailnet (remoto) → Roteador / IoT da Casa | Subnet Router (**kavure** `192.168.3.0/24`) → LAN física via switch gigabit |
 | Notebook → AdGuard admin | Tailscale direto → ybytu :3000 |
 | ~~Notebook → Portainer~~ | ~~Tailscale direto → psicopompo :9000~~ — **Portainer removido** (sem substituto web; `docker`/CLI + Homepage) |
 | Serviço → Internet (exit node) | Serviço → psicopompo ou ybytu → Internet |

@@ -14,7 +14,7 @@ tags: [homelab, network, tailscale]
 | ybytu | `100.115.253.109` | Exit Node, DNS, Peer Relay (`:40000/udp`) |
 | ybyra | `100.66.224.34` | Cloud — borda primária |
 | kuaray | `100.94.209.99` | Multimídia — Funnel Home Assistant |
-| kavure | `100.124.146.77` | Servidor de serviços dedicado, Swarm Manager, Peer Relay (`:40000/udp`) |
+| kavure | `100.124.146.77` | Servidor de serviços dedicado, Swarm Manager, Peer Relay (`:40000/udp`), Subnet Router (`192.168.3.0/24`) |
 | anansi | `100.71.232.79` | Android |
 | kururu | `100.127.188.45` | Nó headless dedicado (Samsung SM-T110 / Alpine Linux) |
 
@@ -171,6 +171,35 @@ tailscale set --exit-node=ybytu
 # Parar de usar exit node
 tailscale set --exit-node=
 ```
+
+## Subnet Routers (05/10/2026)
+
+O **kavure** opera como **Subnet Router** oficial da tailnet para a sub-rede física da casa (`192.168.3.0/24`), permitindo alcançar diretamente a interface do roteador (`192.168.3.1`), lâmpadas Tuya Wi-Fi e periféricos da LAN local sem necessidade de instalar cliente Tailscale em cada ponta.
+
+| Subnet Router | Sub-rede Anunciada | Interface LAN | Aprovação de Rota | SNAT |
+|---|---|---|---|---|
+| **kavure** (`100.124.146.77`) | `192.168.3.0/24` | `enp1s0` (Gigabit cabeado) | `autoApprovers` via GitOps (`MNEMOCINE-ACL`) | ✅ Automático (Linux iptables/nftables) |
+
+### Como Funciona
+* **SNAT (Masquerade):** O tráfego vindo da Tailnet que sai para a LAN local sofre Source NAT pelo Linux do Kavure. Dispositivos locais (roteador da operadora, lâmpadas, TVs) enxergam as conexões partindo de `192.168.3.41`. Não são necessárias rotas estáticas reversas no modem da operadora.
+* **Auto-Aprovação GitOps:** O bloco `autoApprovers.routes` no arquivo `policy.hujson` (repo `MNEMOCINE-ACL`) aprova automaticamente rotas anunciadas por administradores (`autogroup:admin`, `ceduardorodrig@gmail.com`).
+
+### Ativação no Host (kavure)
+```bash
+# 1. Persistência de encaminhamento no kernel (/etc/sysctl.d/99-tailscale.conf)
+net.ipv4.ip_forward = 1
+net.ipv6.conf.all.forwarding = 1
+
+# 2. Anúncio da rota (preserva flags anteriores como peer relay e ssh)
+sudo tailscale set --advertise-routes=192.168.3.0/24
+```
+
+### Uso nos Clientes
+* **Celulares (Android/iOS):** Rotas anunciadas são aceitas automaticamente.
+* **Linux / macOS:** Para acessar a LAN física através do Kavure:
+  ```bash
+  tailscale set --accept-routes=true
+  ```
 
 ## Funnels
 

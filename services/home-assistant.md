@@ -53,6 +53,11 @@ Plataforma de automação residencial.
   - **Sleep mode** (`switch.adaptive_lighting_mnemoncine_..._sleep_mode_mnemoncine`) = modo "luz bem baixinha" sob demanda (brilho 1% + 1000K); ajustável em Options (`sleep_brightness`/`sleep_color_temp`). Ativado acidentalmente em 16/08 (causou luz a 1% de dia).
   - Stub `adaptive_lighting:` NÃO é necessário no YAML p/ uso via UI (cria uma entry "default" duplicada) — removido 16/08.
   - Entry "default" deletada 16/08; switches órfãos removidos automaticamente pelo HA.
+- **Tuya Local** (HACS/manual, instalado 05/10/2026 — `make-all/tuya-local` v2026.9.2-rel) — controle local via protocolo Tuya v3.5 (porta TCP 6668) com criptografia AES direta na LAN, sem tráfego de nuvem. As 4 lâmpadas Pera NEO 10W (`xtsnfp5zitrmrvcm`) mapeadas:
+  - `light.fridge_lamp`: `192.168.3.36` (`ebad09d02f9a032599orxw`)
+  - `light.door_lamp`: `192.168.3.37` (`eb1449c7f8e24b42c9tlul`)
+  - `light.sink_lamp`: `192.168.3.38` (`eb265a47aa07addb92og5y`)
+  - `light.desk_lamp`: `192.168.3.39` (`eb3e1d8d3093726ddb5anv`)
 - **Backup** (nativo, **ativado 16/08** com criptografia — chave `HA_BACKUP_ENCRYPTION_KEY` no store sops/age; automático diário, retenção 3 cópias; 1º backup 20 MB 14:09)
 
 ## Dados
