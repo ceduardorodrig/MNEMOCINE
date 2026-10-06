@@ -26,7 +26,7 @@ Cada host (05:00) → /usr/local/bin/config-backup (systemd timer hl-config-back
 
 | Hora | Job |
 |---|---|
-| 04:45 | **mnemocine-docs-sync (psicopompo)** — publica a doc do vault no repo **público** `MNEMOCINE` (ver [`mnemocine-docs-sync.md`](mnemocine-docs-sync.md)) |
+| 04:40 / 04:45 | **homelab-docs-sync (psicopompo)** — publica os repos de docs do vault: currículo (04:40) e `MNEMOCINE` (04:45) (ver [`docs-sync.md`](docs-sync.md)) |
 | 04:55 | **noctalia-config-export (psicopompo, user)** — `noctalia config export` → `~/.config/noctalia/export/merged-config.toml` (camada efetiva: declarativa + overrides GUI). **Subpasta de propósito** — o Noctalia só auto-carrega `*.toml` na raiz da pasta de config |
 | 05:00 | config-backup (todos) |
 | 05:00 | zomboid-restart (kavure, inalterado) |
@@ -66,7 +66,7 @@ Cada host (05:00) → /usr/local/bin/config-backup (systemd timer hl-config-back
 
 **Excluídos globalmente (segredos — NUNCA vão pro espelho):** `.env`, `secrets.yaml`, `slskd.yml`, `passwd`, `config.xml` (API keys), `*.db`, `*.log`, `*.lock`, `.venv`, `node_modules`, `.git`, `.cache`, `.stversions`. Segredos vivem no **store sops/age** (`/mnt/NVME_PCI/secrets/`), que sincroniza criptografado via Syncthing.
 
-**`mnemocine/` é excluído no psicopompo (30/09/2026):** `/mnt/NVME_PCI/homelab/mnemocine` é **derivado** — o `mnemocine-docs-sync` copia do vault `agentic-ai/mnemocine` e publica no repo público `MNEMOCINE`. O circuito privado não precisa versionar uma segunda cópia da mesma documentação, e a cópia intermediária ficava **congelada** (o sync não tinha timer), gerando 97 divergências e re-acusando segredos já corrigidos no espelho. Ver [`mnemocine-docs-sync.md`](mnemocine-docs-sync.md).
+**`mnemocine/` é excluído no psicopompo (30/09/2026):** `/mnt/NVME_PCI/homelab/mnemocine` é **derivado** — o `homelab-docs-sync` copia do vault `agentic-ai/mnemocine` e publica no repo público `MNEMOCINE`. O circuito privado não precisa versionar uma segunda cópia da mesma documentação, e a cópia intermediária ficava **congelada** (o sync não tinha timer), gerando 97 divergências e re-acusando segredos já corrigidos no espelho. Ver [`docs-sync.md`](docs-sync.md).
 
 ## Como adicionar um serviço/host novo
 
