@@ -43,9 +43,10 @@ Kururu acts as the dedicated **Physical Power Guardian** for the homelab. Becaus
 The daemon operates 100% locally on Kururu. It makes life-and-death decisions using its own hardware telemetry and network probes without depending on Home Assistant, MQTT brokers, or container engines.
 
 ### B. Anti-Flapping Leaky Bucket (UPS Battery Preservation)
-To prevent erratic grid fluctuations ("power flapping") from repeatedly resetting timers and draining dumb UPS batteries:
+To prevent erratic grid fluctuations ("power flapping" and auto-reclosers) from repeatedly resetting timers and draining dumb UPS batteries:
 * Every second running on battery without grid power increments a **debit counter** (`debit += interval`).
-* If grid power blinks back for a few seconds, the debit counter does **not** instantly reset to zero.
+* If grid power blinks back for a few seconds, the debit counter does **not** instantly reset to zero. Instead, it **drains gradually** at twice the probe rate (`debit -= interval * 2`).
+* If power cuts again while residual debit exists, accumulation resumes from the remaining debit rather than starting from zero.
 * Once the cumulative debit reaches **180 seconds (3 minutes)**, the safe shutdown is triggered immediately.
 
 ### C. Physical Motion & Dock Baseline Discrimination (Physics-Based Immunity)
@@ -54,33 +55,36 @@ To completely prevent false positives when unplugging Kururu for handheld use wi
 * When AC disconnects:
   - **Real Blackout:** The tablet remains resting motionless on its dock/stand. Heavy desk vibrations, cat jumps, or typing settle at $\Delta < 86$ units (well below the $\Delta = 180$ threshold). Kururu detects zero physical pickup ($\Delta < 180$) and **immediately triggers the BlackoutPending countdown**, even if the router is on UPS and WAN internet is still online!
   - **Handheld / Portable Usage:** Physically unplugging the cable and picking up the tablet by hand produces a massive orientation shift ($\Delta \ge 310 - 530$ units). Kururu detects $\Delta \ge 180$, logs `[ASSESSMENT] Confidence: 10%`, and **takes zero shutdown action**.
-* If picked up during a blackout countdown, it transitions smoothly to `PortableUsage`. Once returned to the dock charger, it returns to `AcNormal` and recalibrates.
+* **Dock Return Trigger:** If the user is in `PortableUsage` and returns the tablet to its resting dock orientation ($\Delta < 180$) while unpowered, the daemon immediately transitions to `BlackoutPending(StaticDockLostAc)`, triggering safe shutdown even if the cable is dead.
 
 ### D. Multi-Variable Confidence Matrix & Decision Weights
 
-To eliminate ambiguity and edge-case bouncing, Kururu Sentinel evaluates three independent physical/network vectors with explicit weighting:
+To eliminate ambiguity and real-world edge cases, Kururu Sentinel evaluates four independent physical, hardware, and network vectors:
 
 | Vector | Probe Source | Evaluation Weight | Role |
 |---|---|---|---|
-| **AC Mains Power** | Hardware PMIC (`axp20x-battery/ac_online`) | **Mandatory Gatekeeper** | If AC is online (`1`), confidence is strictly **0%**. No shutdown can occur. |
+| **AC Mains Power** | Hardware PMIC (`axp20x-battery/ac_online`) | **Mandatory Gatekeeper** | If AC is online (`1`) and debit is `0`, confidence is strictly **0%**. |
 | **Dock Orientation Shift** | 3-axis accelerometer ($\|\vec{V} - \vec{V}_{dock}\|$) | **Primary Discriminator (60%)** | Distinguishes static dock placement ($\Delta < 180$) from human handling ($\Delta \ge 180$). |
-| **WAN Internet Reachability** | ICMP probe to `1.1.1.1` (timeout 1s) | **Secondary Corroborator (40%)** | Verifies upstream network vitality without relying on local lamp IPs. |
+| **WAN Internet Reachability** | ICMP probe to `1.1.1.1` and `8.8.8.8` | **Secondary Corroborator (40%)** | Verifies upstream network vitality without relying on local lamp IPs. |
+| **Battery Charge Capacity** | Sysfs gauge (`battery/capacity`) | **Safety Watchdog (Veto)** | If battery falls to $\le 20\%$ during battery operation, escalates to `CriticalBattery` shutdown. |
 
 #### Confidence Scoring Matrix
 
-| AC State | Dock Shift ($\Delta$) | WAN State | Assessment | Confidence | Action / FSM State |
-|---|---|---|---|---|---|
-| **Online (1)** | Any | Any | Mains grid power healthy | **0%** | `AcNormal` (Dynamic dock calibration) |
-| **Offline (0)** | $\ge 180$ (Moved) | **Online** | Handheld portable usage | **10%** | `PortableUsage` (Standby, 0 debit) |
-| **Offline (0)** | $< 180$ (Static) | **Online** | Power grid lost, router on UPS | **75%** | `BlackoutPending(StaticDockLostAc)` |
-| **Offline (0)** | $\ge 180$ (Moved) | **Offline** | Power lost while handheld / Wi-Fi lost | **85%** | `BlackoutPending(WanLostInPortable)` |
-| **Offline (0)** | $< 180$ (Static) | **Offline** | Full grid & WAN outage on dock | **100%** | `BlackoutPending(StaticDockLostAc)` |
+| AC State | Dock Shift ($\Delta$) | WAN State | Battery | Assessment | Confidence | Action / FSM State |
+|---|---|---|---|---|---|---|
+| **Online (1)** | Any | Any | Any | Mains grid power healthy | **0%** | `AcNormal` (Dynamic dock calibration) |
+| **Offline (0)** | $\ge 180$ (Moved) | **Online** | $> 20\%$ | Handheld portable usage | **10%** | `PortableUsage` (Standby, 0 debit) |
+| **Offline (0)** | $< 180$ (Static) | **Online** | Any | Power grid lost, router on UPS | **75%** | `BlackoutPending(StaticDockLostAc)` |
+| **Offline (0)** | $\ge 180$ (Moved) | **Offline** | Any | Power lost while handheld / Wi-Fi lost | **85%** | `BlackoutPending(WanLostInPortable)` |
+| **Offline (0)** | $\ge 180$ (Moved) | Any | $\le 20\%$ | Tablet battery critically low | **95%** | `BlackoutPending(CriticalBattery)` |
+| **Offline (0)** | $< 180$ (Static) | **Offline** | Any | Full grid & WAN outage on dock | **100%** | `BlackoutPending(StaticDockLostAc)` |
 
-#### Anti-Bounce Hysteresis
+#### Anti-Bounce Hysteresis & Leaky Bucket Drain
 To prevent state thrashing between `PortableUsage` and `BlackoutPending`:
 - `StaticDockLostAc` only de-escalates back to `PortableUsage` if a human physically lifts the tablet ($\Delta \ge 180$) **and** WAN remains reachable.
 - `WanLostInPortable` only de-escalates back to `PortableUsage` if WAN connectivity recovers.
-- Any return of AC power immediately drains the debit and restores `AcNormal`.
+- `CriticalBattery` never de-escalates unless physical AC power is restored.
+- In `BlackoutPending`, detecting AC drains debit at 10s per 5s cycle. It only transitions back to `AcNormal` when debit reaches `0s`.
 
 ### E. Native HTTP Control via Tailscale (Zero SSH Complexity)
 Shutdown commands do not rely on SSH keys, passphrases, or batch mode. Both Kavure and Psicopompo run `wol-relay` (native Rust on port `9096` as root):
@@ -107,20 +111,31 @@ stateDiagram-v2
     AcNormal --> BlackoutPending_Wan: AC lost WITH pickup BUT wan=OFF [85%]
 
     PortableUsage --> AcNormal: AC reconnected
+    PortableUsage --> BlackoutPending_Dock: Returned to dock position without AC [75%]
     PortableUsage --> BlackoutPending_Wan: WAN probe fails while on battery [85%]
+    PortableUsage --> BlackoutPending_Bat: Battery level <= 20% [95%]
 
     state BlackoutPending_Dock {
         [*] --> AccumulateDock: +5s debit per probe interval
         AccumulateDock --> PortableUsage: User lifts tablet from dock & WAN alive
-        AccumulateDock --> AcNormal: AC restored (debit cleared)
+        AccumulateDock --> DrainDebitDock: AC restored (drain -10s/cycle)
+        DrainDebitDock --> AccumulateDock: AC lost again before 0s
+        DrainDebitDock --> AcNormal: Debit reaches 0s
         AccumulateDock --> ExecutingShutdown: Debit reaches 180s threshold
     }
 
     state BlackoutPending_Wan {
         [*] --> AccumulateWan: +5s debit per probe interval
         AccumulateWan --> PortableUsage: WAN connectivity restored
-        AccumulateWan --> AcNormal: AC restored (debit cleared)
+        AccumulateWan --> DrainDebitWan: AC restored (drain -10s/cycle)
+        DrainDebitWan --> AccumulateWan: AC lost again before 0s
+        DrainDebitWan --> AcNormal: Debit reaches 0s
         AccumulateWan --> ExecutingShutdown: Debit reaches 180s threshold
+    }
+
+    state BlackoutPending_Bat {
+        [*] --> AccumulateBat: +5s debit per probe interval
+        AccumulateBat --> ExecutingShutdown: Debit reaches 180s threshold
     }
 
     state ExecutingShutdown {
