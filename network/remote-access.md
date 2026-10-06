@@ -58,3 +58,16 @@ As entradas são cadastradas com esquema `sftp://`:
 - Removida a entrada legada `remote:/kuaray-root` no Dolphin.
 - Removidos registros órfãos de montagem `fuse.sshfs` em `/home/edu/kuaray` no `user-places.xbel`.
 - Cadastradas as URIs canônicas `sftp://kuaray/` e `sftp://kavure/` em ambos os navegadores.
+
+## Automação Contínua no Login e Recuperação (06/10/2026)
+
+Para garantir que os compartilhamentos apareçam imediatamente como **Drives de Rede** montados no Cosmic Files e no Dolphin sem intervenção manual:
+
+1. **Script de montagem:** `~/.local/bin/homelab-sftp-mount.sh`
+   - Checa se o host já está montado (`gio mount -l`).
+   - Se não estiver, monta via `gio mount sftp://{host}/` com timeout defensivo de 5s caso o nó esteja offline.
+2. **Serviço de Usuário:** `~/.config/systemd/user/homelab-sftp-mount.service` (`Type=oneshot`).
+3. **Timer de Verificação Periódica:** `~/.config/systemd/user/homelab-sftp-mount.timer`
+   - Dispara 30s após o login da sessão gráfica e repete a cada 5 minutos.
+   - Garante que, se um servidor (como o `kuaray`) for ligado após o boot do Psicopompo, ele seja automaticamente detectado e montado assim que responder na rede.
+

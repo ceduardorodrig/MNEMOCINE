@@ -17,7 +17,7 @@ Guia para entrar no servidor de Valheim **Mnemocine Vikings** (kavure).
 | Porta | `2456` (UDP) |
 | **Senha** | no store sops (`VALHEIM_SERVER_PASS`) |
 | Mundo | `Fimbulvetr` |
-| Versão | **1.0.16** (Deep North) — atualiza sozinho às 03:00 |
+| Versão | **1.0.17** (Deep North) — atualiza sozinho às 03:00 |
 
 ## Como entrar
 

@@ -12,9 +12,11 @@ Servidor dedicado Valheim 1.0 (Deep North) com BepInEx e mods QoL.
 **Mundo:** `Fimbulvetr`
 **IP (Tailscale):** `100.124.146.77`
 
-> **Ativo desde 09/09/2026:** Valheim 1.0.16 / **network version 40** (relato do log: `Console: Valheim l-1.0.16 (network version 40)`) via `mbround18/valheim:3` com BepInEx + 3 mods server-side. Servidor público=false (acesso pela tailnet). Backup automático a cada 30min via container + offbox NFS. Portais em modo casual (ores passam).
+> **Ativo desde 09/09/2026:** Valheim 1.0.17 / **network version 40** (relato do log: `Console: Valheim l-1.0.17 (network version 40)`) via `mbround18/valheim:3` com BepInEx + 3 mods server-side. Servidor público=false (acesso pela tailnet). Backup automático a cada 30min via container + offbox NFS. Portais em modo casual (ores passam).
 >
-> ⚠️ A doc registrava **1.0.12**; a versão atual é **1.0.16**, mas o **network version segue 40** — o protocolo não mudou, então os clientes e a nota do bug de `Compression` continuam válidos.
+> ⚠️ A doc registrava **1.0.12**; a versão atual é **1.0.17**, mas o **network version segue 40** — o protocolo não mudou, então os clientes e a nota do bug de `Compression` continuam válidos.
+
+> **06/10/2026 — patch 1.0.17 (build Steam `25730807`):** aplicado **manualmente** via `valheim-restart` (o auto-update das 05:00 BRT perdeu a janela — a Steam só publicou o build às **09:11 BRT**, e o steamcmd das 05:00 respondeu `No update available`). Network version **segue 40**. É um patch de correção, e inclui o fix do *"rare bug that could erase all objects in parts of the world when one large world save chunk file was split into smaller ones"* — relevante para o mundo grande (552k ZDOs / 63 chunks). Validação no boot: `l-1.0.17 (network version 40)`, `Chainloader startup complete (3 loaded, 0 skipped, 0 failed)`, `Reloading 7 permission data`, `Game server connected`.
 
 ## Stack
 
@@ -103,7 +105,7 @@ O fluxo garantido é **parar → editar → subir** (ver [[ssh-runbook#Dar admin
 
 | Módulo | Config | Motivo |
 |---|---|---|
-| `[Compression] Enabled` | `false` | Incompatível com o Valheim 1.0 (frame tag `0x48`, mundo vazio). Fix em 12/09/2026; **segue desligado no 1.0.16** porque o network version não mudou (40). |
+| `[Compression] Enabled` | `false` | Incompatível com o Valheim 1.0 (frame tag `0x48`, mundo vazio). Fix em 12/09/2026; **segue desligado no 1.0.17** porque o network version não mudou (40). |
 | `[Map] Enabled` | `false` | Compartilhamento de mapa desabilitado a pedido (20/09/2026). Cada jogador vê só o que explorou + pins locais. |
 
 > Ambos persistem entre restarts porque `Profile = Custom` está ativo (sem sobrescrita automática de defaults).
@@ -395,7 +397,7 @@ valheim-status    # status completo
 
 **Causa raiz (diagnóstico final 12/09/2026):** o módulo `[Compression]` do SmoothServer 0.6.0 é **incompatível com o Valheim 1.0** (protocolo de rede mudou, frame tag `0x48`). **Não** é DLL corrompido — mesmo reinstalado limpo, o problema voltava.
 
-> ⚠️ **Ainda vale no 1.0.16 (verificado 29/09/2026):** o patch 1.0.12 → 1.0.16 **não mudou o network version** (segue **40**), então o protocolo é o mesmo e o bug persiste. **Não** reativar `Compression` sem antes confirmar que o network version subiu.
+> ⚠️ **Ainda vale no 1.0.17 (verificado 06/10/2026):** os patches 1.0.12 → 1.0.17 **não mudaram o network version** (segue **40**), então o protocolo é o mesmo e o bug persiste. **Não** reativar `Compression` sem antes confirmar que o network version subiu.
 
 **O detalhe que impediu o fix antes:** com `Profile = Default`, o SmoothServer 0.6.0 **força os valores default de volta** no config a cada boot — qualquer edição em `Compression.Enabled` era sobrescrita silenciosamente.
 
