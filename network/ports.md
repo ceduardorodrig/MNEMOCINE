@@ -120,7 +120,7 @@ graph TD
 
 | Porta / Proto | Bind / Interface | Serviço | Justificativa Técnica | Documentação Canônica |
 |---|---|---|---|---|
-| `53/udp,tcp` | `tailscale0` | **AdGuard Home** | DNS Primário do Homelab com bloqueio de telemetria | [`dns.md`](dns.md) |
+| `53/udp,tcp` | `tailscale0` | **AdGuard Home** | DNS com filtro — **failover do Pi-hole** (corrida Tailscale; vence quando o kavure está lento/caído) + clientes diretos | [`dns.md`](dns.md) |
 | `3000/tcp` | `tailscale0` | **AdGuard Web** | Painel de controle e auditoria de consultas DNS | [`dns.md`](dns.md) |
 | `3001/tcp` | `tailscale0` | **Homepage** | Dashboard central de serviços e status | [`../services/homepage.md`](../services/homepage.md) |
 | `3002/tcp` | `tailscale0` | **Uptime Kuma** | Monitor de disponibilidade de todos os serviços e nós | [`service-topology.md`](service-topology.md) |

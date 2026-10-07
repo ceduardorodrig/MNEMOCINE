@@ -86,7 +86,7 @@ A **fonte de verdade é a instância do Prism Launcher** em psicopompo (`/home/e
 | MC Version | 1.21.1 |
 | Mods | **111 jars no cliente / 103 no servidor** → 77 compartilhados em versões idênticas, 33 client-only, 24 server-only |
 | Diretório do servidor | `/srv/data/minecraft/minecraftserver [dominium]/MINECRAFT SERVER/` (kavure) |
-| Scripts de sync | `dominium-sync-from-prism.sh` (psicopompo) + `sync_mods.py` (kavure) |
+| Scripts | **centralizados na pasta do servidor (kavure)**: `/srv/data/minecraft/minecraftserver [dominium]/` — `client-push.sh`, `sync_mods.py`, `export_mrpack.py`, `README.md` |
 
 > ⚠️ **Canal packwiz + GitHub Pages MORTO (06/10/2026):** o repo [ceduardorodrig/DOMINIUM-MODPACK](https://github.com/ceduardorodrig/DOMINIUM-MODPACK) e a Pack URL `https://ceduardorodrig.github.io/DOMINIUM-MODPACK/pack.toml` respondem **404** (privado ou removido), sem credencial git no kavure. O fluxo antigo (`packwiz update --all`, `packwiz mr add`, `deploy.sh`) **não funciona mais** — ver [[crafty]].
 
@@ -100,14 +100,17 @@ Regras de ouro:
 4. **Backup antes de mexer** (servidor parado ⇒ mundo estático): `/srv/data/minecraft/pre-update/<data>/` (local, rollback rápido) + `offbox/archive/pre-update-<data>/` (NAS, off-box).
 5. Servidor é subido/parado **pelo Crafty** (`POST /api/v2/servers/{id}/action/start_server`, API key `agentic.ai` no store sops).
 
-Fluxo (3 passos):
+Todas as ferramentas ficam **na pasta do servidor, no kavure** (fonte canônica, centralizada em 06/10/2026). Como `client-push.sh` e `export_mrpack.py` **precisam rodar no psicopompo** (é onde está a instância do Prism), eles são **buscados do kavure na hora**:
 
 ```bash
+D="/srv/data/minecraft/minecraftserver [dominium]"
+
 # 1) kavure: parar o servidor pelo Crafty + snapshot pré-update (ver crafty.md)
-# 2) psicopompo: monta a lista (id + environment), empacota e envia via tailscale ssh
-bash /mnt/NVME_PCI/agentic-ai/mnemocine/scripts/dominium-sync-from-prism.sh
-# 3) kavure: aplica por id, preserva server-only, remove client-only e valida depends
-python3 "/srv/data/minecraft/minecraftserver [dominium]/sync_mods.py" --apply
+# 2) psicopompo: buscar e rodar o client-push.sh (envia os mods do Prism -> staging no kavure)
+tailscale ssh kavure@kavure "cat '$D/client-push.sh'" > /tmp/dominium-push.sh && bash /tmp/dominium-push.sh
+# 3) kavure: aplicar por id (dry-run, depois --apply)
+tailscale ssh kavure@kavure "python3 '$D/sync_mods.py'"
+tailscale ssh kavure@kavure "python3 '$D/sync_mods.py' --apply"
 ```
 
 Ao terminar: subir pelo Crafty e conferir `Done (...)` em `MINECRAFT SERVER/logs/latest.log` (e o probe SLP `:9095`).
@@ -115,7 +118,27 @@ Ao terminar: subir pelo Crafty e conferir `Done (...)` em `MINECRAFT SERVER/logs
 > **Loader:** o Fabric Loader do servidor é atualizado com o instalador oficial dentro do container do Crafty:
 > `java -jar fabric-installer.jar server -mcversion 1.21.1 -loader <versão>` (sem `-downloadMinecraft`, para preservar o `server.jar`) e **apagar o `.fabric/`** em seguida.
 
-> **Instalação limpa no Prism:** o pack URL está morto — uma instalação do zero hoje só é possível copiando a instância `Dominium` do psicopompo ou reativando o canal de distribuição.
+> **Instalação limpa no Prism:** o pack URL está morto — uma instalação do zero hoje só é possível copiando a instância `Dominium` do psicopompo ou usando o `.mrpack` (abaixo).
+
+### Distribuir para novos jogadores (`.mrpack`) — desde 06/10/2026
+
+Como o Prism **não tem export por CLI** e o canal packwiz morreu, a distribuição é feita gerando um **`.mrpack` (Modrinth)**. O gerador fica na **pasta do servidor (kavure)** e é buscado na hora (ele precisa rodar no psicopompo, onde está o Prism):
+
+```bash
+D="/srv/data/minecraft/minecraftserver [dominium]"
+# na máquina com a instância (psicopompo):
+tailscale ssh kavure@kavure "cat '$D/export_mrpack.py'" > /tmp/dominium-mrpack.py \
+  && python3 /tmp/dominium-mrpack.py 1.1.0
+# -> ~/Dominium-1.1.0.mrpack  (~73 MB)
+```
+
+O script: resolve cada jar por **sha512** no Modrinth (110 dos 111 viram **link**; o que não resolver — ex.: o `archers`, build CurseForge — vai **embutido** em `overrides/mods/`), monta o `modrinth.index.json` com `dependencies { minecraft 1.21.1, fabric-loader 0.19.5 }` e empacota os overrides (`config/`, `defaultconfigs/`, `resourcepacks/`, `shaderpacks/`, `emi.json`, `ph_config.txt`, `icon.png`).
+
+Regras do script:
+- **`env.client = "required"` para TODOS** — o Modrinth marca alguns worldgen/libs como `client=unsupported` (ex.: `structure_pool_api`, dependência do `jewelry`); pular esses quebraria o cliente.
+- **Exclui**: `Distant_Horizons_server_data` (cache de LOD, GBs), `saves`, `logs`, `crash-reports`, `xaero`, `screenshots`, `essential`, `pfm`, `options.txt` (keybinds) e as libs nativas do Super Resolution (`config/super_resolution/libraries`, ~135 MB — o mod re-extrai/rebaixa).
+
+O amigo importa no Prism via **Add Instance → Import from file** (funciona também no Modrinth App/ATLauncher).
 
 ## See also
 - [[crafty]] — Crafty Controller

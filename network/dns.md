@@ -8,54 +8,120 @@ Cadeia de resolução de nomes no homelab.
 
 ## Visão Geral
 
+Dois servidores DNS **com filtro**, servindo a tailnet inteira pela Tailscale:
+
 ```mermaid
 graph TB
-    subgraph maquinas[Máquinas]
-        psicopompo
-        kuaray
-        ybytu
-        ybyra
+    subgraph clientes[Clientes da tailnet]
+        psicopompo[psicopompo<br>100.82.51.112]
+        kuaray[kuaray<br>100.94.209.99]
+        kavure[kavure<br>100.124.146.77]
+        desktop[desktop Windows<br>100.72.116.114]
+        celulares[Celulares / IoT]
     end
 
-    subgraph servidores_dns[Servidores DNS]
-        pihole[Pi-hole :53<br>kuaray]
-        adguard[AdGuard Home :53<br>ybytu]
-        magic[MagicDNS<br>100.100.100.100]
+    quad100[MagicDNS<br>100.100.100.100]
+
+    subgraph resolvers[Resolvers com filtro]
+        pihole[Pi-hole :53<br>kavure · ~2 ms]
+        adguard[AdGuard Home :53<br>ybytu · ~66 ms]
     end
 
-    subgraph upstream[Upstream Resolvers]
-        quad9[Quad9 9.9.9.9]
-        cloudflare[Cloudflare 1.1.1.1]
-        google[Google 8.8.8.8]
-        oracle[Oracle Metadata<br>169.254.169.254]
+    subgraph egress[Camada de egress — quem fala com a internet]
+        dnscrypt[dnscrypt-proxy 127.0.0.1:5053<br>Anonymized DNSCrypt · kavure]
+        relays[Relays CryptoStorm<br>Miami / Atlanta / DC]
+        servers[Servidores dnscry.pt<br>US-Leste]
+        cloudflare[Cloudflare DoH · Quad9 DoH · Google DoT]
+        fallback[fallback: 9.9.9.9 / 8.8.8.8]
     end
 
-    psicopompo -->|systemd-resolved| quad9
-    psicopompo -->|fallback| cloudflare
-    psicopompo -->|fallback| google
+    psicopompo --> quad100
+    kuaray --> quad100
+    kavure --> quad100
+    desktop --> quad100
+    celulares --> quad100
 
-    kuaray -->|MagicDNS| magic
-    kuaray -->|local DNS| pihole
-    pihole -->|upstream| cloudflare
+    quad100 -->|corrida paralela| pihole
+    quad100 -->|corrida paralela| adguard
 
-    ybytu -->|Oracle net| oracle
-    ybytu -->|Tailscale| magic
-    ybytu -.->|porta 53| adguard
-    adguard -->|upstream| cloudflare
+    pihole -->|"127.0.0.1#5053"| dnscrypt
+    dnscrypt --> relays
+    relays --> servers
 
-    ybyra -->|Oracle net| oracle
-    ybyra -->|Tailscale| magic
+    adguard --> cloudflare
+    adguard -.->|se o DoH falhar| fallback
+    dnscrypt -.->|se o proxy cair: AdGuard assume (corrida)| adguard
 ```
+
+## Como a Tailscale escolhe entre os dois (medido 06/10/2026)
+
+A **ordem dos nameservers no painel admin da Tailscale não decide nada** — não existe
+"primário" e "secundário" fixos. O forwarder local da Tailscale (Quad100) envia **cada
+consulta para os dois resolvers em paralelo e usa a primeira resposta** que chegar
+(comportamento descrito em [tailscale/tailscale#19024](https://github.com/tailscale/tailscale/issues/19024):
+*"the forwarder races them in parallel"*):
+
+| | Pi-hole (kavure) | AdGuard (ybytu) |
+|---|---|---|
+| Latência | **~2 ms** (LAN gigabit + cache) | **~66 ms** (Oracle + DoH, era 110 ms) |
+| Vence a corrida | quase sempre | quando o kavure está lento, caído ou sobrecarregado |
+| Papel real | **decisor padrão** | **failover automático** (sem configuração extra) |
+
+**Evidência (captura de pacotes no `tailscale0` do ybytu, 06/10):** as mesmas sondas
+enviadas via `100.100.100.100` apareceram **no Pi-hole (log FTL) e como pacotes `In`
+no AdGuard** — os dois recebem tudo; só o mais rápido "vence". O AdGuard também recebe
+tráfego direto de dispositivos (ex.: `desktop-3j1q05g`, o top client do FTL com ~1,46 M
+consultas em 28 d).
+
+> **Consequência prática (por que a paridade importa):** quem responde primeiro é quem
+> aplica **as suas** regras. Se as listas divergirem, o bloqueio fica nondeterminístico
+> — um domínio negado só no Pi-hole pode passar toda vez que o AdGuard vencer a corrida.
+> Por isso os dois têm o mesmo conjunto de deny exatos/regras de telemetria/BR/TV desde
+> 06/10/2026 (ver [`services/pihole.md`](../services/pihole.md) e
+> [`services/adguard-home.md`](../services/adguard-home.md)).
+
+**Volume medido (09/08 → 06/10/2026):** ~5.085.852 consultas no Pi-hole. Top clients:
+`100.72.116.114` (desktop Windows) 1,46 M · kavure 1,38 M · psicopompo 1,03 M ·
+kuaray 332 k · ybytu 325 k.
+
+## Camada de egress — anonimato (06/10/2026)
+
+O **filtro** (Pi-hole/AdGuard) decide o que bloquear; o **egress** decide quem vê a consulta.
+Desde 06/10/2026 o egress do kavure é **anonimizado**:
+
+| Resolver | Egress | Esconde do ISP | Esconde do provedor |
+|---|---|---|---|
+| Pi-hole (kavure) | `dnscrypt-proxy` local → **Anonymized DNSCrypt** (relay CryptoStorm ≠ servidor dnscry.pt) | ✅ | ✅ — o relay vê o IP, o servidor vê a consulta; **nenhum** vê os dois |
+| AdGuard (ybytu) | `tcp://100.124.146.77:5053` → **o mesmo proxy do kavure** (Opção A) · fallback `tls://9.9.9.9`/`tls://1.1.1.1` (DoT) | ✅ | ✅ (enquanto o kavure está de pé); no fallback, cifrado mas não anonimizado |
+| Hosts (systemd-resolved) | fallback global `9.9.9.9`/`1.1.1.1` com `DNSOverTLS=opportunistic` | ✅ (quando usado) | parcial (DoT) |
+
+> **Consequência da Opção A:** quem vence a corrida não importa mais — **os dois**
+> resolvedores passam pelo caminho anonimizado. Antes, o AdGuard (mais rápido) vencia as
+> consultas *frias* e elas saíam pelo Cloudflare. Agora a corrida fria é ~190–210 ms nos
+> dois lados.
+
+Detalhes do proxy (parâmetros, medições e rollback): [`services/dnscrypt-proxy.md`](../services/dnscrypt-proxy.md).
+
+### Provas de falha (06/10/2026)
+
+| Cenário testado | Resultado |
+|---|---|
+| `dnscrypt-proxy` do kavure parado | O Pi-hole para de responder, mas as consultas via `100.100.100.100` seguem resolvendo em **60 ms** (o AdGuard cai no `fallback_dns` DoT) → **sem perda de internet** |
+| `dnscrypt-proxy` do ybytu parado (tentativa, revertida) | AdGuard degradou para `fallback_dns` em ~197 ms |
+| Pi-hole com `strict-order` + fallback plano | **Não fazia failover** (6 timeouts seguidos) → desenho descartado |
+
+> **Lição arquitetural:** a redundância do DNS aqui é a **corrida entre resolvedores**, não
+> uma lista de upstreams do dnsmasq. Um fallback plano dentro do Pi-hole ou **vaza** (sem
+> `strict-order`) ou **trava** (com `strict-order`).
 
 ## Por Máquina
 
 ### Psicopompo
 | Item | Valor |
 |---|---|
-| Resolvedor | systemd-resolved |
-| Modo | `stub` (resolv.conf → `/run/systemd/resolve/stub-resolv.conf`) |
-| Fallback | Quad9 → Cloudflare → Google |
-| Tailscale MagicDNS | ✅ Configurado via systemd-resolved (`100.100.100.100`) |
+| Resolvedor | systemd-resolved (`stub` → `/run/systemd/resolve/stub-resolv.conf`) |
+| DNS da tailnet | `100.100.100.100` (Quad100) — escopo `~.` (rota padrão) |
+| Fallback | Quad9 → Cloudflare → Google (só se a Tailscale cair) |
 
 > **Fix resolve-nm (21/09/2026):** NetworkManager passou a usar `dns=systemd-resolved`
 > (em `[main]` do `/etc/NetworkManager/NetworkManager.conf`) e o `/etc/resolv.conf`
@@ -63,26 +129,34 @@ graph TB
 > aviso do Tailscale `tailscale.com/s/resolve-nm` e habilitou o MagicDNS
 > (`*.chimaera-heptatonic.ts.net` resolve via `100.100.100.100`).
 
-### Kuaray
+### Kavure
 | Item | Valor |
 |---|---|
-| Resolvedor | Tailscale MagicDNS (`100.100.100.100`) |
-| DNS Local | Pi-hole na porta 53 (para dispositivos LAN) |
-| Upstream | Cloudflare (configurado no Pi-hole) |
+| Servidor | **Pi-hole** (container `pihole`, `network_mode: host`, escuta só em `tailscale0`) |
+| Porta | `53` · admin `http://100.124.146.77/admin` |
+| Upstream | Google `8.8.8.8/8.8.4.4` + Cloudflare `1.0.0.1/1.1.1.1` (DNS plano) |
+| Papel | **decisor padrão** da tailnet (vence a corrida por latência) |
 
 ### Ybytu
 | Item | Valor |
 |---|---|
-| Resolvedor | Oracle Metadata DNS (`169.254.169.254`) + MagicDNS |
-| DNS Local | AdGuard Home na porta 53 |
-| Upstream | Cloudflare (configurado no AdGuard) |
+| Servidor | **AdGuard Home** (container `adguardhome`) |
+| Porta | `53` · admin `http://ybytu.chimaera-heptatonic.ts.net:3000` |
+| Upstream | DoH Cloudflare (1º) · DoH Quad9 dns10 (2º) · DoT Google (3º) |
+| Papel | **failover** do Pi-hole + clientes diretos (desktop Windows) |
+| Atenção | 954 MB de RAM — querylog `7d`/`size_memory 200` desde 06/10 (era 90d/1000 = 4 GB) |
+
+### Kuaray
+| Item | Valor |
+|---|---|
+| Resolvedor | Tailscale MagicDNS (`100.100.100.100`) |
+| DNS local | **nenhum** — o Pi-hole morava aqui e migrou para o kavure (09/08/2026) |
 
 ### Ybyra
 | Item | Valor |
 |---|---|
 | Resolvedor | Oracle Metadata DNS (`169.254.169.254`) + MagicDNS |
-| DNS Local | Nenhum (sem servidor DNS local) |
-| Upstream | Oracle Metadata → Cloudflare |
+| DNS local | Nenhum |
 
 > **Fix MagicDNS (21/09/2026):** `tailscale set --accept-dns=true` estava com
 > `CorpDNS: false` (MagicDNS não injetava no systemd-resolved — `getent` retornava
@@ -97,8 +171,27 @@ graph TB
 | `*.chimaera-heptatonic.ts.net` | Tailscale MagicDNS |
 | `ybytuvcn.oraclevcn.com` | Oracle DNS |
 | `ybyravcn.oraclevcn.com` | Oracle DNS |
-| Nomes locais LAN | Pi-hole (kuaray) / AdGuard (ybytu) |
-| Internet geral | Cloudflare via Pi-hole ou AdGuard |
+| Nomes locais LAN | Pi-hole (kavure) / AdGuard (ybytu) |
+| Internet geral | upstreams do resolver que venceu a corrida |
+
+## Testar a paridade dos dois resolvers
+
+```bash
+# Um domínio nos DOIS (espera-se o mesmo resultado)
+for d in telemetry.microsoft.com ge.globo.com www.google.com; do
+  printf '%-35s pihole=%s adguard=%s\n' "$d" \
+    "$(dig +short A "$d" @100.124.146.77 | head -1)" \
+    "$(dig +short A "$d" @100.115.253.109 | head -1)"
+done
+
+# Ver para onde uma consulta do sistema realmente foi
+ssh root@100.124.146.77 "sqlite3 /srv/data/pihole/etc-pihole/pihole-FTL.db \
+  \"SELECT domain,client,status FROM queries ORDER BY timestamp DESC LIMIT 10;\""
+
+# Provar que a Tailscale manda para os DOIS
+ssh root@100.115.253.109 'timeout 15 tcpdump -nntt -i any \
+  "udp port 53 and src net 100.64.0.0/10" -c 20'
+```
 
 ## Comandos Úteis
 
@@ -108,9 +201,10 @@ resolvectl query servico.chimaera-heptatonic.ts.net
 
 # Ver servidores DNS configurados
 resolvectl status
+tailscale dns status
 
 # Testar DNS por servidor específico
-dig @100.100.100.100 psicopompo.chimaera-heptatonic.ts.net
-dig @192.168.3.53 google.com
-dig @100.115.253.109 google.com
+dig @100.100.100.100 google.com        # Quad100 (encaminhador da Tailscale)
+dig @100.124.146.77 google.com         # Pi-hole (kavure)
+dig @100.115.253.109 google.com        # AdGuard (ybytu)
 ```

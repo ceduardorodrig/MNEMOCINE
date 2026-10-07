@@ -107,6 +107,63 @@ migrados:
 > **Ferramentas de terceiros** (ex.: `bat`, `fd`) não entram nessa regra — a
 > allowlist do auditor as ignora explicitamente.
 
+### Ferramentas de terceiros sem pacote na distro — mapa `VENDOR_TOOLS` (06/10/2026)
+
+Padronizamos as ferramentas CLI Rust nos **5 nós** usando o **gerenciador de pacotes nativo**
+(pacman no Arch, apt no Ubuntu/Mint) — caem em `/usr/bin`, são atualizadas pelo sistema e
+**não** passam pela auditoria de `/usr/local/bin`. Mas 5 ferramentas **não têm pacote no
+Ubuntu**: `dust`, `procs`, `btm`, `ouch`, `tokei`.
+
+Para essas, o próprio **instalador** ganhou um mapa `VENDOR_TOOLS` (binário upstream em
+`/usr/local/bin`, ou `cargo:<crate>` compilado no build-node). Como o motor lê o instalador
+em tempo de execução, elas passam a ser **declaradas** → o `stenio --tools` não as acusa mais
+como órfãs. Sem editar o motor.
+
+```bash
+./provisioning/scripts/install-homelab-tools.sh --list      # mostra os 3 grupos
+./provisioning/scripts/install-homelab-tools.sh --all       # instala tudo (inclui VENDOR_TOOLS)
+./provisioning/scripts/install-homelab-tools.sh dust        # instala uma ferramenta de terceiros
+```
+
+> Antes disso, instalar essas 5 direto em `/usr/local/bin` gerava **10 órfãs** no `stenio --tools`
+> (falso-positivo: elas são de terceiros, mas a allowlist/declaração não as conhecia). O mapa
+> `VENDOR_TOOLS` fecha esse gap **sem tocar no motor**.
+
+### Integração de shell — `zoxide` e `atuin` (06/10/2026)
+
+Ferramentas de navegação/histórico só funcionam com o **hook no shell** — o binário sozinho é gap:
+
+| Host | Shell | Onde | Linha |
+|---|---|---|---|
+| psicopompo | **fish** | `~/.config/fish/config.fish` | `zoxide init fish \| source` + `atuin init fish \| source` |
+| kavure, kuaray, ybytu, ybyra | bash | `~/.bashrc` (shell **interativo**) | `eval "$(zoxide init bash)"` |
+
+- `~/.config/fish` **passou a entrar no `config-backup`** (06/10/2026) — antes a config do shell
+  do psicopompo não era espelhada.
+- `atuin` existe no **Arch** (pacman) — **não há pacote no Ubuntu**, então nos servidores ficou só o `zoxide`.
+
+### `~/.ssh/config` — ybyra pelo tailnet (06/10/2026)
+
+O `Host ybyra` apontava para o **IP público** da Oracle (`140.238.179.219`) — instável, e por isso o
+`stenio --tools` falhava aquele nó de forma **intermitente** (`ssh falhou, exit=255`). Passou a usar
+o **IP da tailnet** (`100.66.224.34`), como o `ybytu` já fazia. Validado 3/3.
+O `~/.ssh/config` entrou nos **GOLDEN FILES** do `config-backup` (só o arquivo — as chaves privadas
+**não** são espelhadas).
+
+## ⚠️ Pendência aberta (06/10/2026) — tooling do Dominium
+
+As ferramentas do modpack **Dominium** (`client-push.sh`, `sync_mods.py`, `export_mrpack.py`,
+`README.md`) vivem em `/srv/data/minecraft/minecraftserver [dominium]/` **no kavure** — ou seja,
+**fora do repo**, exatamente o padrão que esta regra existe para evitar. O conflito:
+
+- esta regra manda código de operação para `SUMAENIMA-HUB/provisioning/`;
+- o **ADR-036** proíbe `.py` no repositório.
+
+→ O caminho compliant é **reescrever em Rust** (crate em `provisioning/`, como os demais).
+Mitigação já aplicada: os scripts **entram no espelho do `config-backup`** (exclusões do kavure
+ajustadas) — sobrevivem a defeito de disco, mas seguem **invisíveis ao gate** até o rewrite.
+Ver [`../services/crafty.md`](../services/crafty.md) e [`../services/crafty/dominium-permissions.md`](../services/crafty/dominium-permissions.md).
+
 ## Ver também
 
 - [`stenio-ci-unificado.md`](stenio-ci-unificado.md) — como o CI consome o motor

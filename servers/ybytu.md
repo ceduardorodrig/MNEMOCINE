@@ -85,3 +85,86 @@ Nenhum.
 - **Docker engine atualizado** (29.5.x → 29.7.2) junto com o apt. Containers com `restart: unless-stopped` subiram sozinhos.
 - **Incidente pós-reboot:** host não voltou à tailnet + SSH não respondia banner (IP público `64.181.168.251`) → **force reboot** via painel OCI (OS Management) resolveu. A partir daí tailnet voltou, todos os 9 containers up (dockerproxy reiniciado manualmente após exit 255), exit node ativo, NFS automount (`/srv/backup-configs`, `/srv/backup-gitrepos` → NAS psicopompo) OK.
 - **Fix NFS (10/09/2026):** Entries `hard` → `soft` no fstab (`configs-homelab`, `repos/git`). Backup: `/etc/fstab.bak.20260910`. Drop-in Docker: `/etc/systemd/system/docker.service.d/nfs-ordering.conf` (`After=remote-fs.target`, `TimeoutStopSec=30s`). Ver [`network/nfs.md`](../network/nfs.md).
+
+## 06/10/2026 — Auditoria do stack DNS (Pi-hole × AdGuard)
+
+### Incidente OOM (20:23–20:27 UTC)
+
+- **Causa:** script de diagnóstico (agente) leu o `querylog.json` do AdGuard (1,6 GB) com
+  `f.read()` **sem limite** → alocou ~1,6 GB num host de 954 MB → OOM killer.
+- **Alvos do OOM:** o próprio `python3` **e o `tailscaled`** (mesmo cgroup via Tailscale SSH).
+  O `tailscaled` religou sozinho em 20:24 (sem intervenção).
+- **Sem reboot** (uptime continuou em 39 dias), os 11 containers ficaram de pé, load
+  69 → 18 → normal. Impacto: ~4 min de AdGuard, Homepage, Uptime Kuma e ntfy fora.
+- **Regra resultante:** no ybytu **nunca** ler arquivo grande de ponta a ponta — usar
+  `tail -c N`, `seek` + janela, ou `head -c N`.
+
+### Mitigação de risco (mesma sessão)
+
+- `querylog.interval` **90d → 7d** e `size_memory` **1000 → 200**: o rotacionamento
+  eliminou ~2,4 GB (restou só `querylog.json.1`, 1,6 GB) e o flush passou a sair a cada
+  ~200 consultas. Disco: 20 GB livres (60%).
+- `config-backup` passou a espelhar a config do AdGuard
+  (`/var/lib/docker/volumes/adguard_conf`) — antes só `/home/ubuntu/homelab`.
+  Backup pré-mudança: `/etc/config-backup.conf.bak-20261006`.
+- **Mount NFS stale:** `/srv/backup-configs` estava com `Stale file handle` (o export do
+  NAS estava saudável — o kavure lia normalmente). Corrigido com `umount -l` + retrigger
+  do automount; o mount recriou com as opções corretas do fstab (`soft,timeo=30`) —
+  **antes estava montado com `hard`** (desvio que o fstab não refletia, risco de deadlock
+  previsto em `mnemocine/AGENTS.md`).
+- **AdGuard:** 17 regras de usuário (paridade com os deny do Pi-hole + vazamentos medidos
+  + blocklist BR) e 9 listas (novas: WindowsSpyBlocker e fightback-consumer-tv core);
+  upstream Cloudflare DoH promovido a 1º (Quad9 dns10 com EOF recorrente) → latência
+  110 ms → 66 ms. Detalhes em [`services/adguard-home.md`](../services/adguard-home.md).
+
+### Correção de doc (não mexer)
+
+- **Não existe binário nativo órfão do AdGuard:** o processo que aparecia no `ps aux` do
+  host com caminho `/opt/adguardhome/AdGuardHome` é o **processo de dentro do container**
+  (pai = `containerd-shim-runc-v2`), e `/opt/adguardhome` não existe no host.
+  A doc antiga de `services/adguard-home.md` dizia que "o nativo é a instância ativa" —
+  corrigido.
+
+### Pendências
+
+- **`querylog.json.1` (1,6 GB de histórico DNS de ~6 semanas):** decisão 06/10 —
+  **manter até 13/10** (a rotação `7d` o sobrescreve sozinha; sem ação manual).
+- Containers do ybytu continuam sem compose (`docker run` individual) — config-as-code pendente.
+- Clientes do AdGuard aparecem todos como `172.17.0.1` (userland-proxy do Docker) — IP real perdido; candidatos: `userland-proxy: false` ou `network_mode: host` (pesquisar antes).
+- Uptime Kuma: monitores de DNS (Pi-hole/AdGuard) **adiados em 06/10** — não há credencial dele no store sops; retomar quando existir.
+
+### DNS: Opção A — AdGuard consumindo o proxy do kavure (06/10/2026)
+
+- **AdGuard passou a `compose`** (`/home/ubuntu/homelab/adguardhome/compose.yml`) — corrige o
+  débito de `docker run` órfão — **com healthcheck** (`nslookup example.com 127.0.0.1`),
+  ficando coberto pelo `autoheal`.
+- **Upstream:** `tcp://100.124.146.77:5053` (o `dnscrypt-proxy` do kavure, via tailnet) —
+  assim **os dois resolvedores resolvem anonimizado**. Motivo do **TCP**: o caminho UDP do
+  dnsproxy dava timeout intermitente (4/6), enquanto sockets UDP crus passavam 6/6 — é **bug
+  conhecido do AdGuard Home com UDP** ([#7628](https://github.com/AdguardTeam/AdGuardHome/issues/7628)),
+  e `tcp://` é protocolo oficialmente suportado; com TCP, 8/8.
+- **Fallback:** `tls://9.9.9.9` → `tls://1.1.1.1` (DoT cifrado). Se o kavure (ou o proxy)
+  cair, o AdGuard degrada para DoT — **sem perda de internet** (medido: 60 ms).
+
+### Tentativa de proxy DNS anônimo local — superada pela Opção A (06/10/2026)
+
+- Foi instalado um `dnscrypt-proxy` no ybytu (`/home/ubuntu/homelab/dnscrypt-proxy/`) para dar
+  **anonimato** ao AdGuard no failover: `upstream_dns: ['172.17.0.1:5053']` +
+  `fallback_dns: ['9.9.9.9','8.8.8.8']`.
+- Chegou a funcionar (relays CryptoStorm, AdGuard a ~134 ms, captura confirmando
+  `172.17.0.2 → 172.17.0.1:5053`), **mas** apresentou **instabilidade recorrente** a partir da
+  Oracle: `[ERROR] Resolver couldn't be reached anonymously` e consultas diretas ao proxy
+  dando timeout.
+- **Revertido:** AdGuard voltou aos upstreams DoH/DoT originais (Cloudflare/Quad9/Google),
+  **mantendo** as melhorias `fallback_dns` e `cache_optimistic = true`. Container removido;
+  a config fica **estagiada** para uma nova tentativa (investigar alcançabilidade de relays
+  UDP/443 a partir da Oracle).
+- **Achado de firewall (relevante para o futuro):** o `INPUT` do host termina em
+  `-A INPUT -j REJECT --reject-with icmp-host-prohibited` (default-deny, gerenciado por
+  `netfilter-persistent` → `/etc/iptables/rules.v4`). Para o container do AdGuard alcançar um
+  serviço no host foi preciso abrir exceção (`-i docker0 -s 172.17.0.0/16 -p udp --dport 5053`);
+  a regra foi **removida e persistida** após o rollback. Backup: `/etc/iptables/rules.v4.bak-20261006`.
+
+## 07/10/2026 — Healthchecks
+
+- Todos os containers **standalone** deste host receberam `healthcheck` (padrão: ver [`guides/docker-healthchecks.md`](../guides/docker-healthchecks.md)), habilitando o `autoheal`. Containers que eram `docker run` ganharam `compose.yml`.

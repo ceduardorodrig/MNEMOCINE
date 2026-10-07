@@ -15,7 +15,7 @@ Root tag. Every file inside `mnemocine` must have it.
 
 ### `#server` — Tailnet servers
 - `#psicopompo` — Main / gaming / desktop
-- `#ybytu` — Cloud / DNS primário
+- `#ybytu` — Cloud / DNS (failover do Pi-hole, 06/10)
 - `#ybyra` — Cloud / futuro SPA host
 - `#kuaray` — Media / Home Assistant
 - `#kavure` — Servidor de serviços dedicado (Project Zomboid, painel; Sumænimá em migração)
@@ -27,7 +27,8 @@ Root tag. Every file inside `mnemocine` must have it.
 - `#calibre-web` — Biblioteca de eBooks
 - `#casaos` — Painel de gerenciamento kuaray (~~ativo~~ — **histórico**, removido 08/08)
 - `#comet` — Indexador de Usenet
-- `#crafty` — Minecraft server (psicopompo)
+- `#crafty` — Minecraft server (kavure)
+- `#dnscrypt` — dnscrypt-proxy (egress DNS cifrado/anônimo)
 - `#duplicati` — Backup de arquivos (~~ativo~~ — **histórico**, removido 06/08)
 - `#flaresolverr` — Proxy para Cloudflare
 - `#grafana` — Dashboards de observabilidade
@@ -40,7 +41,7 @@ Root tag. Every file inside `mnemocine` must have it.
 - `#mosquitto` — Broker MQTT
 - `#navidrome` — Streaming de música
 - `#n8n` — Automação visual (workflows)
-- `#pihole` — DNS blocker (kuaray)
+- `#pihole` — DNS blocker (kavure)
 - `#portainer` — Gerenciamento Docker
 - `#prometheus` — Métricas time-series (Prometheus)
 - `#punktfunk` — Streaming de jogos/desktop de baixa latência

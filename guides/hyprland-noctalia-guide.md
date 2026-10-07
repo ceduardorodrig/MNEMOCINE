@@ -247,6 +247,35 @@ Já abrem flutuantes por padrão:
 
 > ⚠️ Regras são avaliadas **de cima para baixo**: para o mesmo efeito, a última vence.
 
+### 🎮 Prism Launcher + Minecraft na workspace `gaming` + direct scanout (fix 06/10/2026)
+
+As regras de "jogo → `name:gaming`" cobriam apenas `steam_app*`, `gamescope` e `content = "game"`. **Prism Launcher** e a janela do **Minecraft** não casavam nenhuma → abriam na **workspace ativa** (relato do dono: *"Prism e Minecraft abrem na aba atual; outros jogos vão pra aba de games"*).
+
+**Classes medidas** com `hyprctl clients -j` (06/10/2026, com os dois abertos):
+
+| Janela | class | xwayland | fullscreen | contentType |
+|---|---|---|---|---|
+| Prism Launcher | `org.prismlauncher.PrismLauncher` | false | 0 | none |
+| Minecraft | `Minecraft* 1.21.1` | **true** | 2 | none |
+
+Fix em `~/.config/hypr/config/windowrules.lua` (seção **Gaming**):
+
+| Regra (`match`) | Efeito |
+|---|---|
+| `class = "^(org\.prismlauncher\.PrismLauncher\|PrismLauncher\|prismlauncher)$"` | `workspace = name:gaming` |
+| `class = "^([Mm]inecraft.*)$"` | `workspace = name:gaming` + **`content = "game"`** |
+| `class = "^(java\|LWJGL\|glfw.*)$"` + `title = "^[Mm]inecraft"` (fallback) | idem |
+
+Notas:
+- **`content = "game"` é o gatilho do direct scanout** (`render:direct_scanout = 2` = *"auto (enabled with content type 'game')"* — inventário #9/#10). Sem ele o Minecraft rodava fullscreen com `contentType = none` → **sem passthrough**.
+- **Não** entrou `fullscreen_state = 2` na regra: o próprio jogo decide (o scanout só ocorre quando a janela cobre a tela). Forçar fullscreen seria intrusivo.
+- `content` é aplicado na **criação** da janela — `hyprctl reload` **não** reclassifica janelas já abertas, e `hyprctl setprop … content` não existe nesta versão (`unknown request`). **É preciso fechar e reabrir o jogo.**
+- O Prism também casa a regra genérica `.*[Ll]auncher.*` (`float`) — efeitos diferentes, não conflitam: ele flutua **dentro** da `gaming`.
+- ⚠️ Sem risco de tela preta: o Minecraft é **XWayland** (o bug Hyprland #14843 é native-Wayland). E Smooth Motion não se aplica (é OpenGL, não Vulkan).
+- Validar: `hyprctl configerrors` vazio → reabrir Prism/Minecraft → pill `gaming` + `hyprctl clients -j` mostrando `contentType: game`.
+
+**VRAM management (dmemcg) — confirmado funcionando (06/10/2026):** o Prism é lançado como **non-Steam game** → o Steam cria o scope `app-steam-app3651350099-*.scope`; o java do Minecraft é filho do Prism e **herda o cgroup**. Com a janela focada, `dmem.low` desse scope vai a **8546942976 (~8 GB)** e volta a 0 quando perde o foco (o `hyprland-focused-booster` está ativo). Perfil de energia em `performance` no jogo. Como o Minecraft é Java/OpenGL, as otimizações de **Proton** (`PROTON_ENABLE_WAYLAND`, `PROTON_USE_NTSYNC`, `PROTON_DLSS_UPGRADE`, shader cache NVIDIA) **não se aplicam**.
+
 ### 🐞 `size` NÃO aceita `max()`/`min()` (descoberto 06/10/2026)
 
 A wiki do Hyprland define `size` assim: *"Resizes a floating window. E.g. `{800, 600}` or `{"(monitor_w*0.5)", "(monitor_h*0.5)"}`"*. **Não existe `max()`/`min()` na API** (zero ocorrências na doc oficial).

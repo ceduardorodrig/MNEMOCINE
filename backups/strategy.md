@@ -54,8 +54,8 @@ tags: [homelab, backup, storage]
 - **Desktop configs (21/09/2026):** `~/.config/hypr` (15 .lua + scripts), `~/.config/noctalia` (config.toml + merged-config.toml via `noctalia config export`), `~/.config/environment.d` (gaming/kwin/env), `~/.config/steam-launch-options` (profiles/games.toml + backups VDF), `~/.local/state/noctalia` (settings.toml = overrides GUI). Espelhados pelo `config-backup` → `/mnt/BACKUP/configs-homelab/psicopompo/` (git + restic + snapper). Estado Noctalia re-fetchable (plugins/community/clipboard) excluído do espelho.
 
 ### Ybytu
-- Config do AdGuard Home (`/opt/adguardhome/conf/`)
-- DB do Filebrowser (`/home/ubuntu/filebrowser.db`)
+- Config do AdGuard Home (`/var/lib/docker/volumes/adguard_conf/_data/AdGuardHome.yaml`) — **passou a ser espelhada pelo `config-backup` em 06/10/2026** (`SRC_DIRS` ganhou o volume; antes só `/home/ubuntu/homelab`). Backup pré-mudança: `/etc/config-backup.conf.bak-20261006` e `AdGuardHome.yaml.bak-20261006-parity`
+- DB do Filebrowser (`/home/ubuntu/filebrowser.db`) — *host removido 28/08, entrada obsoleta*
 - Config do Homepage (volumes Docker)
 
 ### Ybyra

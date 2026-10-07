@@ -107,6 +107,7 @@ tags: [homelab, server, kavure, docker, storage, gaming, todo]
 - Servidor de jogos — **Project Zomboid** (Docker — `danixu86/project-zomboid-dedicated-server`, **ativo** desde 06/08/2026) + **Minecraft Dominium** (Crafty, **ativo** desde 08/08/2026 — ver [`crafty`](../services/crafty.md)) + **Valheim** (Docker — `mbround18/valheim:3`, **ativo** desde 09/09/2026 — ver [`valheim-server`](../services/valheim/valheim-server.md))
 - Painel de gestão do Zomboid (Zomboid Control Panel)
 - Monitoramento — **Glances ativo** (`:61208`, 07/08/2026); **watchtower** (auto-update, schedule 03:00 BRT) e **autoheal** ativos; portainer planejado
+- **DNS — primário da tailnet + egress anonimizado (06/10/2026)** — Pi-hole (container `network_mode: host`, escuta só em `tailscale0`) é o resolvedor que vence a corrida; o **único** upstream é o `dnscrypt-proxy` local (**Anonymized DNSCrypt**, `127.0.0.1:5053`), que também atende o AdGuard do ybytu pela tailnet (`100.124.146.77:5053`). **Watchdog em Rust** (`hl-dns-watchdog.timer`, 2 min) reinicia o proxy se ele parar de responder. Ver [`pihole`](../services/pihole.md) e [`dnscrypt-proxy`](../services/dnscrypt-proxy.md)
 - **Miracena Stack (migrada para o Kuaray em 04/10/2026):** Todos os containers (Directus, WordPress, Nuxt3, n8n, NPM, PostgreSQL, MariaDB, Redis, Tailscale Funnel) e volumes foram transferidos para o Kuaray via rede cabeada, liberando ~1 GB de RAM ativa e 17+ GB de disco no Kavure. O backup automático local e a montagem NFS foram desativados. Ver [`miracena-stack`](../services/miracena-stack.md) e [`kuaray`](kuaray.md).
 
 ## Layout de Storage
@@ -123,20 +124,31 @@ Atual (após merge LVM em 06/08/2026):
 
 ```
 /srv/data/zomboid/    ← Docker Zomboid (danixu86/project-zomboid-dedicated-server)
+/srv/data/pihole/     ← Pi-hole (DNS primário da tailnet) + gravity.db adlists
+/srv/data/dnscrypt-proxy/ ← dnscrypt-proxy (egress DNS anônimo do Pi-hole, 06/10/2026)
 /srv/data/ops/        ← stack de infra (autoheal, watchtower, glances)
 /srv/data/sumaenimahub/ ← código + volumes + backup do Sumænimá sae-core (07/08/2026)
-/srv/data/sumaenimahub/SUMAENIMA-HUB  ← repo de deploy
+/srv/data/sumaenimahub/SUMAENIMA-HUB  ← repo de deploy (⚠️ ver nota abaixo)
 /srv/data/sumaenimahub/volumes/       ← dados PostgreSQL/Valkey/Umami
 /srv/data/sumaenimahub/backup         ← mount NFS → psicopompo /mnt/BACKUP/sumaenima-server-kavure
 /srv/data/minecraft/   ← Crafty/Minecraft Dominium (08/08/2026 — migrado do psicopompo)
-/srv/data/minecraft/minecraftserver [dominium]  ← servidor 1.21.1/Fabric (38 GB)
-/srv/data/minecraft/offbox  ← mount NFS → psicopompo /mnt/BACKUP/minecraft-server-kavure (backup AdvancedBackups)
+/srv/data/minecraft/minecraftserver [dominium]  ← servidor 1.21.1 / Fabric Loader **0.19.5** (38 GB; modpack ressincronizado com o Prism em 06/10/2026)
+/srv/data/minecraft/pre-update/  ← snapshots pré-update locais p/ rollback rápido (ex.: `20261006/` = mods+config, 459 MB)
+/srv/data/minecraft/offbox  ← mount NFS → psicopompo /mnt/BACKUP/minecraft-server-kavure (backup AdvancedBackups: full 28/06 + partials; `archive/` esvaziado em 06/10/2026)
+/srv/data/minecraft/minecraftserver [dominium]/  ← **tooling do Dominium** centralizado (06/10/2026): `client-push.sh`, `sync_mods.py`, `export_mrpack.py`, `README.md` — agora incluído no `config-backup`
 /srv/data/valheim/     ← Valheim Dedicated Server (09/09/2026 — mbround18/valheim:3)
 /srv/data/valheim/offbox  ← mount NFS → psicopompo /mnt/BACKUP/valheim-server-kavure (backup)
 /srv/data/miracena/    ← Miracena Stack (10/09/2026 — Directus, WordPress, NPM, PostgreSQL, Redis, MariaDB)
 /srv/data/           ← dados de jogo (mundos, saves)
 /var/lib/docker/     ← volumes Docker
 ```
+
+> ⚠️ **Artefato de deploy — NÃO é duplicata descartável (07/10/2026):** a cópia
+> `/srv/data/sumaenimahub/SUMAENIMA-HUB` no kavure é usada por **bind mount** dos serviços
+> Swarm — `sae-core_backup` monta `.env` e `logs`, e `sae-core_api` monta `logs`. A **fonte da
+> verdade** dos stack files é o repositório (psicopompo), deployado por
+> `scripts/deploy-swarm.sh` (`-H ssh://kavure`); esta cópia deve ser mantida **em sincronia**
+> (já houve drift no `edge.yml`, corrigido em 06/10 ao remover o `datavis`).
 
 > **Decisão:** LV único de 217 GB (merge com `lvextend -r -l +100%FREE`), organização por pastas FHS. Mais simples e todo o espaço utilizável; risco de `/` cheio mitigado com monitoramento.
 
@@ -146,6 +158,26 @@ Plano (compras):
   Kingston 2.5"  → reserva
 
 - **Sem snapshots de SO** — fora do padrão Ubuntu; proteção real vem do backup off-box.
+
+## Ferramentas Rust (padronizadas em 06/10/2026)
+
+Padronização das ferramentas CLI Rust nos **5 nós**, pelo **gerenciador de pacotes nativo**
+(→ `/usr/bin`, gerenciado e **atualizado pelo sistema** — fora da auditoria de `/usr/local/bin`):
+
+| Distro | Método | Ferramentas |
+|---|---|---|
+| Arch/CachyOS (psicopompo) | **pacman** | todas as 15 |
+| Ubuntu 24.04 / Mint (kavure, kuaray, ybytu, ybyra) | **apt** | `eza bat fd rg sd duf delta hyperfine hexyl zoxide` (+ `bat`/`fd` via symlink p/ `batcat`/`fdfind`) |
+
+Sem pacote no Ubuntu, foram instaladas por **binário upstream** em `/usr/local/bin` (FHS):
+`dust`, `procs`, `btm`, `ouch` — e `tokei` (o release não publica binário) **compilado no
+build-node** (psicopompo, ADR-026) e copiado. Todas **declaradas no instalador canônico**
+(`provisioning/scripts/install-homelab-tools.sh`, mapa `VENDOR_TOOLS`) → o `stenio --tools`
+as reconhece e **não** as acusa como órfãs.
+
+> Validação: `stenio --tools` → **✅ "todas as ferramentas presentes estão versionadas"** em
+> kavure, kuaray, ybyra e ybytu. (Único órfão remanescente: `esperar-e-carvar.sh` no psicopompo
+> — script de recuperação do HD Elements, **pré-existente**.)
 
 ## Backup
 
@@ -188,3 +220,7 @@ Plano (compras):
 - [[zomboid-control-panel]] — Painel web do Zomboid
 - [[crafty]] — Servidor Minecraft (Crafty)
 - [[steniobot]] — Sumænimá (sae-core)
+
+## 07/10/2026 — Healthchecks
+
+- Todos os containers **standalone** deste host receberam `healthcheck` (padrão: ver [`guides/docker-healthchecks.md`](../guides/docker-healthchecks.md)), habilitando o `autoheal`. Containers que eram `docker run` ganharam `compose.yml`.
