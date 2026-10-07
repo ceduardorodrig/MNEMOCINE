@@ -16,6 +16,17 @@ Dashboard central do homelab — agrega links e status de todos os serviços.
 |---|---|---|
 | homepage | ghcr.io/gethomepage/homepage:latest | Up |
 
+> **`network_mode: host` + `PORT=3001` (07/10/2026):** o Homepage passou de `ports: 3001:3000`
+> (bridge) para **host networking** — mesmo motivo do Uptime Kuma: o `INPUT` do ybytu é
+> **default-deny** (só loopback é aceito), então em bridge o container **não alcançava** os
+> serviços locais (`EHOSTUNREACH` em `:3002`/`:8082`/`:61208`).
+>
+> Consequência nos `siteMonitor`: serviços **locais** ao ybytu usam **`127.0.0.1`** — exceção
+> **glances** (`:61208`), que escuta só no IP da tailnet e por isso mantém `100.115.253.109`.
+> O healthcheck foi corrigido para `http://127.0.0.1:3001/api/healthcheck`: o `${PORT:-3000}`
+> do compose era expandido **no parse** para `3000` — que, em host net, é o **AdGuard**
+> (responde 401 e deixava o Homepage "unhealthy").
+
 ## Configuração
 
 O Homepage usa arquivos YAML em `/app/config/` (host: `/home/ubuntu/homelab/homepage/config/`).
@@ -26,6 +37,30 @@ Arquivos de configuração:
 - `bookmarks.yaml` — favoritos
 - `settings.yaml` — tema e layout
 - `widgets.yaml` — widgets (Disk, Weather, etc.)
+
+### Chips de status (convenção — 07/10/2026)
+
+O Homepage tem **dois** mecanismos de status, e a regra do homelab é usar **um por serviço**:
+
+| Mecanismo | Mostra | Quando usar |
+|---|---|---|
+| `server:` + `container:` | **chip Docker** — "healthy"/"unhealthy" (o healthcheck do container) | **todo serviço que é container** em host com `docker.yaml` |
+| `siteMonitor:` | **latência em ms** (verde/vermelho) | o que **não é container** (nativo) ou é **externo/Swarm/Funnel** |
+
+- **Estado atual:** 58 serviços com chip Docker, 10 com `siteMonitor`, **0 com dois chips**.
+- Ficam em `siteMonitor` (por não terem container correspondente estável): Portal Sumænimá,
+  Sumænimá API/Backup/Umami (serviços **Swarm** — nome do container muda por task), Minecraft
+  e Valheim (protocolo de jogo), Punktfunk/Syncthing-Psicopompo (nativos) e os relés de
+  **Wake-on-LAN** (`Ligar Kavure/Psicopompo`).
+
+> O chip Docker reflete o `healthcheck` — que desde 07/10 existe em **todos** os containers
+> (ver [`guides/docker-healthchecks.md`](../guides/docker-healthchecks.md)). Por isso ele é o
+> padrão: mostra o estado real do serviço, não só se a porta responde.
+
+> ⚠️ **Validação do `services.yaml` (07/10/2026):** o PyYAML **não** acusa **chave duplicada**
+> (silenciosamente mantém a última) — um `yaml.safe_load` passou enquanto o Homepage quebrava
+> com `YAMLException: duplicated mapping key`. **Sempre** validar com um checador de duplicatas
+> (ou `yamllint`) antes de recriar o container.
 
 ### Docker instances (`docker.yaml`)
 

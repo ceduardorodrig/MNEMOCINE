@@ -1,180 +1,182 @@
 ---
-tags: [homelab, service, crafty, gaming, psicopompo]
+tags: [homelab, service, crafty, gaming, kavure]
 ---
 
 # Dominium — Lista de Mods
 
-**Servidor:** Fabric 1.21.1 | **Gerenciado por:** Crafty Controller
-**Client:** Modrinth Profile — `Dominium 1.0.0`
+**Servidor:** Fabric 1.21.1 (Fabric Loader **0.19.5**) | **Gerenciado por:** Crafty Controller no kavure
+**Cliente:** Prism Launcher — instância `Dominium` (psicopompo)
+**Atualizado:** 06/10/2026 (sync completo cliente → servidor)
 
-- **Total de mods exclusivos do cliente:** 34
-- **Total de mods exclusivos do servidor:** 28
-- **Total de mods compartilhados:** 76 (dos quais 1 com versão discrepante)
+- **Total no cliente:** 111 jars
+- **Total no servidor:** 102 jars
+- **Compartilhados:** 77 — todos em **versões idênticas** (paridade cliente ↔ servidor)
+- **Apenas cliente:** 33 (`environment: client` ou client-only na prática)
+- **Apenas servidor:** 23 (server-only)
+
+> O pareamento é feito por **`id` do `fabric.mod.json`** (estável entre versões), nunca por nome de arquivo.
+> Fluxo de atualização e scripts: ver [[dominium-permissions]]. Canal packwiz/GitHub Pages está **morto (404)** — ver [[crafty]].
 
 ---
 
-## Compartilhados (Cliente + Servidor)
+## Compartilhados (cliente + servidor) — 77
 
-| Mod | Versão Cliente | Versão Servidor |
+| Mod (id) | Versão | Arquivo |
 |---|---|---|
-| animal_feeding_trough | animal_feeding_trough-1.1.2+1.21.1 | animal_feeding_trough-1.1.2+1.21.1 |
-| another_furniture-fabric | another_furniture-fabric-4.0.2 | another_furniture-fabric-4.0.2 |
-| archers-fabric | archers-fabric-2.7.0+1.21.1 | archers-fabric-2.7.0+1.21.1 |
-| architectury | architectury-13.0.8-fabric | architectury-13.0.8-fabric |
-| athena-fabric | athena-fabric-1.21.1-4.0.6 | athena-fabric-1.21.1-4.0.6 |
-| azurelibarmor-fabric | azurelibarmor-fabric-1.21.1-3.1.3 | azurelibarmor-fabric-1.21.1-3.1.3 |
-| balm-fabric | balm-fabric-1.21.1-21.0.58 | balm-fabric-1.21.1-21.0.58 |
-| bclib | bclib-21.0.13 | bclib-21.0.13 |
-| better-end | better-end-21.0.11 | better-end-21.0.11 |
-| better-nether | better-nether-21.0.11 | better-nether-21.0.11 |
-| bettercombat-fabric | bettercombat-fabric-2.3.2+1.21.1 | bettercombat-fabric-2.3.2+1.21.1 |
-| biomesoplenty-fabric | BiomesOPlenty-fabric-1.21.1-21.1.0.13 | BiomesOPlenty-fabric-1.21.1-21.1.0.13 |
-| blossom-blade | blossom-blade-1.3 | blossom-blade-1.3 |
-| c2me-fabric-mc1.21.1 | c2me-fabric-mc1.21.1-0.3.0+alpha.0.362 | c2me-fabric-mc1.21.1-0.3.0+alpha.0.364 ⚠️ |
-| cardinal-components-api | cardinal-components-api-6.1.3 | cardinal-components-api-6.1.3 |
-| chunkloaders | chunkloaders-1.2.9-fabric-mc1.21.1 | chunkloaders-1.2.9-fabric-mc1.21.1 |
-| cicada-lib | cicada-lib-0.14.3+1.21-1.21.1 | cicada-lib-0.14.3+1.21-1.21.1 |
-| cloth-config | cloth-config-15.0.140-fabric | cloth-config-15.0.140-fabric |
-| combat_roll-fabric | combat_roll-fabric-2.0.6+1.21.1 | combat_roll-fabric-2.0.6+1.21.1 |
-| copperrails | copperrails-1.0.5+mc1.21 | copperrails-1.0.5+mc1.21 |
-| creeperoverhaul-fabric | CreeperOverhaul-fabric-1.21.1-4.0.6 | CreeperOverhaul-fabric-1.21.1-4.0.6 |
-| deeperdarker-fabric | deeperdarker-fabric-1.21-1.3.3-plus-b | deeperdarker-fabric-1.21-1.3.3-plus-b |
-| distanthorizons | DistantHorizons-3.0.2-b-1.21.1-fabric-neoforge | DistantHorizons-3.0.2-b-1.21.1-fabric-neoforge |
-| do_a_barrel_roll-fabric | do_a_barrel_roll-fabric-3.7.3+1.21 | do_a_barrel_roll-fabric-3.7.3+1.21 |
-| dungeons-and-taverns-v4.4.4 | dungeons-and-taverns-v4.4.4 | dungeons-and-taverns-v4.4.4 |
-| elytraslot-fabric | elytraslot-fabric-9.0.1+1.21.1 | elytraslot-fabric-9.0.1+1.21.1 |
-| fabric-api | fabric-api-0.116.12+1.21.1 | fabric-api-0.116.12+1.21.1 |
-| fabric-language-kotlin | fabric-language-kotlin-1.13.11+kotlin.2.3.21 | fabric-language-kotlin-1.13.11+kotlin.2.3.21 |
-| fallingtree | FallingTree-1.21.1-1.21.1.11 | FallingTree-1.21.1-1.21.1.11 |
-| ferritecore | ferritecore-7.0.3-fabric | ferritecore-7.0.3-fabric |
-| forgeconfigapiport-v21.1.6 | ForgeConfigAPIPort-v21.1.6-1.21.1-Fabric | ForgeConfigAPIPort-v21.1.6-1.21.1-Fabric |
-| gazebo-fabric | gazebo-fabric-2.1.0+1.21.1 | gazebo-fabric-2.1.0+1.21.1 |
-| geckolib-fabric | geckolib-fabric-1.21.1-4.8.4 | geckolib-fabric-1.21.1-4.8.4 |
-| glitchcore-fabric | GlitchCore-fabric-1.21.1-2.1.0.2 | GlitchCore-fabric-1.21.1-2.1.0.2 |
-| handcrafted-fabric | handcrafted-fabric-1.21.1-4.0.3 | handcrafted-fabric-1.21.1-4.0.3 |
-| immersive_aircraft | immersive_aircraft-1.4.6+1.21.1-fabric | immersive_aircraft-1.4.6+1.21.1-fabric |
-| jewelry-fabric | jewelry-fabric-2.3.2+1.21.1 | jewelry-fabric-2.3.2+1.21.1 |
-| libipn-fabric | libIPN-fabric-1.21.1-6.6.3 | libIPN-fabric-1.21.1-6.6.3 |
-| lithium-fabric | lithium-fabric-0.15.3+mc1.21.1 | lithium-fabric-0.15.3+mc1.21.1 |
-| lithostitched | lithostitched-1.7.9-fabric-21.1 | lithostitched-1.7.9-fabric-21.1 |
-| midnightlib-fabric | midnightlib-fabric-1.9.3+1.21.1 | midnightlib-fabric-1.9.3+1.21.1 |
-| modernfix-fabric | modernfix-fabric-5.25.1+mc1.21.1 | modernfix-fabric-5.25.1+mc1.21.1 |
-| mru | mru-1.0.19+LTS+1.21.1+fabric | mru-1.0.19+LTS+1.21.1+fabric |
-| mutantmonsters-v21.1.1 | MutantMonsters-v21.1.1-1.21.1-Fabric | MutantMonsters-v21.1.1-1.21.1-Fabric |
-| oritech-fabric | oritech-fabric-1.21.1-1.2.6 | oritech-fabric-1.21.1-1.2.6 |
-| owo-lib | owo-lib-0.13.0-alpha.15+1.21 | owo-lib-0.13.0-alpha.15+1.21 |
-| paladins-fabric | paladins-fabric-2.7.0+1.21.1 | paladins-fabric-2.7.0+1.21.1 |
-| placeholder-api | placeholder-api-2.4.2+1.21 | placeholder-api-2.4.2+1.21 |
-| player-animation-lib-fabric | player-animation-lib-fabric-2.0.4+1.21.1 | player-animation-lib-fabric-2.0.4+1.21.1 |
-| ranged_weapon_api-fabric | ranged_weapon_api-fabric-2.3.3+1.21.1 | ranged_weapon_api-fabric-2.3.3+1.21.1 |
-| repurposed_structures | repurposed_structures-7.5.20+1.21.1-fabric | repurposed_structures-7.5.20+1.21.1-fabric |
-| resourcefulconfig-fabric | resourcefulconfig-fabric-1.21-3.0.11 | resourcefulconfig-fabric-1.21-3.0.11 |
-| resourcefullib-fabric | resourcefullib-fabric-1.21-3.0.12 | resourcefullib-fabric-1.21-3.0.12 |
-| rogues-fabric | rogues-fabric-2.7.0+1.21.1 | rogues-fabric-2.7.0+1.21.1 |
-| runes-fabric | runes-fabric-1.2.1+1.21.1 | runes-fabric-1.2.1+1.21.1 |
-| scorched | scorched-1.1.4a | scorched-1.1.4a |
-| shield_api-fabric | shield_api-fabric-2.2.0 | shield_api-fabric-2.2.0 |
-| silk-all | silk-all-1.10.7 | silk-all-1.10.7 |
-| smallships-fabric | smallships-fabric-1.21.1-2.0.0-b2.1 | smallships-fabric-1.21.1-2.0.0-b2.1 |
-| spell_engine-fabric | spell_engine-fabric-1.9.9+1.21.1 | spell_engine-fabric-1.9.9+1.21.1 |
-| spell_power-fabric | spell_power-fabric-1.4.6+1.21.1 | spell_power-fabric-1.4.6+1.21.1 |
-| splinecart | splinecart-0.3.1+1.21.1 | splinecart-0.3.1+1.21.1 |
-| structure_pool_api-fabric | structure_pool_api-fabric-1.2.1+1.21.1 | structure_pool_api-fabric-1.2.1+1.21.1 |
-| supermartijn642configlib | supermartijn642configlib-1.1.8-fabric-mc1.21 | supermartijn642configlib-1.1.8-fabric-mc1.21 |
-| supermartijn642corelib | supermartijn642corelib-1.1.21-fabric-mc1.21 | supermartijn642corelib-1.1.21-fabric-mc1.21 |
-| tectonic | tectonic-3.0.22-fabric-21.1 | tectonic-3.0.22-fabric-21.1 |
-| terrablender-fabric | TerraBlender-fabric-1.21.1-4.1.0.8 | TerraBlender-fabric-1.21.1-4.1.0.8 |
-| terralith_1.21.x_v2.5.8 | Terralith_1.21.x_v2.5.8 | Terralith_1.21.x_v2.5.8 |
-| travelersbackpack-fabric | travelersbackpack-fabric-1.21.1-10.1.36 | travelersbackpack-fabric-1.21.1-10.1.36 |
-| trinkets | trinkets-3.10.0 | trinkets-3.10.0 |
-| veinminer-fabric | veinminer-fabric-2.4.2 | veinminer-fabric-2.4.2 |
-| voicechat-fabric | voicechat-fabric-1.21.1-2.6.18 | voicechat-fabric-1.21.1-2.6.18 |
-| waystones-fabric | waystones-fabric-1.21.1-21.1.34 | waystones-fabric-1.21.1-21.1.34 |
-| wizards-fabric | wizards-fabric-2.7.1+1.21.1 | wizards-fabric-2.7.1+1.21.1 |
-| worldweaver | worldweaver-21.0.13 | worldweaver-21.0.13 |
-| yet_another_config_lib_v3 | yet_another_config_lib_v3-3.8.2+1.21.1-fabric | yet_another_config_lib_v3-3.8.2+1.21.1-fabric |
+| `animal_feeding_trough` | 1.1.2+1.21.1 | animal_feeding_trough-1.1.2+1.21.1.jar |
+| `another_furniture` | 4.0.2 | another_furniture-fabric-4.0.2.jar |
+| `archers` | 3.1.3+1.21.1 | archers-fabric-3.1.3+1.21.1.jar |
+| `architectury` | 13.0.11 | architectury-13.0.11-fabric.jar |
+| `armor_model_api` | 1.1.0+1.21.1 | armor_model_api-fabric-1.1.0+1.21.1.jar |
+| `athena` | 4.0.6 | athena-fabric-1.21.1-4.0.6.jar |
+| `azurelibarmor` | 3.1.3 | azurelibarmor-fabric-1.21.1-3.1.3.jar |
+| `balm` | 21.0.66 | balm-fabric-1.21.1-21.0.66.jar |
+| `bclib` | 21.0.13 | bclib-21.0.13.jar |
+| `bettercombat` | 2.4.0+1.21.1 | bettercombat-fabric-2.4.0+1.21.1.jar |
+| `betternether` | 21.0.11 | better-nether-21.0.11.jar |
+| `biomesoplenty` | 21.1.0.14 | BiomesOPlenty-fabric-1.21.1-21.1.0.14.jar |
+| `c2me` | 0.4.0-alpha.0.29+1.21.1 | c2me-fabric-mc1.21.1-0.4.0-alpha.0.29.jar |
+| `cardinal-components` | 6.1.3 | cardinal-components-api-6.1.3.jar |
+| `chunkloaders` | 1.2.9 | chunkloaders-1.2.9-fabric-mc1.21.1.jar |
+| `cicada` | 0.14.3+1.21-1.21.1 | cicada-lib-0.14.3+1.21-1.21.1.jar |
+| `cloth-config` | 15.0.140 | cloth-config-15.0.140-fabric.jar |
+| `combat_roll` | 2.0.6+1.21.1 | combat_roll-fabric-2.0.6+1.21.1.jar |
+| `copperrails` | 1.0.5+mc1.21 | copperrails-1.0.5+mc1.21.jar |
+| `creeperoverhaul` | 4.0.6 | CreeperOverhaul-fabric-1.21.1-4.0.6.jar |
+| `deeperdarker` | 1.3.3-plus-b | deeperdarker-fabric-1.21-1.3.3-plus-b.jar |
+| `distanthorizons` | 3.3.3 | DistantHorizons-3.3.3-1.21.1-fabric-neoforge.jar |
+| `do_a_barrel_roll` | 3.7.3 | do_a_barrel_roll-fabric-3.7.3+1.21.jar |
+| `elytraslot` | 9.0.1+1.21.1 | elytraslot-fabric-9.0.1+1.21.1.jar |
+| `explorify` | 1.6.5 | Explorify v1.6.5.mod.jar |
+| `fabric-api` | 0.116.17+1.21.1 | fabric-api-0.116.17+1.21.1.jar |
+| `fabric-language-kotlin` | 1.14.1+kotlin.2.4.20 | fabric-language-kotlin-1.14.1+kotlin.2.4.20.jar |
+| `fallingtree` | 1.21.1.11 | FallingTree-1.21.1-1.21.1.11.jar |
+| `ferritecore` | 7.0.3 | ferritecore-7.0.3-fabric.jar |
+| `forgeconfigapiport` | 21.1.6 | ForgeConfigAPIPort-v21.1.6-1.21.1-Fabric.jar |
+| `gazebo` | 2.2.0+1.21.1 | gazebo-fabric-2.2.0+1.21.1.jar |
+| `geckolib` | 4.9.3 | geckolib-fabric-1.21.1-4.9.3.jar |
+| `glitchcore` | 2.1.0.2 | GlitchCore-fabric-1.21.1-2.1.0.2.jar |
+| `handcrafted` | 4.0.3 | handcrafted-fabric-1.21.1-4.0.3.jar |
+| `immersive_aircraft` | 1.5.2+1.21.1 | immersive_aircraft-1.5.2+1.21.1-fabric.jar |
+| `jewelry` | 2.5.1+1.21.1 | jewelry-fabric-2.5.1+1.21.1.jar |
+| `lithium` | 0.15.4+mc1.21.1 | lithium-fabric-0.15.4+mc1.21.1.jar |
+| `lithostitched` | 1.8.0 | lithostitched-1.8.0-fabric-21.1.jar |
+| `midnightlib` | 1.9.3 | midnightlib-fabric-1.9.3+1.21.1.jar |
+| `modernfix` | 5.25.1+mc1.21.1 | modernfix-fabric-5.25.1+mc1.21.1.jar |
+| `mr_blossom_blade` | 1.3 | blossom-blade-1.3.jar |
+| `mr_dungeons_andtaverns` | 1-v4.4.4 | dungeons-and-taverns-v4.4.4.jar |
+| `mr_scorched` | 1.1.4a | scorched-1.1.4a.jar |
+| `mru` | 1.0.41+1.21.1 | mru-1.0.41+1.21.1-fabric.jar |
+| `mutantmonsters` | 21.1.1 | MutantMonsters-v21.1.1-1.21.1-Fabric.jar |
+| `oritech` | 1.2.13 | oritech-fabric-1.21.1-1.2.13.jar |
+| `owo` | 0.13.0-alpha.15+1.21 | owo-lib-0.13.0-alpha.15+1.21.jar |
+| `paladins` | 3.1.3+1.21.1 | paladins-fabric-3.1.3+1.21.1.jar |
+| `placeholder-api` | 2.4.2+1.21 | placeholder-api-2.4.2+1.21.jar |
+| `playeranimator` | 2.0.4+1.21.1 | player-animation-lib-fabric-2.0.4+1.21.1.jar |
+| `puzzleslib` | 21.1.62 | puzzleslib-v21.1.62-mc1.21.1+fabric.jar |
+| `ranged_weapon_api` | 3.0.0+1.21.1 | ranged_weapon_api-fabric-3.0.0+1.21.1.jar |
+| `repurposed_structures` | 7.5.22+1.21.1-fabric | repurposed_structures-7.5.22+1.21.1-fabric.jar |
+| `resourcefulconfig` | 3.0.11 | resourcefulconfig-fabric-1.21-3.0.11.jar |
+| `resourcefullib` | 3.0.12 | resourcefullib-fabric-1.21-3.0.12.jar |
+| `rogues` | 3.1.3+1.21.1 | rogues-fabric-3.1.3+1.21.1.jar |
+| `runes` | 1.3.2+1.21.1 | runes-fabric-1.3.2+1.21.1.jar |
+| `shield_api` | 2.2.0 | shield_api-fabric-2.2.0.jar |
+| `silk-all` | 1.10.7 | silk-all-1.10.7.jar |
+| `smallships` | 2.0.0-b2.1 | smallships-fabric-1.21.1-2.0.0-b2.1.jar |
+| `spell_engine` | 1.10.9+1.21.1 | spell_engine-fabric-1.10.9+1.21.1.jar |
+| `spell_power` | 1.6.0+1.21.1 | spell_power-fabric-1.6.0+1.21.1.jar |
+| `splinecart` | 0.3.1+1.21.1 | splinecart-0.3.1+1.21.1.jar |
+| `structure_pool_api` | 1.2.1+1.21.1 | structure_pool_api-fabric-1.2.1+1.21.1.jar |
+| `supermartijn642configlib` | 1.1.8 | supermartijn642configlib-1.1.8-fabric-mc1.21.jar |
+| `supermartijn642corelib` | 1.1.24+a | supermartijn642corelib-1.1.24a-fabric-mc1.21.jar |
+| `tectonic` | 3.0.28 | tectonic-3.0.28-fabric-21.1.jar |
+| `terrablender` | 4.1.0.8 | TerraBlender-fabric-1.21.1-4.1.0.8.jar |
+| `terralith` | 2.6.2 | Terralith_1.21.x_v2.6.2.jar |
+| `travelersbackpack` | 10.1.39 | travelersbackpack-fabric-1.21.1-10.1.39.jar |
+| `trinkets` | 3.10.0 | trinkets-3.10.0.jar |
+| `veinminer` | 2.4.2 | veinminer-fabric-2.4.2.jar |
+| `voicechat` | 1.21.1-2.6.24 | voicechat-fabric-1.21.1-2.6.24.jar |
+| `waystones` | 21.1.46 | waystones-fabric-1.21.1-21.1.46.jar |
+| `wizards` | 3.1.3+1.21.1 | wizards-fabric-3.1.3+1.21.1.jar |
+| `wover` | 21.0.13 | worldweaver-21.0.13.jar |
+| `yet_another_config_lib_v3` | 3.8.2+1.21.1-fabric | yet_another_config_lib_v3-3.8.2+1.21.1-fabric.jar |
 
 ---
 
-## Apenas Cliente
+## Apenas cliente — 33
 
-| Mod | Versão |
-|---|---|
-| appleskin-fabric-mc1.21 | appleskin-fabric-mc1.21-3.0.6 |
-| atmosfera | atmosfera-2.6.0+mc1.21.1 |
-| azurelib-fabric | azurelib-fabric-1.21.1-3.1.8 |
-| badoptimizations | BadOptimizations-2.4.1-1.21.1 |
-| betterf3 | BetterF3-11.0.3-Fabric-1.21.1 |
-| bundle-api-fabric | bundle-api-fabric-1.1.0 |
-| cameraoverhaul-v2.1.1-fabric+mc[1.21 | CameraOverhaul-v2.1.1-fabric+mc[1.21-1.21.2] |
-| controlify | controlify-3.0.0+lts+1.21.1-fabric |
-| controlling-fabric | Controlling-fabric-1.21.1-19.0.5 |
-| eating-animation | eating-animation-1.21+1.9.72 |
-| emi | emi-1.1.24+1.21.1+fabric |
-| entity_model_features | entity_model_features-3.2.4-1.21-fabric |
-| entity_texture_features_1.21-fabric | entity_texture_features_1.21-fabric-7.1 |
-| entityculling-fabric | entityculling-fabric-1.10.2-mc1.21.1 |
-| explorify v1.6.5.mod | Explorify v1.6.5.mod |
-| immediatelyfast-fabric | ImmediatelyFast-Fabric-1.6.10+1.21.1 |
-| indium | indium-1.0.35+mc1.21 |
-| inventoryprofilesnext-fabric | InventoryProfilesNext-fabric-1.21.1-2.2.6 |
-| iris-fabric | iris-fabric-1.8.8+mc1.21.1 |
-| jade | Jade-1.21.1-Fabric-15.10.5 |
-| litematica-fabric | litematica-fabric-1.21-0.19.60 |
-| malilib-fabric | malilib-fabric-1.21-0.21.10 |
-| modmenu | modmenu-11.0.4 |
-| moreculling-fabric | moreculling-fabric-1.21.1-1.0.7 |
-| mousetweaks-fabric-mc1.21 | MouseTweaks-fabric-mc1.21-2.26 |
-| presencefootsteps | PresenceFootsteps-1.11.1+1.21 |
-| puzzleslib-v21.1.51 | PuzzlesLib-v21.1.51-1.21.1-Fabric |
-| searchables-fabric | Searchables-fabric-1.21.1-1.0.2 |
-| sodium-fabric | sodium-fabric-0.6.13+mc1.21.1 |
-| sound-physics-remastered-fabric | sound-physics-remastered-fabric-1.21.1-1.5.1 |
-| super_resolution-fabric | super_resolution-fabric-1.21..1.21.1-0.8.3-alpha.3+opengl |
-| visuality | visuality-0.7.7+1.21 |
-| xaerominimap-fabric | xaerominimap-fabric-1.21.1-25.3.12 |
-| xaeroworldmap-fabric | xaeroworldmap-fabric-1.21.1-1.40.16 |
+| Mod (id) | environment | Versão | Arquivo |
+|---|---|---|---|
+| `appleskin` | * | 3.0.6+mc1.21 | appleskin-fabric-mc1.21-3.0.6.jar |
+| `atmosfera` | client | 2.7.2+mc1.21.1 | atmosfera-2.7.2+mc1.21.1.jar |
+| `azurelib` | * | 3.1.16 | azurelib-fabric-1.21.1-3.1.16.jar |
+| `badoptimizations` | client | 2.4.1 | BadOptimizations-2.4.1-1.21.1.jar |
+| `betterf3` | client | 11.0.3 | BetterF3-11.0.3-Fabric-1.21.1.jar |
+| `bundleapi` | * | 1.1.0 | bundle-api-fabric-1.1.0.jar |
+| `cameraoverhaul` | client | 2.1.2-fabric+mc.1.21-1.21.2 | CameraOverhaul-v2.1.2-fabric+mc[1.21-1.21.2].jar |
+| `controlify` | * | 3.0.1+lts+1.21.1-fabric | controlify-3.0.1+lts+1.21.1-fabric.jar |
+| `controlling` | client | 19.0.5 | Controlling-fabric-1.21.1-19.0.5.jar |
+| `eatinganimationid` | client | 1.21+1.9.72 | eating-animation-1.21+1.9.72.jar |
+| `emi` | * | 1.1.24+1.21.1+fabric | emi-1.1.24+1.21.1+fabric.jar |
+| `entity_model_features` | client | 3.3.11 | entity_model_features-3.3.11-1.21-fabric.jar |
+| `entity_texture_features` | client | 7.2.5 | entity_texture_features-7.2.5-1.21-fabric.jar |
+| `entityculling` | * | 1.10.2 | entityculling-fabric-1.10.2-mc1.21.1.jar |
+| `immediatelyfast` | client | 1.6.14+1.21.1 | ImmediatelyFast-Fabric-1.6.14+1.21.1.jar |
+| `indium` | client | 1.0.35+mc1.21 | indium-1.0.35+mc1.21.jar |
+| `inventoryprofilesnext` | client | 2.2.6 | InventoryProfilesNext-fabric-1.21.1-2.2.6.jar |
+| `iris` | client | 1.8.14-beta.1+mc1.21.1 | iris-fabric-1.8.14-beta.1+mc1.21.1.jar |
+| `jade` | * | 15.10.6+fabric | Jade-1.21.1-Fabric-15.10.6.jar |
+| `libipn` | client | 6.6.3 | libIPN-fabric-1.21.1-6.6.3.jar |
+| `litematica` | client | 0.19.61 | litematica-fabric-1.21-0.19.61.jar |
+| `malilib` | client | 0.21.10 | malilib-fabric-1.21-0.21.10.jar |
+| `modmenu` | client | 11.0.5 | modmenu-11.0.5.jar |
+| `moreculling` | client | 1.0.10 | moreculling-fabric-1.21.1-1.0.10.jar |
+| `mousetweaks` | client | 2.26 | MouseTweaks-fabric-mc1.21-2.26.jar |
+| `presencefootsteps` | client | 1.11.2+1.21 | PresenceFootsteps-1.11.2+1.21.jar |
+| `searchables` | client | 1.0.2 | Searchables-fabric-1.21.1-1.0.2.jar |
+| `sodium` | client | 0.8.13+mc1.21.1 | sodium-fabric-0.8.13+mc1.21.1.jar |
+| `sound_physics_remastered` | * | 1.21.1-1.5.1 | sound-physics-remastered-fabric-1.21.1-1.5.1.jar |
+| `super_resolution` | client | 0.9.2-alpha.2+opengl | super_resolution-fabric-1.21..1.21.1-0.9.2-alpha.2+opengl.jar |
+| `visuality` | client | 0.7.7+1.21 | visuality-0.7.7+1.21.jar |
+| `xaerominimap` | * | 26.6.0 | xaerominimap-fabric-1.21.1-26.6.0.jar |
+| `xaeroworldmap` | * | 1.47.0 | xaeroworldmap-fabric-1.21.1-1.47.0.jar |
 
 ---
 
-## Apenas Servidor
+## Apenas servidor — 23
 
-| Mod | Versão |
-|---|---|
-| [1.21.x] horde nights v1.3.14 | [1.21.x] Horde Nights v1.3.14 |
-| additionalstructures | AdditionalStructures-1.21.x-(v.5.1.0-fabric) |
-| advancedbackups-fabric | AdvancedBackups-fabric-1.21-3.7.1 |
-| almanac | Almanac-1.21.1-2-fabric-1.5.2 |
-| autonomous-minecarts | autonomous-minecarts-1.1.3 |
-| betterladdersmod | betterladdersmod-0.0.3.1.21 |
-| cherry-villages | cherry-villages-1.1.2 |
-| chunky-fabric | Chunky-Fabric-1.4.23 |
-| collective | collective-1.21.1-8.13 |
-| cristellib-fabric | cristellib-fabric-1.21.1-3.0.2 |
-| darcenos-minecarts | darcenos-minecarts-1.4 |
-| doubledoors | doubledoors-1.21.1-7.2 |
-| explorations-fabric | explorations-fabric-1.21.1-1.6.2 |
-| explorify v1.6.4 f15 | Explorify v1.6.4 f15-88.mod |
-| geophilic v3.4.6.mod | Geophilic v3.4.6.mod |
-| krypton | krypton-0.2.8 |
-| ledger | ledger-1.3.5 |
-| letmedespawn | letmedespawn-1.21.x-fabric-1.5.0 |
-| luckperms-fabric | LuckPerms-Fabric-5.4.140 |
-| luckperms-fabric-placeholders | LuckPerms-Fabric-Placeholders |
-| noisium-fabric | noisium-fabric-2.3.0+mc1.21-1.21.1 |
-| puzzleslib-v21.1.39 | PuzzlesLib-v21.1.39-1.21.1-Fabric |
-| reflex-fabric | reflex-fabric-1.0.4+mc1.21.1 |
-| servercore-fabric | servercore-fabric-1.5.10+1.21.1 |
-| styled-chat | styled-chat-2.6.1+1.21 |
-| t_and_t-neoforge-fabric | t_and_t-neoforge-fabric-1.13.7+1.21.1 |
-| tidal-towns | tidal-towns-1.3.4 |
-| vanilla-permissions | vanilla-permissions-0.3.3+1.21.1 |
+| Mod (id) | environment | Versão | Arquivo |
+|---|---|---|---|
+| `additionalstructures` | * | 5.1.0-fabric | AdditionalStructures-1.21.x-(v.5.1.0-fabric).jar |
+| `almanac` | * | 1.5.2 | Almanac-1.21.1-2-fabric-1.5.2.jar |
+| `autonomous-minecarts` | * | 1.1.3 | autonomous-minecarts-1.1.3.jar |
+| `betterladdersmod` | * | 0.0.3.1.21 | betterladdersmod-0.0.3.1.21.jar |
+| `collective` | * | 8.13 | collective-1.21.1-8.13.jar |
+| `cristellib` | * | 3.0.2 | cristellib-fabric-1.21.1-3.0.2.jar |
+| `doubledoors` | * | 7.2 | doubledoors-1.21.1-7.2.jar |
+| `explorations` | * | 1.21.1-1.6.2 | explorations-fabric-1.21.1-1.6.2.jar |
+| `geophilic` | * | 3.4.6 | Geophilic v3.4.6.mod.jar |
+| `krypton` | * | 0.2.8 | krypton-0.2.8.jar |
+| `ledger` | server | 1.3.5 | ledger-1.3.5.jar |
+| `letmedespawn` | * | 1.5.0 | letmedespawn-1.21.x-fabric-1.5.0.jar |
+| `luckperms` | server | 5.4.140 | LuckPerms-Fabric-5.4.140.jar |
+| `luckperms-placeholders` | * | 5.5-SNAPSHOT | LuckPerms-Fabric-Placeholders.jar |
+| `mr_cherry_villages` | * | 1.1.2 | cherry-villages-1.1.2.jar |
+| `mr_darcenos_minecarts` | * | 1.4 | darcenos-minecarts-1.4.jar |
+| `mr_tidal_towns` | * | 1.3.4 | tidal-towns-1.3.4.jar |
+| `noisium` | * | 2.3.0+mc1.21-1.21.1 | noisium-fabric-2.3.0+mc1.21-1.21.1.jar |
+| `rrc_horde_nights` | * | 1.3.14 | [1.21.x] Horde Nights v1.3.14.jar |
+| `servercore` | * | 1.5.10+1.21.1 | servercore-fabric-1.5.10+1.21.1.jar |
+| `styledchat` | * | 2.6.1+1.21 | styled-chat-2.6.1+1.21.jar |
+| `t_and_t` | * | 1.13.7 | t_and_t-neoforge-fabric-1.13.7+1.21.1.jar |
+| `vanilla-permissions` | * | 0.3.3+1.21.1 | vanilla-permissions-0.3.3+1.21.1.jar |
 
 ---
 
 ## Notas
 
-- **1 mod(s) com versão diferente entre cliente e servidor** — execute `sync_mods.py` para sincronizar.
-- `controlify` e `super_resolution` estão com extensão `.disabled` no cliente (instalados mas desativados).
-- `azurelib` existe apenas no cliente (separado do `azurelibarmor` que está nos dois).
-- O script `sync_mods.py` copia as versões mais novas do cliente para o servidor.
+- `armor_model_api` foi **adicionado ao servidor** em 06/10/2026: passou a ser requisito obrigatório de `archers`/`paladins`/`rogues`/`wizards` 3.1.3 (RPG Series, `server=required`). Ele depende de `fabric-rendering-v1` (módulo `client` do fabric-api) — o Fabric aceita a dependência e simplesmente não inicializa esse módulo no servidor.
+- `DistantHorizons` aparece como compartilhado; no servidor o id de wrapper era `dh-api` (por isso a troca 3.2.0 → 3.3.3 foi tratada à parte).
+- Mods `environment: client` presentes no servidor foram removidos no sync (`libIPN`, `reflex`) e os 118 `.pw.toml` soltos da pasta `mods/` também.
+- Versões server-only (ex.: `collective`, `cristellib`, `Geophilic`, `servercore`) podem estar atrás do pack antigo — não têm contraparte no cliente e não foram tocadas.
+- `chunky` foi **removido** em 06/10/2026 (server-only, sem dependentes, sem uso — o DH 3.3.3 tem pregen próprio com `/dh pregen`). Era ele que gerava o erro benigno `Chunky is not loaded` na integração com o DH. Backup em `pre-update/20261006/server/mods/`; aplicado no restart de 06/10 18:10 (102 jars, 256 mods, zero erro de Chunky).

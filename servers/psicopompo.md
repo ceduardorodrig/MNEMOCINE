@@ -223,3 +223,7 @@ Detalhes em [`guides/docker-registry.md`](../guides/docker-registry.md) §Resili
 ## SMART — discos externos (fix 22/09/2026)
 
 `smartd.service` falhava no boot (exit 16) quando o disco externo **SSHD-1TB** estava desconectado: `Unable to register device (no Directive -d removable)`. Fix no `/etc/smartd.conf` (backup `.bak-removable`): linhas do **SSHD-1TB** e **EXPANSION-2TB** (ambos externos) com **`-d removable`** → smartd **ignora se ausente** em vez de sair (ArchWiki S.M.A.R.T. § `-d removable`; man smartd.conf: *"continue instead of exiting if the device does not appear to be present"*). Forma `-d sat,removable` NÃO é aceita pelo smartd 7.5 local (parser rejeita vírgula) — usado `-d removable` puro (autodetect cuida do tipo; validado: EXPANSION aberto, SSHD ausente ignorado, 3 devices monitorados).
+
+## 07/10/2026 — Healthchecks
+
+- Todos os containers **standalone** deste host receberam `healthcheck` (padrão: ver [`guides/docker-healthchecks.md`](../guides/docker-healthchecks.md)), habilitando o `autoheal`. Containers que eram `docker run` ganharam `compose.yml`.

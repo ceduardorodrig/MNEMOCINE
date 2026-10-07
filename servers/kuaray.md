@@ -43,7 +43,7 @@ tags: [homelab, server, kuaray, docker, storage, media, home-assistant, automati
 - Servidor multimídia (música, livros, torrent, streaming) — **biblioteca lida via NFS do psicopompo desde 07/08** (`/mnt/storage/data/media/music` = mount NFS; ver [`network/nfs.md`](../network/nfs.md))
 - Espelho frio de backup: `/mnt/storage/backup` (folder `backup` do Syncthing, receiveonly) — ver [`services/syncthing.md`](../services/syncthing.md)
 - Automação residencial (~~Home Assistant~~ migrado p/ kavure 09/08; ~~MQTT~~ removido 16/08)
-- DNS secundário (Pi-hole)
+- ~~DNS secundário (Pi-hole)~~ — **migrado para o kavure (09/08/2026)**; ver [`network/dns.md`](../network/dns.md)
 - Gamificação (Kavita manga/ebook) — **removido 10/08** (não era mais usado)
 - Monitoramento (Glances)
 
@@ -205,3 +205,7 @@ tags: [homelab, server, kuaray, docker, storage, media, home-assistant, automati
   2. **Travamento elétrico do PHY (Auxiliary Power):** O chip PHY permaneceu travado em standby após semanas de uptime. Resolvido com **Power Drain (Cold Boot)**: desligamento total, fonte removida e botão power pressionado por 30s.
   3. **NetworkManager autonegotiate:** Perfil `Wired connection 1` estava com `auto-negotiate: no`; ajustado para `yes` com prioridade 10.
 - **Resultado:** Link estabelecido em **100 Mb/s Full Duplex** (limite da placa Realtek RTL810xE Fast Ethernet). IP DHCP recebido: `192.168.3.200/24` (métrica 100 — rota default preferencial sobre o Wi-Fi `wlp6s0`, métrica 600). Latência LAN psicopompo ⇄ kuaray caiu de **~22 ms (Wi-Fi) para 0,28 ms (cabo)**.
+
+## 07/10/2026 — Healthchecks
+
+- Todos os containers **standalone** deste host receberam `healthcheck` (padrão: ver [`guides/docker-healthchecks.md`](../guides/docker-healthchecks.md)), habilitando o `autoheal`. Containers que eram `docker run` ganharam `compose.yml`.
