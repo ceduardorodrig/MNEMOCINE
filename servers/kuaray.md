@@ -35,6 +35,7 @@ tags: [homelab, server, kuaray, docker, storage, media, home-assistant, automati
 | **Tailscale IP** | 100.94.209.99 |
 | **Tailscale DNS** | kuaray.chimaera-heptatonic.ts.net |
 | **Rede** | Ethernet Realtek RTL810xE (`enp7s0`: 192.168.3.200/24 · 100 Mb/s Full Duplex — **ativado 04/10/2026**) + Wi-Fi Qualcomm Atheros QCA9565 (`wlp6s0`: 192.168.3.53/24 metric 600) |
+| **MTU (PPPoE)** | **1492** (NetworkManager) desde 07/10/2026 — o link da operadora é **PPPoE (1492)** e a LAN estava em 1500 → perda silenciosa em transferências grandes. Ver [`network/mtu-pppoe.md`](../network/mtu-pppoe.md) |
 | **Usuário** | kuaray |
 | **Acesso** | `tailscale ssh kuaray@kuaray` (usuário `kuaray`, sudo NOPASSWD — `/etc/sudoers.d/kuaray-nopasswd`, 10/09/2026) |
 

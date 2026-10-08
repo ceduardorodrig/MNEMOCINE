@@ -58,15 +58,24 @@ Cada host (05:00) → /usr/local/bin/config-backup (systemd timer hl-config-back
 
 | Host | SRC_DIRS | Excludes principais |
 |---|---|---|
-| psicopompo | `/home/edu/homelab`, `/usr/local/bin`, syncthing state, **desktop configs** (`~/.config/hypr`, `~/.config/noctalia`, `~/.config/uwsm` — env: cursor McMojave + NVIDIA, `~/.config/environment.d`, `~/.config/steam-launch-options`, `~/.local/state/noctalia`, `~/.config/gtk-3.0`, `~/.config/gtk-4.0`, `~/.config/qt6ct`, **`~/.config/fish`** — shell config (zoxide/atuin), 06/10/2026), **instância do Prism `Dominium`** (`~/.local/share/PrismLauncher/instances/Dominium` — fonte de verdade do modpack, adicionado 06/10/2026: mods/config/loader, ~484 MB), rclone, wallpapers. **GOLDEN FILES:** `/var/lib/noctalia-greeter/greeter.toml`, `/etc/greetd/config.toml`, `/etc/systemd/sleep.conf.d/60-freeze.conf`, `/etc/systemd/system/tailscaled-wait.service`, `/etc/systemd/system/nfs-server.service.d/10-tailscaled-wait.conf`, `/etc/smartd.conf`, `/etc/sudoers.d/99-edu-homelab`, `/etc/ufw/user{,6}.rules`, `~/.gtkrc-2.0`, **`~/.ssh/config`** (hosts/usuários/chaves — o arquivo, **sem** as chaves privadas; adicionado 06/10/2026), fstab, exports, pacman, snapper configs. | `ollama`, `index-v2`, `*.log`, **`target`** (build Rust), **state Noctalia** (`clipboard`, `notification_history*`, `recently_used.json`, `usage_counts.json`, `wallpaper_shuffle.json`, `plugin-cache`, `community-*`, `plugins/materialized`, `plugins/sources`, `plugins/data`), **Prism pesado/pessoal** (`minecraft/Distant_Horizons_server_data`, `saves`, `logs`, `crash-reports`, `debug`, `xaero`, `XaeroWaypoints_BACKUP*`, `screenshots`, `essential`, `pfm`, `downloads`, `server-resource-packs`, `.fabric`, `hs_err_pid*`, `replay_pid*`, `nvngx*`, `config/super_resolution`) |
+| psicopompo | `/home/edu/homelab` (**composes dos serviços** — primeiro na lista, ver nota abaixo), `/mnt/NVME_PCI/homelab` (raiz de **projetos**: sumaenimahub, transcribe, …), `/usr/local/bin`, syncthing state, **desktop configs** (`~/.config/hypr`, `~/.config/noctalia`, `~/.config/uwsm` — env: cursor McMojave + NVIDIA, `~/.config/environment.d`, `~/.config/steam-launch-options`, `~/.local/state/noctalia`, `~/.config/gtk-3.0`, `~/.config/gtk-4.0`, `~/.config/qt6ct`, **`~/.config/fish`** — shell config (zoxide/atuin), 06/10/2026), **instância do Prism `Dominium`** (`~/.local/share/PrismLauncher/instances/Dominium` — fonte de verdade do modpack, adicionado 06/10/2026: mods/config/loader, ~484 MB), rclone, wallpapers. **GOLDEN FILES:** `/var/lib/noctalia-greeter/greeter.toml`, `/etc/greetd/config.toml`, `/etc/systemd/sleep.conf.d/60-freeze.conf`, `/etc/systemd/system/tailscaled-wait.service`, `/etc/systemd/system/nfs-server.service.d/10-tailscaled-wait.conf`, `/etc/smartd.conf`, `/etc/sudoers.d/99-edu-homelab`, `/etc/ufw/user{,6}.rules`, `~/.gtkrc-2.0`, **`~/.ssh/config`** (hosts/usuários/chaves — o arquivo, **sem** as chaves privadas; adicionado 06/10/2026), fstab, exports, pacman, snapper configs. | `ollama`, `index-v2`, `*.log`, **`target`** (build Rust), **state Noctalia** (`clipboard`, `notification_history*`, `recently_used.json`, `usage_counts.json`, `wallpaper_shuffle.json`, `plugin-cache`, `community-*`, `plugins/materialized`, `plugins/sources`, `plugins/data`), **Prism pesado/pessoal** (`minecraft/Distant_Horizons_server_data`, `saves`, `logs`, `crash-reports`, `debug`, `xaero`, `XaeroWaypoints_BACKUP*`, `screenshots`, `essential`, `pfm`, `downloads`, `server-resource-packs`, `.fabric`, `hs_err_pid*`, `replay_pid*`, `nvngx*`, `config/super_resolution`) |
 | kavure | `/srv/data` | `zomboid/data`, `pz-dedicated`, `workshop-mods`, `sumaenimahub/SUMAENIMA-HUB`, `volumes`, `backup`, `aiostreams/anime-database`, **`minecraft/minecraftserver \[dominium\]/MINECRAFT SERVER`**, **`minecraft/minecraftserver \[dominium\]/crafty`**, **`minecraft/minecraftserver \[dominium\]/DOMINIUM-MODPACK`**, `minecraft/offbox`, `minecraft/pre-update` (06/10/2026 — antes excluía `minecraft` inteiro; agora o **tooling** em `minecraft/minecraftserver [dominium]/` entra no espelho) |
 | kuaray | `/home/kuaray/docker`, `/home/kuaray/homelab` | (genéricos) |
 | ybytu | `/home/ubuntu/homelab` | (genéricos) |
 | ybyra | `/home/ubuntu/homelab`, `docker-compose.ybyra.yml` | `*.tar.gz`/`*.zip`/`*.tgz`/`*.tar` |
 
-**Excluídos globalmente (segredos — NUNCA vão pro espelho):** `.env`, `secrets.yaml`, `slskd.yml`, `passwd`, `config.xml` (API keys), `*.db`, `*.log`, `*.lock`, `.venv`, `node_modules`, `.git`, `.cache`, `.stversions`. Segredos vivem no **store sops/age** (`/mnt/NVME_PCI/secrets/`), que sincroniza criptografado via Syncthing.
+**Excluídos globalmente (segredos — NUNCA vão pro espelho):** `.env`, `secrets.yaml`, `slskd.yml`, `passwd`, `config.xml` (API keys), **`htpasswd`**, **`registry.key`** (segredos do registry, 07/10/2026), `*.db`, `*.log`, `*.lock`, `.venv`, `node_modules`, `.git`, `.cache`, `.stversions`. Segredos vivem no **store sops/age** (`/mnt/NVME_PCI/secrets/`), que sincroniza criptografado via Syncthing.
 
 **`mnemocine/` é excluído no psicopompo (30/09/2026):** `/mnt/NVME_PCI/homelab/mnemocine` é **derivado** — o `homelab-docs-sync` copia do vault `agentic-ai/mnemocine` e publica no repo público `MNEMOCINE`. O circuito privado não precisa versionar uma segunda cópia da mesma documentação, e a cópia intermediária ficava **congelada** (o sync não tinha timer), gerando 97 divergências e re-acusando segredos já corrigidos no espelho. Ver [`docs-sync.md`](docs-sync.md).
+
+**Duas fontes com o mesmo basename (07/10/2026):** `/home/edu/homelab` (composes dos serviços)
+e `/mnt/NVME_PCI/homelab` (projetos) espelham **as duas** para `psicopompo/homelab/`. O `rsync`
+resolve **caminho repetido mantendo a PRIMEIRA fonte** — por isso `/home/edu/homelab` vem
+**primeiro**. Sem isso, as cópias velhas de setembro (em `/mnt/NVME_PCI/homelab`, sem
+healthcheck) venciam e os composes novos não apareciam no espelho (era a causa dos avisos
+`INFRA-COMPOSE-HEALTHCHECK` do psicopompo). O `--delete` respeita a **união** das fontes
+(testado em dry-run: **0 deleções indevidas**). Segredos do `registry` (`htpasswd`,
+`registry.key`) ficam de fora por `EXCLUDES` — o `registry.crt` (público) entra.
 
 ## Como adicionar um serviço/host novo
 
@@ -82,6 +91,39 @@ Cada host (05:00) → /usr/local/bin/config-backup (systemd timer hl-config-back
 - **Versões:** `restic -r /mnt/BACKUP/repos/restic/configs --insecure-no-password snapshots` + `restore`.
 - **Anti-deleção:** `sudo snapper -c backup list` (snapshot do próprio espelho).
 - **Etckeeper (/etc):** `git --git-dir=/srv/backup-gitrepos/etckeeper-{host}.git log` (NAS) ou no host `git -C /etc log`.
+
+## Incidente 08/10/2026 — automount morto → *stale file handle* (ybyra)
+
+**Sintoma:** `config-backup` do **ybyra** falhando desde **27/09/2026** (ntfy "config-backup
+FALHOU (ybyra)"), com o espelho no NAS **congelado** naquela data. O `rsync` reportava:
+
+```
+rsync: [Receiver] ERROR: cannot stat destination "/srv/backup-configs/ybyra/": Stale file handle (116)
+```
+
+**Causa raiz:** a unit `srv-backup\x2dconfigs.automount` estava **`inactive (dead)` desde
+28/08** (pós-reboot). O mount continuou servindo de um **estado obsoleto**, com as opções
+antigas (`hard,timeo=600`) — e só quebrou quando o servidor NFS invalidou o *file handle*.
+
+**Correção (por host):**
+
+```bash
+U=$(systemd-escape -p --suffix=automount /srv/backup-configs)
+umount -l /srv/backup-configs
+systemctl daemon-reload
+systemctl restart "$U"
+ls /srv/backup-configs        # retrigger do automount
+```
+
+**Também corrigido:** `/srv/backup-gitrepos` do **ybyra** e do **ybytu** (estavam `hard`).
+Depois: backup OK + `push ybyra ok`.
+
+> ⚠️ **Lição:** `x-systemd.automount` pode ficar **dead** após reboot **sem o mount parecer
+> quebrado** (segue servindo um estado velho). A falha só aparece quando o *file handle*
+> expira — **dias** depois. Um mount `hard` onde deveria haver `soft` é o **sinal** de que o
+> automount recriou com opções antigas. Checagem rápida:
+> `findmnt -rn -t nfs4 -o OPTIONS | grep -c hard` (esperado: **0**).
+> Verificado na frota em 08/10/2026: **0** em ybyra, ybytu, kuaray e kavure.
 
 ## Segurança
 

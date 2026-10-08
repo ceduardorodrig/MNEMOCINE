@@ -168,3 +168,20 @@ Nenhum.
 ## 07/10/2026 — Healthchecks
 
 - Todos os containers **standalone** deste host receberam `healthcheck` (padrão: ver [`guides/docker-healthchecks.md`](../guides/docker-healthchecks.md)), habilitando o `autoheal`. Containers que eram `docker run` ganharam `compose.yml`.
+
+## 08/10/2026 — Gestão via API (OCI CLI)
+
+- A VM passou a ser **gerenciável por API, direto do terminal** (do psicopompo), via **OCI CLI**
+  com API key RSA no cofre sops — inventário, boot/block volumes, rede, imagens e a **captura da
+  ARM**. Guia: [`guides/oracle-oci-cli.md`](../guides/oracle-oci-cli.md).
+- **Disco (50 GB)** está a 17% usado — é o volume de referência para a **redução do boot do
+  ybyra** (150 GB → ~50 GB), pré-requisito para a ARM caber na cota *Always Free* (200 GB).
+  Método/runbook: [`guides/oci-shrink-boot-volume.md`](../guides/oci-shrink-boot-volume.md).
+
+## 08/10/2026 — `/srv/backup-gitrepos` estava montado com `hard`
+
+- O mount NFS `/srv/backup-gitrepos` deste host ainda usava as opções **antigas (`hard,timeo=600`)**,
+  de antes do ajuste do fstab em 10/09 (o `configs` já havia sido corrigido em 06/10; o `gitrepos`
+  passou batido). Corrigido com `umount -l` + restart do automount → `soft,timeo=30,retrans=2`.
+- Varredura na frota: **0 mounts NFS `hard`** (ybyra, ybytu, kuaray, kavure). Ver
+  [`backups/config-backup.md`](../backups/config-backup.md).

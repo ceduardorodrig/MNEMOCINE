@@ -64,6 +64,9 @@ Root tag. Every file inside `mnemocine` must have it.
 
 ### `#network` — Network, DNS and firewall
 ### `#tailscale` — Tailscale específico
+### `#oracle` — Oracle Cloud Infrastructure (OCI)
+- `#oracle` — Oracle Cloud (VMs Always Free, tenancy, home region)
+- `#oci` — OCI CLI, API key e automação das VMs via terminal
 ### `#backup` — Estratégia e procedimentos de backup
 - `#snapshot` — Snapshots btrfs/snapper (anti-deleção)
 - `#snapper` — Snapper específico

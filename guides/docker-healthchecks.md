@@ -87,9 +87,13 @@ não duplicar achados. A varredura do espelho só ocorre quando o alvo é o vaul
 
 - **Severidade:** `Warning` — não bloqueia o gate. Pode ser promovida a `Error` quando o
   espelho estiver atualizado e o número de avisos for zero.
-- **Estado (07/10):** ~60 avisos, **todos do espelho desatualizado** (captura de 05:00, antes
-  do rollout) — devem cair após a sincronização da madrugada. Exceções legítimas que podem
-  restar: composes cujo **próprio image** já traz `HEALTHCHECK` (ex.: `valheim`).
+- **Estado (07/10, atualizado):** caiu de ~60 → **30 avisos**. A causa raiz dos do psicopompo
+  foi encontrada e corrigida: o `config-backup` espelhava `/mnt/NVME_PCI/homelab` (cópias velhas
+  de setembro, sem healthcheck) e **não** `/home/edu/homelab`, onde os composes vivos estão — ver
+  [`../backups/config-backup.md`](../backups/config-backup.md). Os avisos restantes são composes
+  **legados/duplicados** (`psicopompo/homelab/{autoheal,watchtower,winboat}` — serviços que não
+  rodam mais ali), o compose do repo (`sumaenimahub/.../docker-compose.yml`) e imagens que **já
+  trazem** `HEALTHCHECK` (ex.: `valheim`).
 - **Validação:** teste sintético (`--path` externo) confirma que a regra acusa **só** o serviço
   sem `healthcheck`/label. `cargo test` 20/20, `--self-test` 60/60, `--guardian` zero adulteração.
 

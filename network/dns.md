@@ -29,10 +29,9 @@ graph TB
 
     subgraph egress[Camada de egress — quem fala com a internet]
         dnscrypt[dnscrypt-proxy 127.0.0.1:5053<br>Anonymized DNSCrypt · kavure]
-        relays[Relays CryptoStorm<br>Miami / Atlanta / DC]
+        relays[Relays: CryptoStorm EUA<br>anon-cs-{fl,ga,dc,nyc,il,la}]
         servers[Servidores dnscry.pt<br>US-Leste]
-        cloudflare[Cloudflare DoH · Quad9 DoH · Google DoT]
-        fallback[fallback: 9.9.9.9 / 8.8.8.8]
+        dot[fallback DoT<br>Quad9 9.9.9.9 · Cloudflare 1.1.1.1]
     end
 
     psicopompo --> quad100
@@ -48,8 +47,8 @@ graph TB
     dnscrypt --> relays
     relays --> servers
 
-    adguard --> cloudflare
-    adguard -.->|se o DoH falhar| fallback
+    adguard -->|"tcp://100.124.146.77:5053"| dnscrypt
+    adguard -.->|se o proxy cair| dot
     dnscrypt -.->|se o proxy cair: AdGuard assume (corrida)| adguard
 ```
 
@@ -97,7 +96,7 @@ Desde 06/10/2026 o egress do kavure é **anonimizado**:
 
 > **Consequência da Opção A:** quem vence a corrida não importa mais — **os dois**
 > resolvedores passam pelo caminho anonimizado. Antes, o AdGuard (mais rápido) vencia as
-> consultas *frias* e elas saíam pelo Cloudflare. Agora a corrida fria é ~190–210 ms nos
+> consultas *frias* e elas saíam pelo Cloudflare. Agora a corrida fria é ~200–300 ms nos
 > dois lados.
 
 Detalhes do proxy (parâmetros, medições e rollback): [`services/dnscrypt-proxy.md`](../services/dnscrypt-proxy.md).
@@ -107,12 +106,31 @@ Detalhes do proxy (parâmetros, medições e rollback): [`services/dnscrypt-prox
 | Cenário testado | Resultado |
 |---|---|
 | `dnscrypt-proxy` do kavure parado | O Pi-hole para de responder, mas as consultas via `100.100.100.100` seguem resolvendo em **60 ms** (o AdGuard cai no `fallback_dns` DoT) → **sem perda de internet** |
+| **Re-verificado ao vivo (08/10/2026)** — `dnscrypt-proxy` parado | Consultas via `100.100.100.100` resolveram normalmente: ripe.net 332 ms · apnic.net 327 ms · lacnic.net 64 ms · afrinic.net 226 ms → **o AdGuard assumiu pela `fallback_dns` DoT**. Proxy religado e normalizado ✅. *Degradação:* o DoT é cifrado mas **não anonimizado** durante a queda. |
 | `dnscrypt-proxy` do ybytu parado (tentativa, revertida) | AdGuard degradou para `fallback_dns` em ~197 ms |
 | Pi-hole com `strict-order` + fallback plano | **Não fazia failover** (6 timeouts seguidos) → desenho descartado |
 
 > **Lição arquitetural:** a redundância do DNS aqui é a **corrida entre resolvedores**, não
 > uma lista de upstreams do dnsmasq. Um fallback plano dentro do Pi-hole ou **vaza** (sem
 > `strict-order`) ou **trava** (com `strict-order`).
+
+## Cache (três níveis) — medido 07/10/2026
+
+| Nível | Onde | Tamanho | Estado medido |
+|---|---|---|---|
+| **dnscrypt-proxy** | kavure | `cache_size = 16384` entradas · `cache_min_ttl = 2400` · `cache_max_ttl = 86400` · neg `600` · `block_ipv6 = true` | ~14 MB de RSS |
+| **Pi-hole (FTL)** | kavure | `dns.cache.size = 10000` · `optimizer = 3600` (serve-stale) | **0 evictions** em 22.422 inserções · **~82 % de acerto** (33.312 hits / 7.516 misses) |
+| **AdGuard** | ybytu | `cache_size = 4194304` (4 MiB, default) · `cache_ttl_min/max = 0` (usa o TTL do upstream) | — |
+
+**Tem espaço para crescer?** Em **memória, sim**: o kavure tem ~6,3 GB livres e os dois
+resolvedores juntos usam ~60 MB. Mas a [doc oficial do Pi-hole](https://docs.pi-hole.net/ftldns/dns-cache)
+é explícita: *"não há benefício em aumentar esse número a menos que as evictions sejam maiores
+que zero"* — e acima de 10.000 entradas a **busca degrada**. Como as evictions estão em
+**zero**, o Pi-hole está no tamanho certo. O AdGuard fica modesto de propósito: o ybytu tem
+só ~270 MB livres.
+
+> Consultar as métricas do cache a qualquer momento:
+> `dig +short chaos txt {cachesize,insertions,evictions,hits,misses}.bind @127.0.0.1` (no kavure).
 
 ## Por Máquina
 
@@ -121,7 +139,7 @@ Detalhes do proxy (parâmetros, medições e rollback): [`services/dnscrypt-prox
 |---|---|
 | Resolvedor | systemd-resolved (`stub` → `/run/systemd/resolve/stub-resolv.conf`) |
 | DNS da tailnet | `100.100.100.100` (Quad100) — escopo `~.` (rota padrão) |
-| Fallback | Quad9 → Cloudflare → Google (só se a Tailscale cair) |
+| Fallback | Quad9 `9.9.9.9` → Cloudflare `1.1.1.1` (DoT `opportunistic`, **sem Google**) — só se a Tailscale cair |
 
 > **Fix resolve-nm (21/09/2026):** NetworkManager passou a usar `dns=systemd-resolved`
 > (em `[main]` do `/etc/NetworkManager/NetworkManager.conf`) e o `/etc/resolv.conf`
@@ -134,7 +152,7 @@ Detalhes do proxy (parâmetros, medições e rollback): [`services/dnscrypt-prox
 |---|---|
 | Servidor | **Pi-hole** (container `pihole`, `network_mode: host`, escuta só em `tailscale0`) |
 | Porta | `53` · admin `http://100.124.146.77/admin` |
-| Upstream | Google `8.8.8.8/8.8.4.4` + Cloudflare `1.0.0.1/1.1.1.1` (DNS plano) |
+| Upstream | `127.0.0.1#5053` → **dnscrypt-proxy** (Anonymized DNSCrypt) |
 | Papel | **decisor padrão** da tailnet (vence a corrida por latência) |
 
 ### Ybytu
@@ -142,7 +160,7 @@ Detalhes do proxy (parâmetros, medições e rollback): [`services/dnscrypt-prox
 |---|---|
 | Servidor | **AdGuard Home** (container `adguardhome`) |
 | Porta | `53` · admin `http://ybytu.chimaera-heptatonic.ts.net:3000` |
-| Upstream | DoH Cloudflare (1º) · DoH Quad9 dns10 (2º) · DoT Google (3º) |
+| Upstream | `tcp://100.124.146.77:5053` → **o mesmo proxy do kavure** (Opção A) · fallback DoT `tls://9.9.9.9`/`tls://1.1.1.1` |
 | Papel | **failover** do Pi-hole + clientes diretos (desktop Windows) |
 | Atenção | 954 MB de RAM — querylog `7d`/`size_memory 200` desde 06/10 (era 90d/1000 = 4 GB) |
 
