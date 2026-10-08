@@ -72,6 +72,7 @@ tags: [homelab, server, kavure, docker, storage, gaming, todo]
 | **Disco Futuro (comprar)** | **M.2 SATA 2280 1 TB** (SO/Docker) + **HDD 3.5" 4–8 TB** (storage) |
 | **GPU** | Quadro P1000 — **FORA DO PLANO: capacitor solto no repaste**, aguardando reparo |
 | **Rede** | Gigabit Ethernet (`enp1s0`, **cabeada no switch**) + Wi-Fi (legada) |
+| **MTU (PPPoE)** | **1492** (netplan, `enp1s0`) desde 07/10/2026 — o link da operadora é **PPPoE (1492)** e a LAN estava em 1500 → perda silenciosa em transferências grandes. Ver [`network/mtu-pppoe.md`](../network/mtu-pppoe.md) |
 | **SO** | **Ubuntu 24.04.4 LTS** (kernel **6.8.0-142**, conferido em 02/10/2026) |
 | **Filesystem** | **LVM + ext4** (subiquity) |
 | **Tailscale** | `100.124.146.77` — `kavure` |

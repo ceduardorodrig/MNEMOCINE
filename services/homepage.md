@@ -127,6 +127,22 @@ Ordem atual (cloud no final):
 5. **Serviços do swarm** (sae-core/sae-edge): badge via nome do serviço + `swarm: true` na instância do `docker.yaml` (dockerproxy com `SERVICES=1`).
 6. **⚠️ Serviços locais no Ybytu (mesmo host do Homepage):** NUNCA usar o IP Tailscale (`100.115.253.109`) com `siteMonitor` para containers que rodem em `network_mode: host` ou sem port forward DNAT. O container do Homepage roda em bridge e não alcança o IP Tailscale da própria máquina (`EHOSTUNREACH` via iptables `icmp-host-prohibited`, gerando erro 500 no dashboard). Para containers no Ybytu, monitorar sempre via Docker Socket (`server: ybytu`, `container: <nome>`), mantendo o `href` com o IP/URL público/tailnet para acesso do usuário pelo navegador.
 
+> **08/10/2026 — correção dos `href`:** 6 links de serviços do **ybytu** estavam com
+> `http://127.0.0.1:PORT`, que abre no computador **do usuário** (não no ybytu) → o link
+> "não abria". Trocados para `http://ybytu:PORT` (nome do MagicDNS), conforme a convenção
+> acima. Afetados: AdGuard admin (`:3000`), Uptime Kuma (`:3002`), ChangeDetection
+> (`:8082`), Ntfy (`:8083`) e os dois wake do `wol-relay` (`:9096`).
+> Backup: `services.yaml.bak-20261008-href`.
+
+> **08/10/2026 — padronização nos nomes do MagicDNS:** **todos** os `href` e `siteMonitor`
+> remotos foram migrados de IP tailnet → **nome** (`100.82.51.112`→`psicopompo`,
+> `100.124.146.77`→`kavure`, `100.94.209.99`→`kuaray`, `100.115.253.109`→`ybytu`,
+> `100.66.224.34`→`ybyra`) — mais legível e independente de IP. **Verificado:** o container
+> do Homepage **resolve** os nomes (testado com `node dns.lookup`) e os links respondem
+> (ntfy 200, AdGuard 302, prowlarr 200, HA 200). ⚠️ **Os `siteMonitor` dos serviços
+> locais ao ybytu continuam em `127.0.0.1`** (o container não alcança o IP tailnet da
+> própria máquina — ver regra 6 acima). Backup: `services.yaml.bak-20261008-nomes`.
+
 ### Ícones custom (config/icons/)
 
 | Ícone | Origem |

@@ -109,3 +109,30 @@ tags: [homelab, server, ybyra, docker, monitoring, tailscale]
 ## 07/10/2026 — Healthchecks
 
 - Todos os containers **standalone** deste host receberam `healthcheck` (padrão: ver [`guides/docker-healthchecks.md`](../guides/docker-healthchecks.md)), habilitando o `autoheal`. Containers que eram `docker run` ganharam `compose.yml`.
+
+## 08/10/2026 — Gestão via API (OCI CLI) + reboot pendente
+
+- **Escopo novo:** a instância passou a ser **gerenciável por API, direto do terminal** (do
+  psicopompo), via **OCI CLI** com API key RSA guardada no cofre sops — cobre inventário,
+  boot/block volumes, rede, imagens e a **captura da ARM**. Guia:
+  [`guides/oracle-oci-cli.md`](../guides/oracle-oci-cli.md).
+- **CLI instalado no próprio ybyra** (`~/bin/oci`, 3.94.2), além do psicopompo — útil para o
+  loop de captura da ARM rodar local (latência mínima à API da Oracle).
+- **⚠️ Reboot pendente de kernel:** há kernel novo aguardando (`/var/run/reboot-required`).
+  O ybyra é a **borda primária** (nginx + Tailscale Funnel) → o reboot exige **janela**;
+  não executar sem combinar.
+
+## 08/10/2026 — Backup restaurado (automount NFS morto → *stale file handle*)
+
+- **Achado:** o `config-backup` deste host **falhava desde 27/09/2026** (`Result=exit-code`;
+  ntfy "config-backup FALHOU (ybyra)"), com o espelho no NAS **congelado** naquela data.
+- **Causa raiz:** a unit `srv-backup\x2dconfigs.automount` estava **`inactive (dead)` desde
+  28/08**. O mount sobreviveu num estado obsoleto (opções antigas, `hard`) até o servidor NFS
+  invalidar o *file handle* → `rsync: cannot stat destination ... Stale file handle (116)`.
+- **Correção:** `umount -l` + `systemctl daemon-reload` + `systemctl restart` do `.automount`
+  → o mount recriou com as opções do fstab (`soft,timeo=30,retrans=2`). **Backup OK** no run
+  manual e `push ybyra ok` (etckeeper). Mesmo desvio corrigido no `/srv/backup-gitrepos`
+  (estava `hard`) e no `gitrepos` do **ybytu**. Frota inteira: **0 mounts NFS `hard`**.
+- **Lição:** `x-systemd.automount` pode ficar **dead** após reboot sem que o mount pareça
+  quebrado (segue servindo de um estado velho) — a falha só aparece quando o handle expira.
+  Ver [`backups/config-backup.md`](../backups/config-backup.md) → "Incidente 08/10/2026".

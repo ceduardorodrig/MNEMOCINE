@@ -27,6 +27,7 @@ tags: [homelab, server, psicopompo, gaming, docker, storage, power, gpu, nvidia,
 | **Tailscale IP** | 100.82.51.112 |
 | **Tailscale DNS** | psicopompo.chimaera-heptatonic.ts.net |
 | **Rede** | Intel I219-LM Gigabit Ethernet |
+| **MTU (PPPoE)** | **1492** (NetworkManager) desde 07/10/2026 — o link da operadora é **PPPoE (1492)** e a LAN estava em 1500 → perda silenciosa em transferências grandes. Ver [`network/mtu-pppoe.md`](../network/mtu-pppoe.md) |
 
 ## GPU / NVIDIA — ReBAR e DDC/CI (25/08/2026)
 

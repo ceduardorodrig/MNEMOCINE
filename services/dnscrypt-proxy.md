@@ -31,15 +31,45 @@ Fluxo: **kavure → relay → servidor DNSCrypt → (resolve) → relay → kavu
 - O **relay** vê o IP da casa, mas não a consulta.
 - O **servidor** vê a consulta, mas não o IP da casa.
 
-| Elemento | Operador | Endpoints (06/10/2026) |
+| Elemento | Operador | Endpoints |
 |---|---|---|
 | Servidores | `dnscry.pt` (**operador A**) | `dnscry.pt-tampa/miami/jacksonville/atlanta-ipv4` |
-| Relays | CryptoStorm (**operador B**) | `anon-cs-fl` (Miami 146.70.240.203), `anon-cs-ga` (Atlanta 130.195.212.211), `anon-cs-dc` (DC 198.7.58.227) |
+| Relays | CryptoStorm (**EUA**) | `anon-cs-{fl,ga,dc,nyc,il,la}` (Miami/Atlanta/DC/Nova York/Chicago/LA) |
 
 > ⚠️ **Regra de ouro do anonimato:** relay e servidor têm de ser de **operadores
 > diferentes**. A doc dos servidores avisa que *"all dnscry.pt resolvers can also be used
 > as Anonymized DNSCrypt relays"* — parear `dnscry`↔`dnscry` faria **uma única entidade**
 > enxergar IP + consulta (anonimato nulo).
+
+### Relays: 100% EUA — prioridade LATÊNCIA (08/10/2026)
+
+**Histórico:** em **07/10** os relays foram espalhados por **6 operadores e 6 países**
+(Scaleway/Holanda, DNSWarden/Suíça, litepay/NL, μODNS/JP, Tiarap/SG) para dar redundância de
+anonimato. **Em 08/10 isso foi revertido:** o desvio transatlântico (**Brasil → Europa → EUA**)
+custava **+200 ms por consulta fria** e a navegação ficou perceptivelmente mais lenta
+("segundos" num primeiro acesso).
+
+```toml
+routes = [
+  { server_name = 'dnscry.pt-miami-ipv4',        via = ['anon-cs-fl', 'anon-cs-ga', 'anon-cs-dc'] },
+  { server_name = 'dnscry.pt-tampa-ipv4',        via = ['anon-cs-ga', 'anon-cs-dc', 'anon-cs-nyc'] },
+  { server_name = 'dnscry.pt-jacksonville-ipv4', via = ['anon-cs-dc', 'anon-cs-fl', 'anon-cs-il'] },
+  { server_name = 'dnscry.pt-atlanta-ipv4',      via = ['anon-cs-nyc', 'anon-cs-il', 'anon-cs-la'] }
+]
+```
+
+- **Relays:** todos **CryptoStorm (EUA)**, em cidades diferentes (FL/GA/DC/NYC/IL/LA) para não
+  concentrar num único PoP. Como é **operador único**, a diversidade de operador fica por conta
+  do **fallback DoT do AdGuard** (`tls://9.9.9.9`) se a CryptoStorm cair.
+- **Latência fria medida:** **~160–310 ms** (EUA) · era **~360–550 ms** com os relays europeus.
+  RTT do servidor mais rápido (miami): **127 ms**.
+- **Trade-off assumido:** menos redundância de operador em troca de navegação ~2× mais rápida.
+  Reverter é só recolocar relays não-EUA nas rotas — backup:
+  `dnscrypt-proxy.toml.bak-20261008-latency`.
+- **`skip_incompatible = true`** → nunca cai para conexão direta (sem vazar o IP).
+- **Failover completo:** se *todos* os relays caírem, o proxy não resolve → o Pi-hole para →
+  a corrida entrega ao AdGuard, que cai no **DoT cifrado** → **sem perda de internet**
+  (só degrada o anonimato para "cifrado").
 
 - **Não existe relay na América do Sul.** O mais próximo é Miami (RTT kavure↔Miami ~121 ms)
   — isso define o piso de latência.
@@ -53,10 +83,14 @@ Fluxo: **kavure → relay → servidor DNSCrypt → (resolve) → relay → kavu
 | `listen_addresses` | `['127.0.0.1:5053']` | loopback (Pi-hole é `network_mode: host`) |
 | `server_names` | 4 servidores `dnscry.pt` US-Leste | latência + operador distinto do relay |
 | `cache` / `cache_size` | `true` / `16384` | 2ª camada de cache — o Pi-hole não pode subir o cache dele sem degradar o lookup |
-| `cache_min_ttl` | `0` | **NUNCA** usar o `2400` do exemplo oficial (40 min de dado velho) |
+| `cache_min_ttl` | **`2400`** | valor do **exemplo oficial** (wiki *Performance*): retém ≥40 min → menos re-consultas no caminho anonimizado. *Revisado 08/10/2026 — a decisão anterior (`0`) contrariava a doc* |
+| `block_ipv6` | **`true`** | **sem IPv6** na rede → responde AAAA na hora (0–1 ms) em vez de consultar o upstream à toa (wiki *Performance*) |
 | `cache_max_ttl` | `86400` | teto são. **Com `0` o cache não funciona** (erro cometido e corrigido em 06/10) |
 | `keepalive` | `30` | conexões quentes |
 | `lb_estimator` / `lb_strategy` | `true` / `wp2` | escolhe o servidor mais rápido medido |
+| `cert_refresh_delay` | `60` (min) | o relay é sorteado por servidor **por ciclo**; 60 min = rotação/recuperação mais rápidas (era 240) |
+| `[anonymized_dns] routes` | 3 relays/servidor, **CryptoStorm EUA** | prioridade latência (08/10) — ver acima |
+| `skip_incompatible` | `true` | nunca contornar o relay (sem vazamento do IP) |
 | `bootstrap_resolvers` | `['9.9.9.11:53']` | só para baixar a lista de servidores; sem Google |
 | `block_unqualified` / `block_undelegated` | `true` | não vazar nomes locais |
 | `[query_log]` | **ausente** | sem log de consultas (privacidade) |

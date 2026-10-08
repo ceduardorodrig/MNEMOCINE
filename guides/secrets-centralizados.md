@@ -68,6 +68,7 @@ scp secrets/generated/sumaenima.env ybyra:/home/ubuntu/homelab/sumaenima/.env   
 | Git push GitHub (espelho configs) | `~/.git-credentials` (edu, 0600) | ✅ 21/09 | `GH_PUSH_TOKEN` |
 | **Tailscale — GitOps da ACL** | secrets do repo `MNEMOCINE-ACL` (GitHub Actions) | ✅ 29/09 | `TS_OAUTH_ID`, `TS_AUDIENCE`, `TS_TAILNET` |
 | Backup de migração | `zomboid-server-kavure/archive/migration-20260805/.env` | n/a (histórico em archive) | — |
+| **Oracle Cloud (OCI)** | `~/.oci/config` + chave privada (psicopompo) | ✅ 08/10 | `OCI_*` |
 
 ## Segredos NÃO-.env (28/08/2026 — migrados para o store)
 
@@ -122,6 +123,21 @@ silenciosos, ambos registrados porque podem se repetir:
 > **decifrado do cofre inteiro** no terminal. O script agora **aborta** se detectar
 > `-x` ativo (`case "$-" in *x*)`), para impedir vazamento acidental — ocorrido em
 > 29/09/2026 e tratado como incidente.
+
+## Oracle Cloud (OCI) — API key (08/10/2026)
+
+As VMs Oracle (`ybytu`, `ybyra`) passaram a ser **gerenciadas por API, do terminal**. A
+credencial é uma **API key RSA**: a privada é gerada/guardada no **psicopompo** e só a
+**pública** foi enviada à OCI (via Cloud Shell, `oci iam user api-key upload`). No cofre ficam
+`OCI_USER_ID`, `OCI_TENANCY_ID`, `OCI_FINGERPRINT`, `OCI_REGION` e `OCI_PRIVATE_KEY_B64`
+(a chave privada em base64, com o rótulo de segurança da Oracle).
+
+**Restore** (reconstrói `~/.oci/config` + a chave privada):
+```bash
+/mnt/NVME_PCI/secrets/oci-restore.sh
+```
+
+> Guia completo (comandos, escopo, captura da ARM): [`guides/oracle-oci-cli.md`](oracle-oci-cli.md).
 
 ## Segurança
 

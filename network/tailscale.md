@@ -152,10 +152,19 @@ Host kavure
 
 ## Exit Nodes
 
-| Servidor | Status | Tráfego |
-|---|---|---|
-| psicopompo | ❌ (não oferece) | — |
-| ybytu | ✅ Ativo (**único** exit node) | Tráfego da tailnet |
+| Servidor | Oferece exit node? | Tráfego | Observação |
+|---|---|---|---|
+| **ybytu** (`100.115.253.109`) | ✅ sim (Oracle) | Tráfego da tailnet | **preferir este** — sai pela Oracle |
+| **kavure** (`100.124.146.77`) | ✅ sim (**casa**) | Tráfego da tailnet | ⚠️ sai pelo **link de casa (PPPoE 1492)** → sujeito ao problema de MTU (ver [`mtu-pppoe.md`](mtu-pppoe.md)) |
+| psicopompo | ❌ não oferece | — | — |
+
+> **Verificado em 07/10/2026** (`tailscale status --json`): **dois** nós anunciam exit node —
+> `ybytu-vnic` e `kavure`. A doc anterior dizia *"único exit node (ybytu)"* — **corrigido**.
+>
+> **Implicação prática:** quem escolher o **kavure** roteia pelo **link de casa** (PPPoE) —
+> exatamente onde a MTU mal ajustada causava ~30 % de falha em transferências grandes
+> (ver [`mtu-pppoe.md`](mtu-pppoe.md)). O **ybytu** (Oracle) **não** tem esse problema →
+> é a escolha recomendada para exit node.
 
 ### Uso
 
@@ -165,7 +174,7 @@ Em qualquer máquina cliente da tailnet:
 # Listar exit nodes disponíveis
 tailscale exit-node list
 
-# Usar ybytu como exit node (único exit node da tailnet)
+# Usar ybytu como exit node (recomendado — sai pela Oracle)
 tailscale set --exit-node=ybytu
 
 # Parar de usar exit node
@@ -323,7 +332,7 @@ O campo de conexão reportará `peer-relay` em vez de `relay` (DERP) ou `direct`
 
 ### IP Forwarding (para Exit Nodes)
 
-Ativado em **ybytu** (único exit node):
+Ativado em **ybytu** e **kavure** (os dois nós que anunciam exit node):
 
 ```bash
 echo 'net.ipv4.ip_forward=1' | sudo tee /etc/sysctl.d/99-tailscale.conf
