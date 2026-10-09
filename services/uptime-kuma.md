@@ -67,7 +67,7 @@ Criados via **Socket.IO** (a API do próprio app, não por edição do SQLite):
 | 2 | DNS · AdGuard (ybytu) | DNS (A) | `100.115.253.109` |
 | 3 | DNS · Caminho da casa | DNS (A) | `100.100.100.100` (corrida Tailscale) |
 
-> Estes três cobrem a cadeia inteira: se o `dnscrypt-proxy` do kavure morrer, o monitor 1 dispara; o 3 valida o que os aparelhos realmente usam.
+> Estes três cobrem a cadeia inteira: se o `unbound` (ou, na era anterior, o `dnscrypt-proxy`) do kavure morrer, o monitor 1 dispara; o 3 valida o que os aparelhos realmente usam. Ver [`unbound`](unbound.md).
 
 > **Histórico de migração:** anteriormente, Crafty/Minecraft e a API ficavam no Psicopompo, e *arr/HA no Kuaray. Após a consolidação no Kavure (08-09/2026), os probes de serviços foram remapeados para seus respectivos hosts reais.
 

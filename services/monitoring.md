@@ -4,7 +4,7 @@ tags: [homelab, service, grafana, prometheus, loki, monitoring]
 
 # Observabilidade — Grafana + Prometheus + Loki
 
-Stack de monitoramento central do homelab: métricas de host (node_exporter) + containers + discos (SMART) + systemd + backups + logs (promtail/Loki) + alertas (Alertmanager → ntfy).
+Stack de monitoramento central do homelab: métricas de host (node_exporter) + containers + discos (SMART) + systemd + backups + logs (promtail/Loki) + alertas (Alertmanager → **alertmanager-ntfy** → ntfy).
 
 **Servidor:** kavure
 **Grafana:** `http://kavure.chimaera-heptatonic.ts.net:3002` (admin, senha `GRAFANA_ADMIN_PASSWORD` no store sops)
@@ -55,7 +55,21 @@ Métricas custom via **textfile collector** (padrão homelab — sem containers 
 - **psicopompo:** promtail roda com `network_mode: host` (o bridge do container não roteia pro tailnet no exit node).
 - Limite de ingestão: 32 MB/s (ajustado 28/08 p/ o backlog inicial).
 
-## Alertas (Prometheus → Alertmanager → ntfy)
+## Alertas (Prometheus → Alertmanager → alertmanager-ntfy → ntfy)
+
+> **Bridge (09/10/2026):** o webhook do Alertmanager apontava **direto** para o tópico
+> `alerts` do ntfy — o `webhook_configs` do Alertmanager **não aceita template**, então o
+> payload JSON cru era publicado como mensagem (sem título): no celular virava um blob de
+> "código". Agora o caminho é **Alertmanager → `alertmanager-ntfy`** (container
+> `monitoring-alertmanager-ntfy`, imagem `ghcr.io/alexbakker/alertmanager-ntfy:1.2.1`,
+> `http://alertmanager-ntfy:8000/hook`, rede interna do compose) → ntfy `/alerts`.
+> - **Config:** `/srv/data/monitoring/alertmanager-ntfy/config.yml` (templates Go:
+>   título `🚨 Disparou`/`✅ Resolvido` + summary, descrição com alerta/host/início,
+>   `X-Click` → generatorURL, priority `urgent`/`default`, tags `rotating_light`/`+1`).
+> - **Healthcheck:** o binário `--health-check` (imagem `scratch`, sem shell).
+> - **Validação E2E (09/10):** payload de teste → mensagem formatada confirmada no `/alerts`.
+> - **Se o bridge cair:** o Alertmanager não consegue notificar (webhook retorna erro) —
+>   conferir `docker logs monitoring-alertmanager-ntfy`.
 
 | Alerta | Condição | Severidade |
 |---|---|---|
@@ -73,6 +87,14 @@ Métricas custom via **textfile collector** (padrão homelab — sem containers 
 > **Validação real (28/08):** ao subir, o sistema **já pegou** (a) o HDD do kuaray com 37 pending sectors (`SmartDiskError` firing) e (b) config-backup de ybytu/ybyra parado há ~7 dias por `Stale file handle` NFS (`BackupNotRun`). Ambos corrigidos no mesmo dia.
 >
 > **Alerta real (12/09):** EXPANSION-2TB (psicopompo, `/dev/sdg`) degradando ativamente — reallocated subiu de 280 → 25400 e surgiram 8 pending + 8 uncorrectable após a formatação ext4 (forçou remapeamento de setores ruins latentes). smartd reportou a queda do normalized 99→61 em tempo real. Disco em colapso; não usar para dados importantes.
+>
+> **Falsos positivos corrigidos (09/10/2026):** (a) `n8nDown`/`PrometheusDown` disparavam
+> a cada 4h desde 07/10 porque o job `n8n` ainda scrapeava o alvo antigo no kavure — a
+> stack Miracena (incl. n8n) migrou para o **kuaray** em 04/10; alvo corrigido para
+> `100.94.209.99:5678` (instance relabeled `kuaray`). (b) `BackupNotRun`
+> (scryfall-mirror) era falso: a reescrita do `scryfall-sync` em binário Rust (29/09)
+> perdeu o `touch` do health file — corrigido com `ExecStartPost` na unit (ver
+> [`scryfall-mirror`](scryfall-mirror.md)).
 
 ## Longo prazo (12/09)
 

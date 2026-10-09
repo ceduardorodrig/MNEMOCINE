@@ -37,7 +37,51 @@ docker/tailscale, reentrar no Swarm, restaurar configs do NAS/cofre). Mais traba
 > reconstrução. Reavaliar se vale reconstruir o ybyra, se convém **consolidar** (a ARM vira a
 > borda) ou se a ARM é realmente necessária.
 
-## O método
+## Runbook de reconstrução (o caminho real desta conta)
+
+> Como **não há imagem custom**, a redução é feita **reconstruindo** o host. O alvo é deixar a
+> nova instância **idêntica do lado de fora**: mesmo **nome**, mesmo **IP privado** e — o que mais
+> importa — mesmo **IP/nome na tailnet** (preservando o estado do Tailscale). O que muda é só o
+> **IP público** (efêmero), que nada funcional usa.
+
+### Fase 1 — Preservar (zero downtime)
+1. **Identidade Tailscale:** copiar `/var/lib/tailscale/` (o `tailscaled.state`) para o NAS.
+2. **Configs:** rodar `config-backup` (já OK) + confirmar `/etc` no bare repo (etckeeper).
+3. **Inventário** (capturado em 08/10): shape `VM.Standard.E2.1.Micro` · AD `WdCV:SA-SAOPAULO-1-AD-1`
+   · FD `FAULT-DOMAIN-2` · subnet `ocid1.subnet…dibma` · privado `10.0.0.40` · nome `ybyra` ·
+   imagem `Canonical Ubuntu 24.04`.
+4. **Chave SSH da instância** (metadata `ssh_authorized_keys`) — reaplicar no launch.
+
+### Fase 2 — Janela
+5. (Opcional) **Failover** da borda para o kavure → borda no ar durante o resto.
+6. **Terminar** o ybyra → libera 150 GB:
+   `oci compute instance terminate --instance-id <Y> --preserve-boot-volume false --force`
+7. **Criar** a nova instância (50 GB), **mesmo IP privado** e **mesmo nome**:
+   ```bash
+   oci compute instance launch -c "$T" \
+     --availability-domain "WdCV:SA-SAOPAULO-1-AD-1" \
+     --shape "VM.Standard.E2.1.Micro" --image-id <ubuntu-24.04-image-ocid> \
+     --subnet-id ocid1.subnet.oc1.sa-saopaulo-1.aaaaaaaaf32oeak5kdzfyqic5b4y77uxnffxdlyh5dlw2e4pyiipv53dibma \
+     --private-ip 10.0.0.40 --assign-public-ip true --boot-volume-size-in-gbs 50 \
+     --display-name ybyra \
+     --metadata '{"ssh_authorized_keys":"<chave capturada>"}' --wait-for-state RUNNING
+   ```
+
+### Fase 3 — Restaurar
+8. **Tailscale:** instalar, parar o serviço, **restaurar `/var/lib/tailscale/`**, subir →
+   **mesmo IP `100.66.224.34`** e mesmo nome na tailnet.
+9. **Docker:** instalar o engine + reentrar no Swarm:
+   `docker swarm join --token <worker-token> <kavure>:2377` (token via `docker swarm join-token worker` no manager).
+10. **Configs:** restaurar `/home/ubuntu/homelab/*` do NAS + o `.env` do cofre
+    (`sops-decrypt.sh` → `sumaenima.env`) e `docker compose up -d` nos standalone.
+11. **Rótulo do nó:** `docker node update --label-add role=primary ybyra` → o Swarm reagenda
+    `proxy`/`tunnel`/`umami` de volta ao ybyra.
+
+### Fase 4 — Validar
+12. `tailscale status` · `docker node ls` · Funnel (`curl -sI https://sumaenima.chimaera-heptatonic.ts.net`)
+    · healthchecks. Então **fail back** (se houve failover) e liberar a ARM.
+
+## O método (não se aplica a esta conta — custom-image-count = 0)
 
 1. **Imagem custom** da instância (preserva SO + estado, mas **desliga** o host durante o processo).
 2. **Verificar o tamanho da imagem** pela API (`oci compute image get` → `size-in-mbs`) **antes**
@@ -70,8 +114,15 @@ curl -sI https://sumaenima.chimaera-heptatonic.ts.net   # deve responder
 docker service scale sae-edge_proxy=0 sae-edge_tunnel=0 sae-edge_umami=0
 ```
 
-> ⚠️ **Validar antes:** esse failover é o procedimento previsto no `edge.yml`, mas
-> **não havia registro de teste**. Se não validar, a borda fica fora durante a janela.
+> **Testado em 08/10/2026 (após rotacionar a key):** o failover **funciona** — `proxy-standby`,
+> `umami-standby` e `tunnel-standby` sobem no kavure, e o Funnel do standby responde **HTTP 200**
+> (`https://sumaenima-1.chimaera-heptatonic.ts.net`), com o primário intacto (200 o tempo todo).
+> ⚠️ **Mas o URL muda:** o standby registra o nó **`sumaenima-1`** (o nome `sumaenima` é do
+> primário), então o Funnel **canônico não é preservado** no failover — durante a janela os
+> clientes precisam usar o URL `-1`.
+> ⚠️ O nó **`sumaenima-1` fica registrado** mesmo com o serviço em 0 → **deletar no console**, ou
+> usar auth key **efêmera** (`--ephemeral`) para ele sumir sozinho.
+> O teste é **100% reversível** (o primário nunca foi tocado).
 
 ### 1. Imagem custom + checagem de tamanho
 

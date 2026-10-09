@@ -69,6 +69,7 @@ scp secrets/generated/sumaenima.env ybyra:/home/ubuntu/homelab/sumaenima/.env   
 | **Tailscale — GitOps da ACL** | secrets do repo `MNEMOCINE-ACL` (GitHub Actions) | ✅ 29/09 | `TS_OAUTH_ID`, `TS_AUDIENCE`, `TS_TAILNET` |
 | Backup de migração | `zomboid-server-kavure/archive/migration-20260805/.env` | n/a (histórico em archive) | — |
 | **Oracle Cloud (OCI)** | `~/.oci/config` + chave privada (psicopompo) | ✅ 08/10 | `OCI_*` |
+| **Tailscale — auth key do Funnel (edge)** | `edge.yml` via `${TS_AUTH_KEY}` | ✅ 08/10 | `TS_AUTH_KEY` |
 
 ## Segredos NÃO-.env (28/08/2026 — migrados para o store)
 

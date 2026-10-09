@@ -125,7 +125,9 @@ Ordem atual (cloud no final):
 3. **⚠️ Evitar widget `customapi`** — renderiza um **painel** (não o chip padrão) e quebra fácil (ex: API error). Só usar se não houver alternativa e validar o visual.
 4. **Env vars**: para segredos/configs no gethomepage, definir no `.env` do config dir com o **prefixo `HOMEPAGE_VAR_`** (ex: `HOMEPAGE_VAR_CRAFTY_API_KEY=...`) e referenciar `{{HOMEPAGE_VAR_CRAFTY_API_KEY}}`. Sem o prefixo a var fica indefinida.
 5. **Serviços do swarm** (sae-core/sae-edge): badge via nome do serviço + `swarm: true` na instância do `docker.yaml` (dockerproxy com `SERVICES=1`).
-6. **⚠️ Serviços locais no Ybytu (mesmo host do Homepage):** NUNCA usar o IP Tailscale (`100.115.253.109`) com `siteMonitor` para containers que rodem em `network_mode: host` ou sem port forward DNAT. O container do Homepage roda em bridge e não alcança o IP Tailscale da própria máquina (`EHOSTUNREACH` via iptables `icmp-host-prohibited`, gerando erro 500 no dashboard). Para containers no Ybytu, monitorar sempre via Docker Socket (`server: ybytu`, `container: <nome>`), mantendo o `href` com o IP/URL público/tailnet para acesso do usuário pelo navegador.
+6. **⚠️ Serviços locais no Ybytu (mesmo host do Homepage):** NUNCA usar o IP Tailscale (`100.115.253.109`) com `siteMonitor` para containers que rodem em `network_mode: host` ou sem port forward DNAT. O container do Homepage roda em bridge e não alcança o IP Tailscale da própria máquina (`EHOSTUNREACH` via iptables `icmp-host-prohibited`, gerando erro 500 no dashboard). Para containers no Ybytu, monitorar sempre via Docker Socket (`server: ybytu`, `container: <nome>`), mantendo o `href` com o IP/URL público/tailnet para acesso do usuário pelo navegador. **(Atualização 08/10/2026:** o `EHOSTUNREACH` pressupunha o container do Homepage em bridge — verificado via `docker inspect`: ele roda em **`network_mode: host`** e `wget` de dentro dele alcançou `127.0.0.1:9096` **e** `ybytu:9096` com rc=0. O padrão recomendado acima (chip Docker Socket) segue válido; `siteMonitor` por nome também passou a funcionar.**)**
+
+7. **⚠️ `siteMonitor` só renderiza com `href`:** o Homepage **descarta silenciosamente** o `siteMonitor` de uma entrada **sem** `href` (verificado 08/10/2026 no JSON/HTML — o chip `service-site-monitor` só aparece quando há `href`). Toda entrada com chip precisa de `href` válido; se o serviço não tem UI, apontar para o próprio endpoint de status (padrão do tile *Unbound*: `href` + `siteMonitor` ambos em `http://kavure:9097`).
 
 > **08/10/2026 — correção dos `href`:** 6 links de serviços do **ybytu** estavam com
 > `http://127.0.0.1:PORT`, que abre no computador **do usuário** (não no ybytu) → o link
@@ -142,6 +144,33 @@ Ordem atual (cloud no final):
 > (ntfy 200, AdGuard 302, prowlarr 200, HA 200). ⚠️ **Os `siteMonitor` dos serviços
 > locais ao ybytu continuam em `127.0.0.1`** (o container não alcança o IP tailnet da
 > própria máquina — ver regra 6 acima). Backup: `services.yaml.bak-20261008-nomes`.
+
+> **08/10/2026 — 2ª passada (varredura de sobras):** 3 itens localizados fora do padrão, todos corrigidos: (1) **Crafty** `href` em FQDN
+> (`https://kavure.chimaera-heptatonic.ts.net:8444` → **`https://kavure:8444`** — o cert
+> é self-signed com SAN só do hostname do container, então FQDN e nome curto têm o
+> mesmo warning; igual aos demais `https://<nome>:PORT`); (2)+(3) os dois `siteMonitor`
+> do **wol-relay** `http://127.0.0.1:9096/health` → **`http://ybytu:9096/health`**,
+> testado de dentro do container (`wget` rc=0 nos dois formatos). **Motivo:** o container
+> do Homepage hoje roda em **`network_mode: host`** (verificado via `docker inspect`) —
+> o `EHOSTUNREACH` da regra 6 (bridge) não se aplica mais. **Estado final:** zero
+> `127.0.0.1` e zero IP tailnet no `services.yaml`; FQDN mantidos **só** nos Funnels
+> públicos (`sumaenima.*` e `miracena.*` — URL pública, é o nome correto ali).
+> Backup: `services.yaml.bak-20261008-magicdns`.
+
+> **08/10/2026 — `minecraft-status` (HEAD):** o `siteMonitor` do Minecraft acusava
+> `<httpProxy> Error` a cada probe porque o endpoint nativo respondia **HEAD com corpo**
+> (violação RFC 7231 §4.3.2 — o parser do Node rejeita). Corrigido no binário Rust
+> (`SUMAENIMA-HUB/provisioning/minecraft-status`): HEAD devolve só cabeçalhos. Validado:
+> `HEAD ×3` → 200 corpo vazio, **0 erros** no log em 100 s; chip verde com o jogo ligado
+> (503/vermelho com ele parado — estado real). Ver [`minecraft-status.md`](minecraft-status.md).
+
+> **08/10/2026 — tile "Unbound" (chip Docker inválido → mini endpoint):** a entrada usava
+> `server: kavure` + `container: unbound`, mas o unbound é **nativo (systemd)** — não existe
+> container com esse nome → o Homepage mostrava **"not found"**. Pela convenção (**serviço
+> nativo sem HTTP → mini endpoint HTTP de status + `siteMonitor`**), foi criado o
+> **`unbound-status`** (`:9097`, Rust, em `SUMAENIMA-HUB/provisioning/unbound-status/`) e a
+> tile passou a usar `siteMonitor: http://kavure:9097` — chip de **ms** real (503/vermelho
+> com o unbound parado, provado). Backup: `services.yaml.bak-20261008-unbound-status`.
 
 ### Ícones custom (config/icons/)
 

@@ -85,7 +85,7 @@ graph TD
 | `3100/tcp` | `100.124.146.77` / `tailscale0` | **Loki** | Coletor e indexador central de logs do homelab | [`../services/`](../services/) |
 | `3003/tcp` | `100.124.146.77` / `tailscale0` | **Miracena Nuxt** | Frontend web do projeto Miracena | [`../servers/kavure.md`](../servers/kavure.md) |
 | `4533/tcp` | `100.124.146.77` / `tailscale0` | **Navidrome** | Servidor de streaming de áudio pessoal | [`../servers/kavure.md`](../servers/kavure.md) |
-| `5678/tcp` | `100.124.146.77` / `tailscale0` | **n8n** | Plataforma de automação de workflows | [`../servers/kavure.md`](../servers/kavure.md) |
+| `5678/tcp` | `100.94.209.99` / `tailscale0` | **n8n** | Plataforma de automação de workflows (migrou kavure → kuaray em 04/10/2026) | [`../services/n8n.md`](../services/n8n.md) |
 | `8000/tcp` | `100.124.146.77` / `tailscale0` | **Comet** | Addon Stremio e indexador | [`../services/comet.md`](../services/comet.md) |
 | `8055/tcp` | `100.124.146.77` / `tailscale0` | **Directus** | Headless CMS e API do ecossistema | [`../servers/kavure.md`](../servers/kavure.md) |
 | `8080/tcp` | `100.124.146.77` / `tailscale0` | **SearXNG Core** | Metabusca privada e livre de rastreamento | [`../servers/kavure.md`](../servers/kavure.md) |

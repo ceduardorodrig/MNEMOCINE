@@ -58,6 +58,17 @@ Padrão `soft` + `x-systemd.automount` (nunca `hard`). Ver `network/nfs.md`.
 
 Script `scryfall-sync` (`/usr/local/bin`): checa `updated_at` vs `bulk/.last_updated` (idempotente), baixa `default-cards.jsonl.gz` se novo, grava health file `/srv/health/scryfall-mirror-last-ok`. **Nunca lista `cards/`** (só toca `bulk/`, dir pequeno).
 
+> ⚠️ **Health file via systemd (09/10/2026):** o script foi reescrito como **binário Rust**
+> em 29/09/2026 (`rustc 1.97`, fonte em `provisioning/scryfall-sync`) e a reescrita **perdeu
+> o `touch` do health file** — o sync continuava rodando perfeitamente (exit 0), mas
+> `/srv/health/scryfall-mirror-last-ok` parou de subir em 29/09 → alerta `BackupNotRun`
+> **falso positivo por ~9 dias**. Corrigido sem rebuild: `ExecStartPost=/usr/bin/touch
+> /srv/health/scryfall-mirror-last-ok` em `hl-scryfall-mirror.service` (roda **só** em
+> exit 0; se o sync falhar, a unit falha e o `OnFailure=notify-backup-failure@` notifica
+> o ntfy `/backup`). Backup da unit: `hl-scryfall-mirror.service.bak-20261009`.
+> **Pendência:** replicar o `touch` na fonte Rust (`provisioning/scryfall-sync`) para a
+> unit não ser o único lugar que garante o health.
+
 **Prefetch** (`/tmp/prefetch-shard.py` → `/var/log/scryfall-prefetch.log` local): resumível (skip exists), 4 workers, `--limit-rate 2M`, `nice -19 ionice -c3`. On-demand também funciona: cache miss no front baixa 1 imagem via `get_or_cache_card_image` (path sharded, fallback CDN).
 
 ## Backup

@@ -341,12 +341,12 @@
       "schedule_cron": "25 5 * * *",
       "tz": "America/Sao_Paulo",
       "command": "hl-n8n-backup.timer (systemd unit)",
-      "purpose": "Dump diário do Postgres do n8n (workflows/creds/anexos) -> NFS psicopompo /mnt/BACKUP/n8n-server-kavure/daily/ (retenção 14d)",
-      "enabled": true,
+      "purpose": "Dump diário do Postgres do n8n -> NFS (DESATIVADO: dumps ficaram com 20 bytes apos a migracao da stack Miracena p/ kuaray em 04/10/2026; coberto por hl-miracena-backup no kuaray 05:35)",
+      "enabled": false,
       "notify": "ntfy /backup (falha)",
       "health_file": null,
       "doc": "services/n8n.md",
-      "notes": "Criado 28/08/2026 junto ao deploy do n8n"
+      "notes": "Criado 28/08/2026 junto ao deploy do n8n. Timer desabilitado + fstab /srv/data/n8n/offbox removidos em 09/10/2026 (unit ficava failed todo dia)"
     },
     {
       "id": "timeshift-hourly-kuaray",

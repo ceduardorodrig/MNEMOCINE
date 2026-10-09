@@ -43,6 +43,7 @@ Painel de gerenciamento de servidores Minecraft.
 | `8123` | Mapa dinâmico |
 | `5520-5550` | Proxy/portais |
 | `19132` | Bedrock |
+| `9095` | Endpoint de status SLP (nativo) — ver [minecraft-status.md](minecraft-status.md) |
 
 ## Acesso
 
