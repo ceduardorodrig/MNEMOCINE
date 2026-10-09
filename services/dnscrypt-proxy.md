@@ -4,8 +4,34 @@ tags: [homelab, service, dnscrypt, dns, kavure]
 
 # dnscrypt-proxy
 
+> ## ⛔ DESATIVADO em 08/10/2026 — substituído pelo [`unbound`](unbound.md) · **COLD STORAGE**
+>
+> O egress anonimizado custava **353 ms por consulta fria** (dois saltos EUA, sem relay
+> na América do Sul) e a navegação ficou lenta. O **unbound recursivo nativo** assumiu a
+> porta `5053` — os upstreams do Pi-hole/AdGuard **não mudaram de endpoint**, só o que
+> há atrás deles. Metodologia completa em [`../guides/cold-storage-servicos.md`](../guides/cold-storage-servicos.md).
+>
+> **Congelamento aplicado (08/10/2026):**
+> - `profiles: ["cold"]` + `restart: "no"` no compose (backup `compose.yml.bak-20261008-cold`)
+>   → o `docker compose up -d` da rotina **nem enxerga** o serviço;
+> - container `exited` com policy `no` (`docker update --restart=no`);
+> - **fail-closed provado:** subir de propósito → `[FATAL] listen udp4 127.0.0.1:5053:
+>   bind: address already in use`, exit 255, **sem crash-loop**, unbound intacto;
+> - **backup provado:** `/srv/data/dnscrypt-proxy/` (compose + `.bak` + `config/`)
+>   espelhado no NAS via `hl-config-backup` (execução manual confirmada 08/10).
+>
+> **Rollback (reativação):**
+> ```bash
+> systemctl stop unbound                                  # libera a 5053
+> # reverter hl-dns-watchdog.service: --service unbound → --container dnscrypt-proxy
+> cd /srv/data/dnscrypt-proxy && docker compose --profile cold up -d
+> docker update --restart=unless-stopped dnscrypt-proxy   # policy antiga (opcional)
+> ```
+> (Reverter também o watchdog: `--service unbound` → `--container dnscrypt-proxy`.)
+> Este doc ficou como **referência histórica e de rollback**.
+
 Camada de **egress DNS cifrado e anonimizado** do homelab — roda no **kavure**, atrás do
-Pi-hole (ver [`pihole.md`](pihole.md)).
+Pi-hole (ver [`pihole.md`](pihole.md)). **Desativado em 08/10/2026** (ver nota acima).
 
 **Servidor:** kavure
 **Imagem:** `klutchell/dnscrypt-proxy@sha256:8911f7478837d42fa2c54504058b843415294c19233d424c5730987b05d987d7` (dnscrypt-proxy **2.1.18**)
@@ -110,21 +136,24 @@ idêntico ao DNS plano (que era ~18 ms).
 
 ## Operação
 
+> ⛔ Serviço em **cold storage** desde 08/10/2026 — qualquer comando de gestão do
+> container exige o perfil: `docker compose --profile cold ...`.
+
 ```bash
 cd /srv/data/dnscrypt-proxy
-docker compose ps
-docker logs --tail 50 dnscrypt-proxy      # pares "Anonymizing ... via ..."
-docker compose restart
+docker compose --profile cold ps
+docker logs --tail 50 dnscrypt-proxy      # pares "Anonymizing ... via ..." (se ativo)
+docker compose --profile cold restart      # só com unbound parado (porta 5053)
 ```
 
-### Watchdog (Rust) — `hl-dns-watchdog`
+### Watchdog (Rust) — `hl-dns-watchdog` (**repontado em 08/10 para o unbound**)
 
 A imagem é *distroless* (sem shell), então **não aceita healthcheck interno**. A cobertura
-vem de um **watchdog externo em Rust** (`scripts/dns-watchdog/`, binário em
+vinha de um **watchdog externo em Rust** (`scripts/dns-watchdog/`, binário em
 `/usr/local/bin/dns-watchdog` no kavure), disparado por `hl-dns-watchdog.timer` a cada
-**2 min**: consulta `127.0.0.1:5053` e, se não houver resposta após 3 tentativas,
-`docker restart dnscrypt-proxy`. Cobre o caso "travado", que o `restart: unless-stopped`
-sozinho não cobre. Log: `journalctl -u hl-dns-watchdog.service`.
+**2 min**. **Desde 08/10/2026** a unit roda `--service unbound` (flag nova no binário) e
+faz `systemctl restart unbound` — ver [`unbound.md`](unbound.md). Restaurar o proxy exige
+reverter a unit para `--container dnscrypt-proxy`. Log: `journalctl -u hl-dns-watchdog.service`.
 
 ### Consumo pelo AdGuard (Opção A — 06/10/2026)
 
@@ -141,7 +170,7 @@ anonimizado** e quem vence a corrida não importa mais. Verificado por captura
 > [#7346](https://github.com/AdguardTeam/AdGuardHome/issues/7346),
 > [#7390](https://github.com/AdguardTeam/AdGuardHome/issues/7390)); `tcp://` é protocolo
 > **oficialmente suportado**. Com TCP: **8/8**. O Pi-hole segue em UDP pelo loopback (rápido e
-> estável) e vence a corrida.
+> estável); a corrida **não tem vencedor fixo** (ver [`network/dns.md`](../network/dns.md)).
 
 ### Dashboard
 

@@ -33,17 +33,20 @@ Regras de aplicação:
   blocos multi-linha) e **validar o YAML** (`docker compose config -q`) antes de recriar.
 - Backup do compose antes de editar (`*.bak-YYYYMMDD-healthcheck`).
 
-## Exceção: distroless → watchdog externo
+## Exceção: distroless → watchdog externo *(caso histórico)*
 
-`dnscrypt-proxy` (kavure) usa imagem **sem shell** → não aceita healthcheck interno. Coberto
-por [`scripts/dns-watchdog`](../../scripts/dns-watchdog/) (Rust) + `hl-dns-watchdog.timer`
-(2 min) no kavure — cobre até o caso "processo travado".
+`dnscrypt-proxy` (kavure) usava imagem **sem shell** → não aceitava healthcheck interno.
+Coberto por [`scripts/dns-watchdog`](../../scripts/dns-watchdog/) (Rust) + `hl-dns-watchdog.timer`
+(2 min) no kavure — cobre até o caso "processo travado". **Desde 08/10/2026** o proxy está
+desativado e o mesmo watchdog cobre o **`unbound` nativo** via `--service unbound` (systemd
+não detecta "processo vivo mas mudo" sozinho — a sonda com label único também pega upstream
+quebrado).
 
 ## Cobertura (07/10/2026)
 
 | Host | Com healthcheck | Pendente |
 |---|---|---|
-| **kavure** | 14 (monitoring, searxng, HA, navidrome, node-exporter, glances, dockerproxy, crafty, pihole…) + `dnscrypt-proxy` via watchdog + `sae-core_backup` (Swarm) | — (ver órfão abaixo) |
+| **kavure** | 14 (monitoring, searxng, HA, navidrome, node-exporter, glances, dockerproxy, crafty, pihole…) + `unbound` via watchdog (08/10) + `sae-core_backup` (Swarm) | — (ver órfão abaixo) |
 | **kuaray** | 16 (miracena-*, *arr, transmission, syncthing, glances, promtail, node-exporter, dockerproxy) | — |
 | **ybytu** | 8 (adguardhome, changedetection, glances, promtail, node-exporter, ntfy, dockerproxy, homepage, uptime-kuma) | — |
 | **ybyra** | 6 (glances, promtail, node-exporter, dockerproxy, edge proxy/tunnel, **umami** via Swarm) | — |

@@ -51,12 +51,12 @@ O problema é uma propriedade do **link de casa**. Só é atingido quem **cruza 
 | Pessoa leiga na tailnet (só Tailscale + DNS, sem exit node) | ✅ sai pela internet dela | ✅ ok na prática |
 | Quem usar **kavure** como exit node | ⚠️ **impactado** (sai pelo link de casa) | — |
 
-**Por que o DNS de todos não dói, apesar de centralizado no kavure** (o egress anonimizado
+**Por que o DNS de todos não dói, apesar de centralizado no kavure** (o egress local
 passa pelo link de casa — ver [`dns.md`](dns.md)):
 
 1. DNS é tráfego **pequeno** → imune ao problema (medido **40/40 = 100 %**);
-2. **Fallback DoT** do AdGuard (`tls://9.9.9.9`/`1.1.1.1`) cobre queda do proxy/kavure;
-3. Cache (Pi-hole 10 k + proxy 16 k).
+2. **Fallback DoT** do AdGuard (`tls://9.9.9.9`/`tls://1.1.1.1`) cobre queda do unbound/kavure;
+3. Cache (Pi-hole 10 k + unbound 32m/64m).
 
 ## Correção
 
@@ -157,6 +157,6 @@ pacote grande — travando na abertura), **não** o servidor de terceiros.
 
 ## Ver também
 
-- [`dns.md`](dns.md) — cadeia de DNS e egress anonimizado (também depende do link de casa)
+- [`dns.md`](dns.md) — cadeia de DNS e egress recursivo local (também depende do link de casa)
 - [`tailscale.md`](tailscale.md) — exit nodes (kavure = link de casa; ybytu = Oracle)
 - [`../servers/psicopompo.md`](../servers/psicopompo.md) — host onde o paliativo foi aplicado

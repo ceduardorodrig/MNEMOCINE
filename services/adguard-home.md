@@ -24,16 +24,18 @@ Roda **apenas como container Docker**. Não existe instância nativa no host:
 
 > **Correção de doc antiga:** a versão anterior afirmava que "o binário nativo (`/opt/adguardhome/`) é a instância ativa". Errado: `/opt/adguardhome` é o caminho **de dentro do container** e não existe no host. O processo que aparecia no `ps aux` do host com esse caminho era o do próprio container (pai = `containerd-shim-runc-v2`) — investigado em 06/10 antes de qualquer mudança para evitar apagar um processo legítimo.
 
-## Papel na rede — failover do Pi-hole
+## Papel na rede — co-resolvedor (corrida com o Pi-hole)
 
-Serve como **segunda linha** do [`Pi-hole`](pihole.md) (detalhes em [`network/dns.md`](../network/dns.md)):
+Serve em **paralelo** ao [`Pi-hole`](pihole.md) (detalhes em [`network/dns.md`](../network/dns.md)):
 a Tailscale encaminha cada consulta para os dois resolvers **em paralelo** (corrida) e usa
-a primeira resposta. Medido em 06/10/2026:
+a primeira resposta. **Não é só failover:** a medição de 08/10/2026 mostra que o vencedor
+não é fixo — o AdGuard ganha sempre que tem o nome em cache e o Pi-hole não. Medições:
 
 | Métrica | Pi-hole (kavure) | AdGuard (ybytu) |
 |---|---|---|
-| Latência | ~2 ms (LAN, cache) | ~66 ms (Oracle + DoH) |
-| Vence a corrida | quase sempre | quando o kavure está lento/caiu |
+| Latência | ~2 ms (LAN, cache) | ~66 ms (Oracle + tailnet) |
+| Vence quando **os dois** têm em cache | ✅ (2 ms) | — |
+| Vence quando **só ele** tem em cache | — (~290 ms) | ✅ (35–92 ms) |
 | Tráfego real | ~5 M consultas/28 d | recebe **todas** as corridas + tráfego local |
 
 > **Limitação de cliente:** como a porta é publicada pelo Docker (userland-proxy), o
@@ -82,7 +84,8 @@ Espelho dos **deny exatos do Pi-hole** + vazamentos medidos:
 ## Upstreams
 
 ```
-tcp://100.124.146.77:5053    (Opção A — proxy anonimizado do kavure, 06/10/2026)
+tcp://100.124.146.77:5053    (unbound recursivo do kavure — endpoint inalterado desde 06/10;
+                               até 08/10/2026 havia um dnscrypt-proxy atrás dele)
 ```
 
 **Fallback (cifrado, 06/10/2026):** `fallback_dns = ['tls://9.9.9.9', 'tls://1.1.1.1']`
@@ -92,8 +95,8 @@ vazio (uma falha de DoH derrubava a resolução).
 **Cache:** `cache_optimistic = true` — responde com cache expirado enquanto revalida.
 
 > **Por que TCP e não UDP (pendência ENCERRADA — 07/10/2026):** o caminho UDP do dnsproxy
-> apresentou timeouts intermitentes (4/6) para o proxy do kavure, enquanto sockets UDP crus
-> passavam 6/6 e 20/20 numa rajada — ou seja, **não é a rede nem o proxy**. Pesquisa nas fontes
+> apresentou timeouts intermitentes (4/6) para o upstream do kavure, enquanto sockets UDP crus
+> passavam 6/6 e 20/20 numa rajada — ou seja, **não é a rede**. Pesquisa nas fontes
 > oficiais mostrou que é uma **classe de bug conhecida do AdGuard Home com UDP**:
 > [issue #7628](https://github.com/AdguardTeam/AdGuardHome/issues/7628) (timeouts esporádicos em
 > UDP — o relator registra explicitamente que **o Pi-hole, com os MESMOS upstreams, não tem
@@ -102,8 +105,15 @@ vazio (uma falha de DoH derrubava a resolução).
 > [#7390](https://github.com/AdguardTeam/AdGuardHome/issues/7390).
 >
 > **`tcp://` é protocolo oficialmente suportado** ("Regular DNS (over TCP)", na doc de upstreams
-> do AGH) — não é gambiarra. Com TCP: **8/8**. Como o AdGuard é o **failover** (o Pi-hole vence a
-> corrida), a latência maior não afeta o dia a dia. **Pendência fechada.**
+> do AGH) — não é gambiarra. Com TCP: **8/8**. *Nota 08/10 (corrigida no mesmo dia):* os `EOF`
+> intermitentes (`exchange failed ... over tcp: EOF`) **não eram do dnscrypt** — persistiram
+> com o unbound (123 em 50 min) até a causa raiz: `incoming-num-tcp: 10`/thread (20
+> simultâneas) estourava em rajada e o unbound fechava as conexões excedentes. **Corrigido**
+> (`incoming-num-tcp: 64`) e provado: 216 TCP paralelas → 0 EOF e **0 erros** no AdGuard
+> pós-fix — ver [`unbound.md`](unbound.md), seção *Correção TCP*. O AdGuard **não é só
+> failover** (a corrida não tem vencedor fixo — ver [`network/dns.md`](../network/dns.md)),
+> mas em nenhum momento houve perda de internet.
+> **Pendência fechada com causa raiz identificada.**
 
 ## Instância (revisado 06/10/2026)
 
@@ -118,9 +128,9 @@ vazio (uma falha de DoH derrubava a resolução).
 Foi instalado um `dnscrypt-proxy` local no ybytu (bind `172.17.0.1:5053`) para dar
 **anonimato** ao failover; chegou a funcionar, mas apresentou **instabilidade recorrente a
 partir da Oracle** (`[ERROR] Resolver couldn't be reached anonymously`). **Superado pela
-Opção A**: o AdGuard agora consome o proxy **do kavure**, centralizando e mantendo o
-failover (que degrada para o `fallback_dns` cifrado). A config local ficou estagiada em
-`/home/ubuntu/homelab/dnscrypt-proxy/`.
+Opção A**: o AdGuard passou a consumir o upstream do **kavure** (o `dnscrypt-proxy` até
+08/10/2026, o `unbound` daí em diante), mantendo o failover (que degrada para o
+`fallback_dns` cifrado). A config local ficou estagiada em `/home/ubuntu/homelab/dnscrypt-proxy/`.
 
 ## Querylog e estatísticas
 

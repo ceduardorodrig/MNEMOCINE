@@ -343,3 +343,22 @@ sudo sysctl -p /etc/sysctl.d/99-tailscale.conf
 ### Key Expiry
 
 Desabilitado nos servidores via admin console do Tailscale.
+
+## Auth key do Funnel (edge) — `TS_AUTH_KEY` (08/10/2026)
+
+O container `tunnel`/`tunnel-standby` do stack `sae-edge` registra o nó `sumaenima` no Funnel via
+uma **auth key pré-autorizada**. Ela estava **em texto puro** no `edge.yml` (2 ocorrências) e
+num arquivo legado **versionado** — vazamento real.
+
+- **Corrigido:** a key foi para o **cofre sops** (`TS_AUTH_KEY`) e o `edge.yml` passou a usar
+  `${TS_AUTH_KEY}`, interpolado pelo `deploy-swarm.sh` (`set -a; source .env`). O arquivo legado
+  foi redigido. Inventário: [`guides/secrets-centralizados.md`](../guides/secrets-centralizados.md).
+- **⚠️ ROTAÇÃO PENDENTE (ação do usuário):** como a key **já está no histórico do git**, ela deve
+  ser **revogada e recriada** no console do Tailscale (*Settings → Keys*). Depois, atualizar
+  `TS_AUTH_KEY` no store sops + `gen-envs.sh` → `sumaenima.env` → deploy.
+- **Escopo:** pré-autorizada; confirmar as *tags* no console ao recriar (para marcar o dispositivo).
+- **Teste do failover (08/10/2026):** com a key **rotacionada**, o `tunnel-standby` **autentica** e o
+  Funnel do standby responde **HTTP 200** (`sumaenima-1…ts.net`) — o failover **funciona**, mas
+  registra um nó **`sumaenima-1`** (URL diferente do canônico). ⚠️ Esse nó **fica na tailnet** mesmo
+  com o serviço em 0 → deletar no console, ou usar auth key **efêmera** para sumir sozinho.
+- **Recomendação:** usar uma auth key **efêmera** para o standby (auto-remove ao desligar).

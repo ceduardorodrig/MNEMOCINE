@@ -30,8 +30,8 @@ tags: [homelab, server, ybyra, docker, monitoring, tailscale]
 | **Kernel** | 6.17.0-1020-oracle |
 | **CPU** | AMD EPYC 7551 32-Core (2 vCPUs — 1 core/2 threads, Oracle free tier) |
 | **RAM** | 954 MB |
-| **Disco Sistema** | 150 GB — Boot Volume (Oracle Block Storage) — `sda1` ext4 — 2% usado (3 GB) |
-| **Swap** | 12 GB (12.287 MB) — ~569 MB em uso (medido 06/10/2026) |
+| **Disco Sistema** | **50 GB** — Boot Volume (Oracle Block Storage) — `sda1` ext4 — recriado 08/10/2026 (era 150 GB) |
+| **Swap** | 4 GB (4.095 MB) — recriado 08/10/2026 |
 | **Tailscale IP** | 100.66.224.34 |
 | **Tailscale DNS** | ybyra.chimaera-heptatonic.ts.net |
 | **Rede** | Oracle internal network (`ens3`: 10.0.0.40/24) |
@@ -136,3 +136,47 @@ tags: [homelab, server, ybyra, docker, monitoring, tailscale]
 - **Lição:** `x-systemd.automount` pode ficar **dead** após reboot sem que o mount pareça
   quebrado (segue servindo de um estado velho) — a falha só aparece quando o handle expira.
   Ver [`backups/config-backup.md`](../backups/config-backup.md) → "Incidente 08/10/2026".
+
+## 08/10/2026 — RECONSTRUÇÃO do host: 150 GB → 50 GB (destrava a ARM)
+
+O boot volume era de **150 GB** e a cota *Always Free* (200 GB) estava cheia — sem espaço para a
+VM ARM. Como a OCI **não encolhe** volume e a tenancy tem **`custom-image-count: 0`** (sem
+imagem custom), a única saída foi **terminar e recriar** o host menor. Runbook:
+[`guides/oci-shrink-boot-volume.md`](../guides/oci-shrink-boot-volume.md).
+
+**Sequência executada:**
+1. **Backup** do boot volume de 150 GB (`bootvolumebackup…`, rede de segurança) + staging do
+   estado Tailscale (`/var/lib/tailscale` → mantido em `/mnt/BACKUP/ybyra-pre-rebuild/tailscale/`)
+   e do SPA (`/var/www/sumaenima`, que **entrou no espelho** depois).
+2. **Failover** da borda para o **kavure** (standbys do `sae-edge`) — borda no ar durante tudo.
+3. **Terminar** o ybyra antigo → liberou 150 GB.
+4. **Criar** o novo ybyra: Ubuntu 24.04, **50 GB**, IP privado fixo `10.0.0.40`, nome `ybyra`.
+5. **Restaurar**: Tailscale (identidade `100.66.224.34`), Docker + reentrar no Swarm, `daemon.json`,
+   fstab (NFS + swap), configs do espelho, SPA e o `.env` do cofre.
+6. **Fail back** → borda de volta ao ybyra (URL canônico **200**).
+
+**Novo instance OCID:** `ocid1.instance.oc1.sa-saopaulo-1.antxeljr7bfkjrycmelegdv3qris5li7qr67zdgh7gsvh2qdszmv32xuthla`
+**Cota agora:** ybytu 50 + ybyra 50 = **100 GB** (100 livres → a ARM cabe).
+
+**Achados desta operação:**
+- ⚠️ **O estado do Tailscale do container `tunnel` mora no volume do ybyra** — ao recriar o host,
+  ele se perde e o túnel **re-registra** com o `TS_AUTH_KEY`. Por isso a auth key **precisa** ser
+  válida (a rotação de hoje foi o que salvou).
+- ⚠️ **`sumaenima-umami:latest` (2.5 GB) não está no registry** — é imagem local do kavure/kuaray.
+  No host novo ela **não existe** → o serviço `umami` fica `Rejected`. Corrigido copiando a
+  imagem; **débito:** publicar a `sumaenima-umami` no registry (hoje só `nginx-sumaenima` e
+  `sumaenima-server` estão lá).
+- O `swarm join --token … 100.124.146.77:2377` e o rótulo `docker node update --label-add role=primary ybyra`
+  restauraram a participação no Swarm.
+- ⚠️ **`umami` travado pelo `autoheal`:** o `autoheal` deste host roda com
+  `AUTOHEAL_CONTAINER_LABEL=all` e **reiniciava o `umami`** antes de ele subir (o healthcheck na
+  `:3000` falha nos primeiros ~60 s de boot). Só estabilizou com o `autoheal` **pausado** durante o
+  start. **Débito:** aumentar o `start_period` do healthcheck do `umami` no `edge.yml` (hoje 30 s).
+- 🔧 **Tooling de operação reinstalado:** host novo não traz `/usr/local/bin` nem units. Instalados
+  via `SUMAENIMA-HUB/provisioning/scripts/install-homelab-tools.sh --host ybyra config-backup etckeeper-push`
+  + `/etc/config-backup.conf` + units `hl-config-backup.{service,timer}` e `hl-etckeeper-push.{service,timer}`
+  (**com `RequiresMountsFor=/srv/backup-configs`** — os units do repo têm `/mnt/BACKUP`, que é do
+  psicopompo) + `etckeeper init`. Backup validado à mão: **OK**.
+- 🆕 **SPA entrou no backup:** `/var/www/sumaenima` adicionado ao `SRC_DIRS` (antes ficava **fora**
+  do espelho — só existia no host). No espelho vira `ybyra/sumaenima/` (basename; não colide com o
+  app, que é `ybyra/homelab/sumaenima/`).

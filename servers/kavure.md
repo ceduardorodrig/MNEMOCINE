@@ -108,7 +108,7 @@ tags: [homelab, server, kavure, docker, storage, gaming, todo]
 - Servidor de jogos — **Project Zomboid** (Docker — `danixu86/project-zomboid-dedicated-server`, **ativo** desde 06/08/2026) + **Minecraft Dominium** (Crafty, **ativo** desde 08/08/2026 — ver [`crafty`](../services/crafty.md)) + **Valheim** (Docker — `mbround18/valheim:3`, **ativo** desde 09/09/2026 — ver [`valheim-server`](../services/valheim/valheim-server.md))
 - Painel de gestão do Zomboid (Zomboid Control Panel)
 - Monitoramento — **Glances ativo** (`:61208`, 07/08/2026); **watchtower** (auto-update, schedule 03:00 BRT) e **autoheal** ativos; portainer planejado
-- **DNS — primário da tailnet + egress anonimizado (06/10/2026)** — Pi-hole (container `network_mode: host`, escuta só em `tailscale0`) é o resolvedor que vence a corrida; o **único** upstream é o `dnscrypt-proxy` local (**Anonymized DNSCrypt**, `127.0.0.1:5053`), que também atende o AdGuard do ybytu pela tailnet (`100.124.146.77:5053`). **Watchdog em Rust** (`hl-dns-watchdog.timer`, 2 min) reinicia o proxy se ele parar de responder. Ver [`pihole`](../services/pihole.md) e [`dnscrypt-proxy`](../services/dnscrypt-proxy.md)
+- **DNS — primário da tailnet + egress recursivo (08/10/2026)** — Pi-hole (container `network_mode: host`, escuta só em `tailscale0`) é **um dos dois** resolvedores da corrida da tailnet (sem vencedor fixo — [`network/dns.md`](../network/dns.md)); o **único** upstream é o **`unbound` recursivo nativo** (`127.0.0.1:5053`, DNSSEC, apt), que também atende o AdGuard do ybytu pela tailnet (`100.124.146.77:5053`). Substituiu o `dnscrypt-proxy` (Anonymized DNSCrypt) que custava 353 ms frios. **Watchdog em Rust** (`hl-dns-watchdog.timer`, 2 min) reinicia o **unbound** se ele parar de responder. Ver [`unbound`](../services/unbound.md), [`pihole`](../services/pihole.md) e [`dnscrypt-proxy`](../services/dnscrypt-proxy.md) (desativado, rollback)
 - **Miracena Stack (migrada para o Kuaray em 04/10/2026):** Todos os containers (Directus, WordPress, Nuxt3, n8n, NPM, PostgreSQL, MariaDB, Redis, Tailscale Funnel) e volumes foram transferidos para o Kuaray via rede cabeada, liberando ~1 GB de RAM ativa e 17+ GB de disco no Kavure. O backup automático local e a montagem NFS foram desativados. Ver [`miracena-stack`](../services/miracena-stack.md) e [`kuaray`](kuaray.md).
 
 ## Layout de Storage
@@ -126,7 +126,7 @@ Atual (após merge LVM em 06/08/2026):
 ```
 /srv/data/zomboid/    ← Docker Zomboid (danixu86/project-zomboid-dedicated-server)
 /srv/data/pihole/     ← Pi-hole (DNS primário da tailnet) + gravity.db adlists
-/srv/data/dnscrypt-proxy/ ← dnscrypt-proxy (egress DNS anônimo do Pi-hole, 06/10/2026)
+/srv/data/dnscrypt-proxy/ ← ⛔ dnscrypt-proxy (DESATIVADO 08/10/2026, mantido p/ rollback; upstream agora é o unbound nativo — /etc/unbound)
 /srv/data/ops/        ← stack de infra (autoheal, watchtower, glances)
 /srv/data/sumaenimahub/ ← código + volumes + backup do Sumænimá sae-core (07/08/2026)
 /srv/data/sumaenimahub/SUMAENIMA-HUB  ← repo de deploy (⚠️ ver nota abaixo)
@@ -188,10 +188,14 @@ as reconhece e **não** as acusa como órfãs.
 |-------|---------|---------|--------|
 | `hl-config-backup.timer` | 05:00 | Configs do host | rsync → NAS |
 | `hl-zomboid-backup.timer` | 05:15 | Project Zomboid | rsync → NAS |
-| `hl-n8n-backup.timer` | 05:25 | n8n (PostgreSQL) | pg_dump → NAS |
-| `hl-miracena-backup.timer` | 05:35 | Miracena Stack | pg_dump + mysqldump + rsync → NAS |
-| `hl-sumaenima-backup.timer` | 03:00 | Sumænimá | Borg + pg_dump → NAS |
 | `hl-valheim-backup.timer` | 05:30 | Valheim | rsync → NAS |
+| `hl-sumaenima-backup.timer` | 03:00 | Sumænimá | Borg + pg_dump → NAS |
+
+> **Removidos:** `hl-n8n-backup.timer` (05:25) e `hl-miracena-backup.timer` (05:35) —
+> ambos migraram para o **kuaray** com a stack Miracena (04/10/2026). O do n8n continuava
+> rodando no kavure e **falhava todo dia** (pg_dump de um Postgres inexistente → dumps de
+> 20 bytes); desabilitado + fstab/`/srv/data/n8n/offbox` removidos em **09/10/2026**.
+> Dump do banco `n8n` agora é coberto pelo `hl-miracena-backup` (kuaray, 05:35).
 
 ### Mount NFS para backups
 

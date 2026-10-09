@@ -12,7 +12,7 @@ tags: [homelab, backup, storage]
 | ybytu | ✅ configs (05:00→08:00 UTC) | `config-backup` + etckeeper | `/mnt/BACKUP/configs-homelab/ybytu` |
 | ybyra | ✅ configs | `config-backup` + etckeeper | `/mnt/BACKUP/configs-homelab/ybyra` |
 | kuaray | ✅ configs (reconstruídas 08/08) | `config-backup` + etckeeper | `/mnt/BACKUP/configs-homelab/kuaray` |
-| kavure | ✅ jogos (off-box) + configs + **n8n (28/08)** + **monitoring (13/09)** | NFS off-box (zomboid/minecraft/valheim/sumaenima borg) + `config-backup` + etckeeper | `/mnt/BACKUP/*-server-kavure` + `/configs-homelab/kavure` + `/mnt/BACKUP/n8n-server-kavure` + `/mnt/BACKUP/monitoring-server-kavure` |
+| kavure | ✅ jogos (off-box) + configs + **monitoring (13/09)** | NFS off-box (zomboid/minecraft/valheim/sumaenima borg) + `config-backup` + etckeeper | `/mnt/BACKUP/*-server-kavure` + `/configs-homelab/kavure` + `/mnt/BACKUP/monitoring-server-kavure` |
 
 > **Backup canônico de configs** (criado 09/08/2026): todos os hosts espelham as configs no NAS
 > (`/mnt/BACKUP/configs-homelab/`) via `config-backup` (janela 05:00–06:00), versionado com

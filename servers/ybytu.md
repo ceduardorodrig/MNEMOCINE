@@ -138,13 +138,14 @@ Nenhum.
 - **AdGuard passou a `compose`** (`/home/ubuntu/homelab/adguardhome/compose.yml`) — corrige o
   débito de `docker run` órfão — **com healthcheck** (`nslookup example.com 127.0.0.1`),
   ficando coberto pelo `autoheal`.
-- **Upstream:** `tcp://100.124.146.77:5053` (o `dnscrypt-proxy` do kavure, via tailnet) —
-  assim **os dois resolvedores resolvem anonimizado**. Motivo do **TCP**: o caminho UDP do
+- **Upstream:** `tcp://100.124.146.77:5053` (o **`unbound` recursivo** do kavure, via tailnet —
+  até 08/10/2026 era o `dnscrypt-proxy`; endpoint inalterado) — assim **os dois
+  resolvedores resolvem pelo mesmo caminho local**. Motivo do **TCP**: o caminho UDP do
   dnsproxy dava timeout intermitente (4/6), enquanto sockets UDP crus passavam 6/6 — é **bug
   conhecido do AdGuard Home com UDP** ([#7628](https://github.com/AdguardTeam/AdGuardHome/issues/7628)),
   e `tcp://` é protocolo oficialmente suportado; com TCP, 8/8.
-- **Fallback:** `tls://9.9.9.9` → `tls://1.1.1.1` (DoT cifrado). Se o kavure (ou o proxy)
-  cair, o AdGuard degrada para DoT — **sem perda de internet** (medido: 60 ms).
+- **Fallback:** `tls://9.9.9.9` → `tls://1.1.1.1` (DoT cifrado). Se o kavure (ou o unbound)
+  cair, o AdGuard degrada para DoT — **sem perda de internet** (provado 08/10: 131/87 ms).
 
 ### Tentativa de proxy DNS anônimo local — superada pela Opção A (06/10/2026)
 
@@ -168,6 +169,18 @@ Nenhum.
 ## 07/10/2026 — Healthchecks
 
 - Todos os containers **standalone** deste host receberam `healthcheck` (padrão: ver [`guides/docker-healthchecks.md`](../guides/docker-healthchecks.md)), habilitando o `autoheal`. Containers que eram `docker run` ganharam `compose.yml`.
+
+## 08/10/2026 — Reboot de kernel (6.17 → 7.0.0-1012)
+
+- **Motivo:** `reboot-required` pendente desde o upgrade de pacotes. Janela executada com o
+  **Pi-hole do kavure** cobrindo o DNS (failover) e o **OCI CLI** preparado para *force reset*
+  (histórico de 28/08 o host não voltar à tailnet).
+- **Resultado:** voltou sozinho em **~2,5 min**, **kernel `7.0.0-1012-oracle`**, reboot-required
+  zerado. **11/11 containers** up (AdGuard, Homepage, Uptime Kuma, ntfy, changedetection,
+  glances, node-exporter, promtail, dockerproxy, autoheal, watchtower) — os `000` iniciais eram
+  boot. **Sem force reset necessário.**
+- **Nota:** o reboot foi **graceful** (`systemctl reboot`); o force reset via painel OCI **não**
+  foi preciso (mesmo padrão de falha do 28/08 não se repetiu).
 
 ## 08/10/2026 — Gestão via API (OCI CLI)
 

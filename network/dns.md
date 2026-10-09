@@ -28,9 +28,8 @@ graph TB
     end
 
     subgraph egress[Camada de egress — quem fala com a internet]
-        dnscrypt[dnscrypt-proxy 127.0.0.1:5053<br>Anonymized DNSCrypt · kavure]
-        relays[Relays: CryptoStorm EUA<br>anon-cs-{fl,ga,dc,nyc,il,la}]
-        servers[Servidores dnscry.pt<br>US-Leste]
+        unbound[unbound recursivo 127.0.0.1:5053<br>DNSSEC · kavure]
+        roots[Raiz / TLD / autoritativos<br>consulta direta, sem provedor]
         dot[fallback DoT<br>Quad9 9.9.9.9 · Cloudflare 1.1.1.1]
     end
 
@@ -43,16 +42,15 @@ graph TB
     quad100 -->|corrida paralela| pihole
     quad100 -->|corrida paralela| adguard
 
-    pihole -->|"127.0.0.1#5053"| dnscrypt
-    dnscrypt --> relays
-    relays --> servers
+    pihole -->|"127.0.0.1#5053"| unbound
+    unbound --> roots
 
-    adguard -->|"tcp://100.124.146.77:5053"| dnscrypt
-    adguard -.->|se o proxy cair| dot
-    dnscrypt -.->|se o proxy cair: AdGuard assume (corrida)| adguard
+    adguard -->|"tcp://100.124.146.77:5053"| unbound
+    adguard -.->|se o unbound cair| dot
+    unbound -.->|se o unbound cair: AdGuard assume (corrida)| adguard
 ```
 
-## Como a Tailscale escolhe entre os dois (medido 06/10/2026)
+## Como a Tailscale escolhe entre os dois (medido 06/10 e reconfirmado 08/10/2026)
 
 A **ordem dos nameservers no painel admin da Tailscale não decide nada** — não existe
 "primário" e "secundário" fixos. O forwarder local da Tailscale (Quad100) envia **cada
@@ -62,51 +60,63 @@ consulta para os dois resolvers em paralelo e usa a primeira resposta** que cheg
 
 | | Pi-hole (kavure) | AdGuard (ybytu) |
 |---|---|---|
-| Latência | **~2 ms** (LAN gigabit + cache) | **~66 ms** (Oracle + DoH, era 110 ms) |
-| Vence a corrida | quase sempre | quando o kavure está lento, caído ou sobrecarregado |
-| Papel real | **decisor padrão** | **failover automático** (sem configuração extra) |
+| Latência (cache quente) | **~2 ms** (LAN gigabit + cache) | **~66 ms** (Oracle + tailnet) |
+| Vence quando **os dois** têm o nome em cache | ✅ (2 ms ≪ 66 ms) | — |
+| Vence quando só o **AdGuard** tem em cache | — (~290 ms: recursão) | ✅ (35–92 ms) |
+| Papel real | resolve a **maioria** das consultas (hits quentes) | **não é só failover**: vence quando tem o nome em cache e o Pi-hole não |
 
-**Evidência (captura de pacotes no `tailscale0` do ybytu, 06/10):** as mesmas sondas
-enviadas via `100.100.100.100` apareceram **no Pi-hole (log FTL) e como pacotes `In`
-no AdGuard** — os dois recebem tudo; só o mais rápido "vence". O AdGuard também recebe
-tráfego direto de dispositivos (ex.: `desktop-3j1q05g`, o top client do FTL com ~1,46 M
-consultas em 28 d).
+**Evidência de duplicação (captura no `tailscale0` do ybytu, 06/10; reconfirmada 08/10):**
+as mesmas sondas enviadas via `100.100.100.100` apareceram **no Pi-hole (log FTL) e no
+AdGuard** — os dois recebem tudo; só o mais rápido "vence". Reconfirmado em 08/10 com uma
+**sonda de nome inédito**: apareceu no FTL do Pi-hole (forwarded) **e** no log do AdGuard.
+Por isso as **contagens parecidas não são "empate"** — são a duplicação em paralelo. O
+AdGuard também recebe tráfego direto de dispositivos (top clients: docker bridge `172.22.0.1`,
+`100.115.253.109`, `127.0.0.1`).
+
+> ⚠️ **O "Pi-hole vence quase sempre / é o decisor padrão" NÃO se confirma (medição 08/10/2026).**
+> Teste do vencedor: psicopompo → `100.100.100.100`, 25 domínios populares, 1 consulta cada —
+> **7** rápidas (2–22 ms → Pi-hole, cache hit), **8** médias (35–92 ms → AdGuard, cache hit),
+> **10** frias (>150 ms, 1ª recursão). A corrida é decidida pela **latência**, e a latência
+> depende de **quem tem aquele nome em cache**: onde ambos têm, o Pi-hole ganha (2 ms ≪ 66 ms);
+> onde só o AdGuard tem, ele ganha. **Não há vencedor fixo** — os dois precisam de paridade.
 
 > **Consequência prática (por que a paridade importa):** quem responde primeiro é quem
 > aplica **as suas** regras. Se as listas divergirem, o bloqueio fica nondeterminístico
 > — um domínio negado só no Pi-hole pode passar toda vez que o AdGuard vencer a corrida.
 > Por isso os dois têm o mesmo conjunto de deny exatos/regras de telemetria/BR/TV desde
 > 06/10/2026 (ver [`services/pihole.md`](../services/pihole.md) e
-> [`services/adguard-home.md`](../services/adguard-home.md)).
+> [`services/adguard-home.md`](../services/adguard-home.md)). **Paridade medida em 08/10:**
+> bloqueio Pi-hole **43,2%** × AdGuard **44%** ✅.
 
-**Volume medido (09/08 → 06/10/2026):** ~5.085.852 consultas no Pi-hole. Top clients:
-`100.72.116.114` (desktop Windows) 1,46 M · kavure 1,38 M · psicopompo 1,03 M ·
-kuaray 332 k · ybytu 325 k.
+**Volumes medidos:** Pi-hole **85 799 consultas/24 h** (08/10) · AdGuard ~**79 k/dia**
+(log de ~2 dias: 158 431 entradas) — volume parecido porque **os dois recebem tudo**.
+Histórico Pi-hole 09/08→06/10: 5,08 M consultas; top clients `100.72.116.114` (desktop
+Windows) 1,46 M · kavure 1,38 M · psicopompo 1,03 M · kuaray 332 k · ybytu 325 k.
 
-## Camada de egress — anonimato (06/10/2026)
+## Camada de egress — recursão local (08/10/2026)
 
 O **filtro** (Pi-hole/AdGuard) decide o que bloquear; o **egress** decide quem vê a consulta.
-Desde 06/10/2026 o egress do kavure é **anonimizado**:
+Desde **08/10/2026** o egress do kavure é **recursivo local** (`unbound` nativo na porta 5053):
 
 | Resolver | Egress | Esconde do ISP | Esconde do provedor |
 |---|---|---|---|
-| Pi-hole (kavure) | `dnscrypt-proxy` local → **Anonymized DNSCrypt** (relay CryptoStorm ≠ servidor dnscry.pt) | ✅ | ✅ — o relay vê o IP, o servidor vê a consulta; **nenhum** vê os dois |
-| AdGuard (ybytu) | `tcp://100.124.146.77:5053` → **o mesmo proxy do kavure** (Opção A) · fallback `tls://9.9.9.9`/`tls://1.1.1.1` (DoT) | ✅ | ✅ (enquanto o kavure está de pé); no fallback, cifrado mas não anonimizado |
+| Pi-hole (kavure) | `unbound` local → **recursão direta** (raiz → TLD → autoritativo) | parcial — o ISP vê DNS porta 53 saindo, mas sem provedor único de destino | ✅ — nenhum resolvedor central vê o histórico (só os autoritativos do domínio) |
+| AdGuard (ybytu) | `tcp://100.124.146.77:5053` → **o mesmo unbound do kavure** · fallback `tls://9.9.9.9`/`tls://1.1.1.1` (DoT) | parcial (mesmo caminho) | ✅; no fallback, cifrado para Quad9/Cloudflare |
 | Hosts (systemd-resolved) | fallback global `9.9.9.9`/`1.1.1.1` com `DNSOverTLS=opportunistic` | ✅ (quando usado) | parcial (DoT) |
 
-> **Consequência da Opção A:** quem vence a corrida não importa mais — **os dois**
-> resolvedores passam pelo caminho anonimizado. Antes, o AdGuard (mais rápido) vencia as
-> consultas *frias* e elas saíam pelo Cloudflare. Agora a corrida fria é ~200–300 ms nos
-> dois lados.
+> **Decisão 08/10/2026 (usuário):** a cadeia anonimizada anterior (Anonymized DNSCrypt com
+> relays CryptoStorm US-Leste) custava **353 ms frios** por consulta — dois saltos
+> transatlânticos, **sem relay na América do Sul** — e a navegação ficou perceptivelmente
+> lenta. Escolha: **navegação fluida > anonimato total**. O unbound elimina o provedor
+> intermediário (recursão própria com DNSSEC), ao custo de o ISP enxergar tráfego DNS
+> genérico. Detalhes, comparação de imagens e medições: [`services/unbound.md`](../services/unbound.md).
 
-Detalhes do proxy (parâmetros, medições e rollback): [`services/dnscrypt-proxy.md`](../services/dnscrypt-proxy.md).
-
-### Provas de falha (06/10/2026)
+### Provas de falha (re-verificadas 08/10/2026)
 
 | Cenário testado | Resultado |
 |---|---|
-| `dnscrypt-proxy` do kavure parado | O Pi-hole para de responder, mas as consultas via `100.100.100.100` seguem resolvendo em **60 ms** (o AdGuard cai no `fallback_dns` DoT) → **sem perda de internet** |
-| **Re-verificado ao vivo (08/10/2026)** — `dnscrypt-proxy` parado | Consultas via `100.100.100.100` resolveram normalmente: ripe.net 332 ms · apnic.net 327 ms · lacnic.net 64 ms · afrinic.net 226 ms → **o AdGuard assumiu pela `fallback_dns` DoT**. Proxy religado e normalizado ✅. *Degradação:* o DoT é cifrado mas **não anonimizado** durante a queda. |
+| **`unbound` do kavure parado (08/10)** | Consultas via `100.100.100.100` resolveram em **131/87 ms** (o AdGuard caiu no `fallback_dns` DoT) → **sem perda de internet**. Unbound religado e normalizado ✅ |
+| `dnscrypt-proxy` do kavure parado (era 06/10 → 08/10, servidores de referência) | O Pi-hole para de responder, mas as consultas via `100.100.100.100` seguem resolvendo em 60 ms (AdGuard no `fallback_dns` DoT) → sem perda de internet |
 | `dnscrypt-proxy` do ybytu parado (tentativa, revertida) | AdGuard degradou para `fallback_dns` em ~197 ms |
 | Pi-hole com `strict-order` + fallback plano | **Não fazia failover** (6 timeouts seguidos) → desenho descartado |
 
@@ -114,11 +124,11 @@ Detalhes do proxy (parâmetros, medições e rollback): [`services/dnscrypt-prox
 > uma lista de upstreams do dnsmasq. Um fallback plano dentro do Pi-hole ou **vaza** (sem
 > `strict-order`) ou **trava** (com `strict-order`).
 
-## Cache (três níveis) — medido 07/10/2026
+## Cache (três níveis) — medido 07/10/2026, revisado 08/10
 
 | Nível | Onde | Tamanho | Estado medido |
 |---|---|---|---|
-| **dnscrypt-proxy** | kavure | `cache_size = 16384` entradas · `cache_min_ttl = 2400` · `cache_max_ttl = 86400` · neg `600` · `block_ipv6 = true` | ~14 MB de RSS |
+| **unbound** | kavure | `msg-cache 128m` · `rrset-cache 256m` · `key-cache 64m` · `neg-cache 16m` · `prefetch` + `prefetch-key` + `serve-expired 24 h` (tuning v2, 08/10) · 2 threads | substituiu o cache do dnscrypt em 08/10 (o proxy tinha 16384 entradas / ~14 MB RSS); telemetria: `unbound-control stats_noreset` (⚠️ `stats` sem `noreset` zera os contadores; o watchdog loga a cada 2 min) |
 | **Pi-hole (FTL)** | kavure | `dns.cache.size = 10000` · `optimizer = 3600` (serve-stale) | **0 evictions** em 22.422 inserções · **~82 % de acerto** (33.312 hits / 7.516 misses) |
 | **AdGuard** | ybytu | `cache_size = 4194304` (4 MiB, default) · `cache_ttl_min/max = 0` (usa o TTL do upstream) | — |
 
@@ -152,15 +162,15 @@ só ~270 MB livres.
 |---|---|
 | Servidor | **Pi-hole** (container `pihole`, `network_mode: host`, escuta só em `tailscale0`) |
 | Porta | `53` · admin `http://100.124.146.77/admin` |
-| Upstream | `127.0.0.1#5053` → **dnscrypt-proxy** (Anonymized DNSCrypt) |
-| Papel | **decisor padrão** da tailnet (vence a corrida por latência) |
+| Upstream | `127.0.0.1#5053` → **unbound recursivo local** (DNSSEC, desde 08/10/2026 — [`services/unbound.md`](../services/unbound.md)) |
+| Papel | um dos dois resolvedores da corrida da tailnet (**sem vencedor fixo** — ver seção acima) |
 
 ### Ybytu
 | Item | Valor |
 |---|---|
 | Servidor | **AdGuard Home** (container `adguardhome`) |
 | Porta | `53` · admin `http://ybytu.chimaera-heptatonic.ts.net:3000` |
-| Upstream | `tcp://100.124.146.77:5053` → **o mesmo proxy do kavure** (Opção A) · fallback DoT `tls://9.9.9.9`/`tls://1.1.1.1` |
+| Upstream | `tcp://100.124.146.77:5053` → **o mesmo unbound do kavure** (endpoint inalterado desde a era dnscrypt) · fallback DoT `tls://9.9.9.9`/`tls://1.1.1.1` |
 | Papel | **failover** do Pi-hole + clientes diretos (desktop Windows) |
 | Atenção | 954 MB de RAM — querylog `7d`/`size_memory 200` desde 06/10 (era 90d/1000 = 4 GB) |
 

@@ -26,9 +26,10 @@ Root tag. Every file inside `mnemocine` must have it.
 - `#aiostreams` — Streaming de áudio/vídeo web
 - `#calibre-web` — Biblioteca de eBooks
 - `#casaos` — Painel de gerenciamento kuaray (~~ativo~~ — **histórico**, removido 08/08)
+- `#cold-storage` — Serviços congelados (não rodam; preservados p/ rollback)
 - `#comet` — Indexador de Usenet
 - `#crafty` — Minecraft server (kavure)
-- `#dnscrypt` — dnscrypt-proxy (egress DNS cifrado/anônimo)
+- `#dnscrypt` — dnscrypt-proxy (~~ativo~~ — **histórico/rollback**, desativado 08/10/2026)
 - `#duplicati` — Backup de arquivos (~~ativo~~ — **histórico**, removido 06/08)
 - `#flaresolverr` — Proxy para Cloudflare
 - `#grafana` — Dashboards de observabilidade
@@ -56,6 +57,7 @@ Root tag. Every file inside `mnemocine` must have it.
 - `#stremio` — Streaming de filmes/séries
 - `#syncthing` — Sincronização de arquivos
 - `#transmission` — Cliente torrent
+- `#unbound` — Unbound (DNS recursivo local com DNSSEC, kavure)
 - `#vert` — Microblogging descentralizado
 - `#watchtower` — Auto-update de containers
 - `#zomboid` — Servidor Project Zomboid

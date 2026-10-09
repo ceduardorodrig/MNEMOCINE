@@ -61,7 +61,8 @@ fstab do kavure (atualizado 04/10/2026):
 100.82.51.112:/mnt/BACKUP/repos/git /srv/backup-gitrepos nfs4 rw,soft,timeo=30,retrans=2,_netdev,x-systemd.automount,x-systemd.mount-timeout=10s,nofail 0 0
 100.82.51.112:/mnt/BACKUP/media/music /srv/data/navidrome/music nfs4 rw,soft,timeo=30,retrans=2,_netdev,x-systemd.automount,x-systemd.mount-timeout=10s,nofail 0 0
 100.82.51.112:/mnt/BACKUP/media/books /srv/data/media/books nfs4 rw,soft,timeo=30,retrans=2,_netdev,x-systemd.automount,x-systemd.mount-timeout=10s,nofail 0 0
-100.82.51.112:/mnt/BACKUP/n8n-server-kavure	/srv/data/n8n/offbox nfs4 rw,soft,timeo=30,retrans=2,_netdev,x-systemd.automount,x-systemd.mount-timeout=10s,nofail 0 0
+# removido 09/10/2026: entry n8n-server-kavure (/srv/data/n8n/offbox) — n8n migrou p/ kuaray
+# em 04/10; dump coberto pelo hl-miracena-backup (kuaray). Backup do fstab: /etc/fstab.bak-20261009-n8n.
 100.82.51.112:/mnt/SSD_SATA/scryfall-mirror /srv/data/scryfall-mirror nfs rw,soft,timeo=30,retrans=2,_netdev,x-systemd.automount,x-systemd.mount-timeout=10s,x-systemd.idle-timeout=60s,nofail 0 0
 100.82.51.112:/mnt/BACKUP/monitoring-server-kavure /srv/data/monitoring/offbox nfs4 rw,soft,timeo=30,retrans=2,_netdev,x-systemd.automount,x-systemd.mount-timeout=10s,nofail 0 0
 ```
