@@ -2,126 +2,87 @@
 tags: [homelab, oracle, oci, cloud, tutorial, sops]
 ---
 
-# Oracle Cloud Infrastructure (OCI) — gestão via CLI/API
+# Oracle Cloud Infrastructure (OCI) — CLI/API Management
 
-> **Escopo canonizado em 08/10/2026:** as VMs Oracle do homelab (**ybytu**, **ybyra**) passam a
-> ser **gerenciáveis por API, direto do terminal**, a partir do **psicopompo**, com o **OCI CLI**.
-> Cobre: inventário/estado das instâncias, boot/block volumes, rede (subnets/VNICs), imagens e a
-> **captura da VM ARM Always Free**. Antes disso, a operação das VMs Oracle dependia do console web.
+> **Standard established 2026-10-08:** Homelab cloud instances (**ybytu**, **ybyra**) are managed programmatically via **OCI CLI directly from the terminal** on **psicopompo**. Covers: instance inventories, lifecycle management, boot/block volumes, virtual networking (subnets/VNICs), images, and the **Always Free ARM VM automated capture pipeline**. Eliminates reliance on the Oracle web console.
 
-## Arquitetura
+## Architecture
 
 ```
-psicopompo (terminal)   ──API key RSA (assinatura)──►   OCI · sa-saopaulo-1
-  ~/.oci/config + chave privada                          tenancy ceduardorodrig
-  (materializados do cofre sops)                         ├── ybytu  (VM.Standard.E2.1.Micro)
-                                                         └── ybyra  (VM.Standard.E2.1.Micro)
+psicopompo (terminal)   ──RSA API Key (request signing)──►   OCI · sa-saopaulo-1
+  ~/.oci/config + private key                               tenancy ceduardorodrig
+  (hydrated from SOPS vault)                                ├── ybytu  (VM.Standard.E2.1.Micro)
+                                                            └── ybyra  (VM.Standard.E2.1.Micro)
 ```
 
-- **Autenticação:** **API key RSA** (assinatura das requisições) — **não** *instance principal*.
-  A chave foi gerada e permanece no psicopompo; só a **pública** foi enviada à OCI.
-- **Credenciais:** no **cofre sops** (`OCI_*` em `secrets.enc.env`), nunca em claro.
-- **Região:** `sa-saopaulo-1` (home region da tenancy — a *Always Free* é **home-region-only**).
+- **Authentication:** **RSA API Key** (cryptographic request signing). The key pair is generated and persisted on psicopompo; only the public key was uploaded to OCI.
+- **Credentials:** Securely managed within the **SOPS encrypted vault** (`OCI_*` in `secrets.enc.env`).
+- **Region:** `sa-saopaulo-1` (the tenancy home region — Always Free tier resources are strictly restricted to home regions).
 
-## Credenciais (cofre sops)
+## Secrets Storage (SOPS Vault)
 
-| Variável | Conteúdo |
+| Variable | Description |
 |---|---|
-| `OCI_USER_ID` | OCID do usuário `ceduardorodrig@gmail.com` |
-| `OCI_TENANCY_ID` | OCID da tenancy |
-| `OCI_FINGERPRINT` | identificador da API key (`46:b4:f0:…`) |
-| `OCI_REGION` | `sa-saopaulo-1` |
-| `OCI_PRIVATE_KEY_B64` | chave privada (PEM, com o rótulo de segurança da Oracle), em base64 |
+| `OCI_USER_ID` | User OCID (`ceduardorodrig@gmail.com`) |
+| `OCI_TENANCY_ID` | Tenancy root OCID |
+| `OCI_FINGERPRINT` | API key fingerprint (`46:b4:f0:…`) |
+| `OCI_REGION` | Home region identifier (`sa-saopaulo-1`) |
+| `OCI_PRIVATE_KEY_B64` | Base64-encoded RSA private key PEM (retaining Oracle security markers) |
 
-**Restaurar** (reconstrói `~/.oci/config` + a chave privada):
+**Restore Command** (materializes `~/.oci/config` and the private key on psicopompo):
 
 ```bash
 /mnt/NVME_PCI/secrets/oci-restore.sh
 ```
 
-> Roda no **psicopompo** (onde está a chave age privada). Não exibe valores.
-> Detalhe do cofre: [`guides/secrets-centralizados.md`](secrets-centralizados.md).
+## CLI Installation & Execution Environment
 
-## Instalação do CLI
-
-O `oci` é uma ferramenta **Python** da Oracle (não há CLI oficial em Rust). Instalado
-**isolado** via `uv`, fixado em **Python 3.11** — a partir do 3.12 o interpretador promove a
-`SyntaxWarning` um *escape* inválido no módulo `compute` do `oci-cli` (bug *upstream*, marcado
-`# noqa: W605`); o 3.11 mantém a saída limpa:
+The Oracle CLI is a Python package. It is installed in an isolated environment via `uv`, pinned strictly to **Python 3.11** to prevent upstream regex escape syntax warnings present in Python 3.12:
 
 ```bash
 uv tool install oci-cli --python 3.11
-# binário: ~/.local/bin/oci  (versão 3.94.2 em 08/10/2026)
+# Binary location: ~/.local/bin/oci
 ```
 
-## Comandos úteis
+## Essential CLI Commands
 
 ```bash
-# tenancy (evita repetir o OCID)
+# Load tenancy context
 export T="$(/mnt/NVME_PCI/secrets/sops-decrypt.sh OCI_TENANCY_ID)"
 
-# inventário das VMs
+# Query instance states
 oci compute instance list --compartment-id "$T" --output table \
   --query 'data[].{nome:"display-name", estado:"lifecycle-state", shape:shape, ad:"availability-domain"}'
 
-# detalhe de uma instância
-oci compute instance get --instance-id <ocid>
-
-# boot volumes / block volumes
+# Query boot and block volumes
 oci bv boot-volume list --compartment-id "$T" --output table
 
-# imagens disponíveis
-oci compute image list --compartment-id "$T" --output table
-
-# disponibilidade de cota (ex.: núcleos ARM A1) — neste limite o AD é obrigatório
+# Check compute quota availability (standard A1 ARM cores)
 oci limits resource-availability get --service-name compute \
   --limit-name standard-a1-core-count --compartment-id "$T" \
   --availability-domain 'WdCV:SA-SAOPAULO-1-AD-1'
 ```
 
-## Limites da tenancy (free tier, medido 08/10/2026)
+## Free Tier Quotas & Constraints (Measured 2026-10-08)
 
-| Limite | Valor | Consequência |
+| Metric | Account Value | Operational Constraint |
 |---|---|---|
-| Armazenamento de bloco | **200 GB** | ybytu 50 + ybyra 150 = **cheio**; sem espaço para a ARM |
-| `custom-image-count` | **0** | **impossível** criar imagem custom (sem clone/shrink) |
-| Cota ARM A1 | 2 OCPU / 12 GB (`available: 2`) | a cota existe; falta **capacidade de host** |
-| ADs na região | 1 (`WdCV:SA-SAOPAULO-1-AD-1`) | sem alternância de AD |
+| Block Storage Quota | **200 GB** | ybytu (50 GB) + ybyra (150 GB) = 200 GB (100% capacity). Shrinking ybyra required to release space for ARM. |
+| `custom-image-count` | **0** | Custom image creation is disallowed; instances must be re-provisioned from platform base images. |
+| ARM A1 Compute Quota | 2 OCPU / 12 GB (`available: 2`) | Account quota exists; bottleneck is physical data center host capacity. |
+| Availability Domains | 1 (`WdCV:SA-SAOPAULO-1-AD-1`) | Single AD data center region. |
 
-> Consequência prática: como não há imagem custom e a OCI não encolhe volume, **reduzir o ybyra
-> exige reconstrução** — ver [`oci-shrink-boot-volume.md`](oci-shrink-boot-volume.md).
+## Rationale: Automating ARM VM Capture
 
-## Por que isto importa — captura da ARM
+The Always Free ARM allowance (`VM.Standard.A1.Flex`) grants up to **2 OCPU / 12 GB RAM**. Account verification confirms quota availability (`available: 2`), but Oracle returns frequent `Out of host capacity` errors when launch requests hit capacity limits. The OCI CLI enables automated background polling (`arm-hunt`) to claim instances immediately as compute slots open.
 
-A cota **Always Free ARM** (`VM.Standard.A1.Flex`) em 2026 é de **2 OCPU / 12 GB** na home
-region. Medido via API (08/10/2026): `standard-a1-core-count` → **`available: 2, used: 0`**
-(a cota existe), e a região tem **um único AD** (`WdCV:SA-SAOPAULO-1-AD-1`). O que falta é
-**capacidade de host** — a criação retorna *"Out of host capacity"* e só sai com **retry em
-loop**. Com a API key, isso vira um **loop no terminal** (rodando no `ybyra`), alternando os
-shapes 1/6 e 2/12, **sem fault domain** e **sem IP público**, com aviso no **ntfy** ao
-conseguir. Contexto e plano: [`servers/ybyra.md`](../servers/ybyra.md).
+## Security Controls
 
-## Decisões e histórico
+- The private signing key exists exclusively on psicopompo (permissions `0600`) and inside the encrypted SOPS store.
+- Revocation: Deleting the public key from the OCI IAM console immediately invalidates the API credential.
 
-- **08/10/2026 — canonizado:** API key RSA gerada no **psicopompo** (a privada nunca saiu daqui);
-  a pública foi enviada via **Cloud Shell** (`oci iam user api-key upload`) — atalho que evita
-  depender da UI do console (a tela "Resources → API keys" não aparece em todas as contas).
-  Fingerprint `46:b4:f0:…`; a chave ficou **ACTIVE** no usuário.
-- **Por que API key e não *instance principal*:** o instance principal exigiria Dynamic Group +
-  Policy **e** só valeria de dentro do `ybyra`. A API key gerencia a conta **de qualquer host**
-  (o psicopompo), que é o objetivo. O Dynamic Group/Policy ficou **dispensado**.
+## See Also
 
-## Segurança
-
-- A chave privada existe **apenas** no psicopompo (modo `600`) e no **cofre cifrado** — nunca
-  numa nota do vault, nunca em host Oracle.
-- O **rótulo de segurança** no fim do PEM habilita o *secret scanning* da Oracle (aviso caso a
-  chave apareça num repositório público).
-- **Revogar:** apagar a API key no console (*User settings → Tokens and keys → API keys*).
-  Nada mais depende dela.
-
-## Referências
-
-- [`guides/secrets-centralizados.md`](secrets-centralizados.md) — cofre sops/age (onde vive a chave)
-- [`servers/ybyra.md`](../servers/ybyra.md) · [`servers/ybytu.md`](../servers/ybytu.md) — as duas VMs
-- Doc oficial: [Required Keys and OCIDs](https://docs.oracle.com/iaas/Content/API/Concepts/apisigningkey.htm)
+- [`guides/secrets-centralizados.md`](secrets-centralizados.md) — SOPS vault architecture
+- [`guides/oracle-arm-capture.md`](oracle-arm-capture.md) — Automated `arm-hunt` polling loop
+- [`guides/oci-shrink-boot-volume.md`](oci-shrink-boot-volume.md) — Storage reallocation runbook

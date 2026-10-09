@@ -2,17 +2,17 @@
 tags: [homelab, network, storage, psicopompo]
 ---
 
-# NFS — Psicopompo como NAS da Tailnet
+# NFS — Psicopompo as Tailnet NAS Storage Provider
 
-O **psicopompo** serve as bibliotecas de mídia (música, livros) via **NFSv4** para os serviços do homelab. Os apps rodam onde estão (ex: kuaray) e montam a biblioteca remotamente — **sem sincronizar arquivos** via Syncthing.
+**psicopompo** serves shared media libraries (music, books) and backup staging volumes via **NFSv4** to services across the homelab tailnet. Applications run locally on their respective nodes (e.g. kuaray, kavure) and mount remote storage directly — eliminating redundant multi-node file duplication through Syncthing.
 
-> **Padrão de backup off-box via NFS:** mount local→NAS com failsafe (reachability/retry/timeout/ntfy) — ver [`backups/strategy.md`](../backups/strategy.md).
+> **Canonical Off-Box Backup Standard via NFS:** Local host mounts to NAS target with structured failsafes (reachability tests, retry logic, strict timeout parameters, and ntfy notifications) — see [`backups/strategy.md`](../backups/strategy.md).
 
-## Exports (psicopompo)
+## Server Exports (psicopompo)
 
-Servidor NFS no psicopompo (`nfs-utils`), config em `/etc/exports`:
+Configured via `nfs-utils` on psicopompo in `/etc/exports`:
 
-```
+```text
 /mnt/BACKUP/media/music	100.94.209.99(rw,async,no_subtree_check,all_squash,anonuid=1000,anongid=1000) 100.124.146.77(rw,async,no_subtree_check,all_squash,anonuid=1000,anongid=1000)
 /mnt/BACKUP/media/books	100.94.209.99(rw,async,no_subtree_check,all_squash,anonuid=1000,anongid=1000) 100.124.146.77(rw,async,no_subtree_check,all_squash,anonuid=1000,anongid=1000)
 /mnt/BACKUP/sumaenima-server-kavure	100.124.146.77(rw,async,no_subtree_check,all_squash,anonuid=1000,anongid=1000)
@@ -26,33 +26,35 @@ Servidor NFS no psicopompo (`nfs-utils`), config em `/etc/exports`:
 /mnt/BACKUP/monitoring-server-kavure	100.124.146.77(rw,async,no_subtree_check,all_squash,anonuid=1000,anongid=1000)
 ```
 
-- **`async` (desde 07/08/2026):** o servidor responde sem aguardar flush em disco — acelera muito imports/backups. Trocado de `sync` (aplicado com `exportfs -ra`). Risco mínimo: biblioteca espelhada no Syncthing (folder `backup`) + backup off-box.
+- **`async` (applied 2026-08-07):** Server acknowledges write operations immediately without waiting for disk synchronization — significantly accelerating remote backups and large imports. Converted from `sync` and reloaded via `exportfs -ra`. Minimal risk: datasets are duplicated in Syncthing (folder `backup`) alongside off-box snapshots.
+- **`all_squash,anonuid=1000,anongid=1000`:** All remote client connections (including container root processes) write files under user `edu` (UID 1000, owner of the library). Client root cannot escalate privileges on the server.
+- **Access restricted strictly to Tailnet IPs:** kuaray (`100.94.209.99`), kavure (`100.124.146.77`), ybytu (`100.115.253.109`), ybyra (`100.66.224.34`), and local wired LAN (`192.168.3.200`). To authorize a node, append its IP address and reload (`sudo exportfs -arv`).
+- **Firewall Filtering (UFW):** Ports `2049/tcp` (NFSv4) and `111/tcp` (rpcbind) are opened only for explicitly whitelisted IP addresses.
+- **Service Hardening (2026-09-20):** Drop-in `/etc/systemd/system/nfs-server.service.d/tailscale.conf` enforces `After=tailscaled.service network-online.target`, `Wants=tailscaled.service network-online.target`, `Restart=on-failure`, and `RestartSec=5s` to eliminate socket bind race conditions (`errno 99`) upon system reboot.
 
-- **`all_squash,anonuid=1000,anongid=1000`:** todos os clientes (mesmo root de container) escrevem como `edu` (uid 1000, dono da biblioteca). Root do cliente **não** vira root no servidor (seguro).
-- **Restrito aos IPs tailnet** do kuaray (`100.94.209.99`), kavure (`100.124.146.77`) e IP cabeado LAN (`192.168.3.200`). Para adicionar host, inclua o IP na linha + reexporte (`exportfs -arv`).
-- **Firewall (ufw):** portas `2049/tcp` (NFSv4) e `111/tcp` (rpcbind) liberadas só para os IPs acima.
-- **Blindagem do serviço (20/09/2026):** Drop-in `/etc/systemd/system/nfs-server.service.d/tailscale.conf` configurado com `After=tailscaled.service network-online.target`, `Wants=tailscaled.service network-online.target`, `Restart=on-failure` e `RestartSec=5s` para evitar falha de bind (`errno 99`) pós-reboot. Export do Miracena corrigido de espaço para TAB no `/etc/exports`.
+## Client Mount Configuration (kuaray)
 
-## Montagem no cliente (kuaray)
+Installed package `nfs-common`; persistent mount configuration in `/etc/fstab`:
 
-`nfs-common` instalado; entrada no `/etc/fstab`:
-
-```
+```text
 100.82.51.112:/mnt/BACKUP/media/music /mnt/nas/media/music nfs4 rw,soft,timeo=30,retrans=2,_netdev,x-systemd.automount,x-systemd.mount-timeout=10s,x-systemd.idle-timeout=60s,nofail 0 0
 100.82.51.112:/mnt/BACKUP/configs-homelab /srv/backup-configs nfs4 rw,soft,timeo=30,retrans=2,_netdev,x-systemd.automount,x-systemd.mount-timeout=10s,x-systemd.idle-timeout=60s,nofail 0 0
 100.82.51.112:/mnt/BACKUP/repos/git /srv/backup-gitrepos nfs4 rw,soft,timeo=30,retrans=2,_netdev,x-systemd.automount,x-systemd.mount-timeout=10s,x-systemd.idle-timeout=60s,nofail 0 0
 100.82.51.112:/mnt/BACKUP/miracena-server-kavure /srv/data/miracena/offbox nfs4 rw,soft,timeo=30,retrans=2,_netdev,x-systemd.automount,x-systemd.mount-timeout=10s,nofail 0 0
 ```
 
-> **Regra Canônica de Montagem NFS via Tailnet:** Usar **`soft,timeo=30,retrans=2`** e **`x-systemd.mount-timeout=10s`** (sem `idle-timeout` para mounts Docker 24/7) em vez de `hard`. Se a VPN (Tailscale) cair ou o host for desligado antes do unmount, a opção `hard` causa deadlock no kernel (`hung_task_timeout` em `nfs4_file_flush`), travando o shutdown indefinidamente. Com `soft` e timeouts curtos do systemd, o kernel aborta I/O pendente e desliga limpo em segundos. **Drop-in Docker:** `/etc/systemd/system/docker.service.d/nfs-ordering.conf` (`After=remote-fs.target`, `TimeoutStopSec=30s`) em todos os hosts Docker.
+> **Canonical NFS Mount Rule for Tailnet Environments:**  
+> Always specify **`soft,timeo=30,retrans=2`** and **`x-systemd.mount-timeout=10s`** (avoiding `idle-timeout` on continuous 24/7 Docker bind mounts) instead of `hard`. If the Tailscale VPN connection drops or a node reboots unexpectedly, the `hard` mount option causes unrecoverable kernel deadlocks (`hung_task_timeout` inside `nfs4_file_flush`), blocking host shutdowns indefinitely. With `soft` and short systemd timeouts, the kernel terminates pending I/O cleanly within seconds.  
+> **Docker Service Drop-in:** Apply `/etc/systemd/system/docker.service.d/nfs-ordering.conf` (`After=remote-fs.target`, `TimeoutStopSec=30s`) on all Docker nodes.
 
-> **Desacoplamento do HDD (28/08/2026):** o mount de música do kuaray foi movido de `/mnt/storage/data/media/music` → `/mnt/nas/media/music` — **fora do mountpoint do HDD** (`/mnt/storage`). Antes, um HDD que não montava no boot fazia o caminho do NFS "sumir" e derrubava a biblioteca do Lidarr mesmo com a música intacta no NAS (caso real 28/08). Agora a música não depende mais do HDD. `mkdir -p /mnt/nas/media`.
+> **Storage Decoupling (2026-08-28):**  
+> Kuaray's music mount was relocated from `/mnt/storage/data/media/music` → `/mnt/nas/media/music` — **outside of the local physical HDD mountpoint** (`/mnt/storage`). Previously, a temporary HDD mount failure at boot concealed the NFS mountpoint and broke Lidarr's music library despite healthy NAS storage. Media access is now completely decoupled from local disk status.
 
-## Montagem no kavure (backup do Zomboid + Sumænimá)
+## Client Mount Configuration (kavure)
 
-fstab do kavure (atualizado 04/10/2026):
+Persistent `/etc/fstab` on kavure:
 
-```
+```text
 100.82.51.112:/mnt/BACKUP/zomboid-server-kavure /srv/data/zomboid/offbox nfs4 rw,soft,timeo=30,retrans=2,_netdev,x-systemd.automount,x-systemd.mount-timeout=10s,nofail 0 0
 100.82.51.112:/mnt/BACKUP/sumaenima-server-kavure /srv/data/sumaenimahub/backup nfs4 rw,soft,timeo=30,retrans=2,_netdev,x-systemd.automount,x-systemd.mount-timeout=10s,nofail 0 0
 100.82.51.112:/mnt/BACKUP/minecraft-server-kavure /srv/data/minecraft/offbox nfs4 rw,soft,timeo=30,retrans=2,_netdev,x-systemd.automount,x-systemd.mount-timeout=10s,nofail 0 0
@@ -61,73 +63,56 @@ fstab do kavure (atualizado 04/10/2026):
 100.82.51.112:/mnt/BACKUP/repos/git /srv/backup-gitrepos nfs4 rw,soft,timeo=30,retrans=2,_netdev,x-systemd.automount,x-systemd.mount-timeout=10s,nofail 0 0
 100.82.51.112:/mnt/BACKUP/media/music /srv/data/navidrome/music nfs4 rw,soft,timeo=30,retrans=2,_netdev,x-systemd.automount,x-systemd.mount-timeout=10s,nofail 0 0
 100.82.51.112:/mnt/BACKUP/media/books /srv/data/media/books nfs4 rw,soft,timeo=30,retrans=2,_netdev,x-systemd.automount,x-systemd.mount-timeout=10s,nofail 0 0
-# removido 09/10/2026: entry n8n-server-kavure (/srv/data/n8n/offbox) — n8n migrou p/ kuaray
-# em 04/10; dump coberto pelo hl-miracena-backup (kuaray). Backup do fstab: /etc/fstab.bak-20261009-n8n.
+# Removed 2026-10-09: n8n-server-kavure (/srv/data/n8n/offbox) - migrated to kuaray on 2026-10-04.
 100.82.51.112:/mnt/SSD_SATA/scryfall-mirror /srv/data/scryfall-mirror nfs rw,soft,timeo=30,retrans=2,_netdev,x-systemd.automount,x-systemd.mount-timeout=10s,x-systemd.idle-timeout=60s,nofail 0 0
 100.82.51.112:/mnt/BACKUP/monitoring-server-kavure /srv/data/monitoring/offbox nfs4 rw,soft,timeo=30,retrans=2,_netdev,x-systemd.automount,x-systemd.mount-timeout=10s,nofail 0 0
 ```
 
-> **Padrão NFS kavure (10/09/2026):** Todos os entries usam `soft,timeo=30,retrans=2,nofail` + `x-systemd.mount-timeout=10s`. **Sem `idle-timeout`** nos mounts que servem containers Docker 24/7 (evita race condition com systemd automount no shutdown — "device is busy"). Apenas `scryfall-mirror` mantém `idle-timeout=60s` (acesso intermitente). Backup do fstab: `/etc/fstab.bak.20260910`. **Drop-in Docker:** `/etc/systemd/system/docker.service.d/nfs-ordering.conf` (`After=remote-fs.target`, `TimeoutStopSec=30s`) garante que Docker para antes dos mounts NFS tentarem desmontar.
+> **kavure NFS Standard (2026-09-10):** All active mounts use `soft,timeo=30,retrans=2,nofail` + `x-systemd.mount-timeout=10s`. Mounts hosting 24/7 Docker volumes omit `idle-timeout` to eliminate systemd automount race conditions at shutdown. Only `scryfall-mirror` retains `idle-timeout=60s` due to intermittent batch usage.
 
-- Usado por `zomboid-backup`/`zomboid-update` — **espelho local → NFS, sem SSH** (evita o `check` de 12h do Tailscale SSH). Failsafe/retry/ntfy em `services/zomboid/project-zomboid.md`.
-- `zomboid-backup` faz `rsync -a --delete` de `/srv/data/zomboid/data/backups/` → `offbox/daily/`; `zomboid-update` salva o pré-update em `offbox/archive/pre-update-<data>/`.
+- Utilized by `zomboid-backup` and `zomboid-update` — direct local mirror to NFS target without requiring SSH.
+- `zomboid-backup` triggers `rsync -a --delete` from `/srv/data/zomboid/data/backups/` → `offbox/daily/`; `zomboid-update` archives snapshots into `offbox/archive/pre-update-<date>/`.
 
-## Montagem no ybytu (Oracle Cloud — DNS, dashboard)
+## Client Mount Configuration (ybytu — Oracle Cloud)
 
-fstab do ybytu (atualizado 10/09/2026):
+`/etc/fstab` on ybytu:
 
-```
+```text
 100.82.51.112:/mnt/BACKUP/configs-homelab /srv/backup-configs nfs4 rw,soft,timeo=30,retrans=2,_netdev,x-systemd.automount,x-systemd.mount-timeout=10s,nofail 0 0
 100.82.51.112:/mnt/BACKUP/repos/git /srv/backup-gitrepos nfs4 rw,soft,timeo=30,retrans=2,_netdev,x-systemd.automount,x-systemd.mount-timeout=10s,nofail 0 0
 ```
 
-> **Fix NFS (10/09/2026):** Entries `hard` → `soft`. Backup: `/etc/fstab.bak.20260910`. Drop-in Docker: `/etc/systemd/system/docker.service.d/nfs-ordering.conf`.
+## Client Mount Configuration (ybyra — Oracle Cloud Edge)
 
-## Montagem no ybyra (Oracle Cloud — borda Swarm)
+`/etc/fstab` on ybyra:
 
-fstab do ybyra (atualizado 10/09/2026):
-
-```
+```text
 100.82.51.112:/mnt/BACKUP/configs-homelab /srv/backup-configs nfs4 rw,soft,timeo=30,retrans=2,_netdev,x-systemd.automount,x-systemd.mount-timeout=10s,nofail 0 0
 100.82.51.112:/mnt/BACKUP/repos/git /srv/backup-gitrepos nfs4 rw,soft,timeo=30,retrans=2,_netdev,x-systemd.automount,x-systemd.mount-timeout=10s,nofail 0 0
 ```
 
-> **Fix NFS (10/09/2026):** Entries `hard` → `soft`. Backup: `/etc/fstab.bak.20260910`. Drop-in Docker: `/etc/systemd/system/docker.service.d/nfs-ordering.conf`.
+## Container Volume Bindings
 
-## Containers afetados (kuaray)
-
-Os containers usam o mount **no mesmo caminho antigo** — sem alterar compose:
+Application containers map NFS mountpoints using standard directory binds without modifications to Docker Compose definitions:
 - **Navidrome (kavure):** bind `/srv/data/navidrome/music → /music`
 - **Calibre (kavure):** bind `/srv/data/media/books → /books`
-- **Lidarr (kuaray):** bind `/mnt/nas/media/music → /data/media/music` (**desacoplado do HDD 28/08** — antes era `/mnt/storage/data → /data`, o que aninhava o NFS sob o mountpoint do HDD; com HDD falho o Lidarr perdia a biblioteca mesmo com a música segura no NAS). Bind `/mnt/storage/data/torrents → /data/torrents` mantido (downloads no HDD).
+- **Lidarr (kuaray):** bind `/mnt/nas/media/music → /data/media/music` (decoupled from local HDD). Local torrent staging remains bound at `/mnt/storage/data/torrents → /data/torrents`.
 
-> ⚠️ **Bind mounts usam propagação `rprivate`** — mounts do host feitos *depois* do start do container não aparecem dentro dele. Se o mount NFS for recriado/remontado, **reinicie** os containers afetados (`docker restart lidarr navidrome`).
+> ⚠️ **Container Bind Mounts Use `rprivate` Propagation:**  
+> Mounts mounted on the host *after* container startup will not propagate inside the container namespace. If an NFS mount drops and is remounted, restart dependent containers (`docker restart lidarr navidrome`).
 
-## Performance e gargalo (kuaray em WiFi)
+## Performance & Throughput Characteristics
 
-- **Escrita local no psicopompo:** ~1 GB/s (btrfs, rápido).
-- **Escrita NFS a partir do kuaray:** ~3,6 MB/s — o **gargalo é o link físico do kuaray**, que está em **WiFi** (`wlp6s0`, rede "Cratos"; ethernet `enp7s0` sem cabo → `unavailable`). Latência até o kuaray: 74–190 ms (vs **0,17–0,28 ms** do kavure, cabeado — medido em 02/10/2026; era 2 ms na medição anterior via Wi-Fi/extensor).
-- ⚠️ O `async` ajuda, mas **não resolve**: o limite é a rota física. Enquanto o kuaray estiver em WiFi, imports/rescans do Lidarr serão lentos.
-- **Solução:** plugar **cabo de rede** no `enp7s0` do kuaray (esperado ~80–110 MB/s). Sem cabo, a funcionalidade opera normalmente — apenas lento.
-- O **kavure** é cabeado (`192.168.3.41`, **0,17–0,28 ms**) — NFS do sumaenimā/zomboid sem gargalo. Desde **02/10/2026** ele passou pelo switch gigabit `IT-BLUE LE-4203` (antes: extensor Wi-Fi); vazão bruta medida na LAN: **912 Mbps up / 858 Mbps down** (93% da linha) — ver [`topology.md`](topology.md) §Link Físico.
+- **Local NVMe/SSD write speed on psicopompo:** ~1 GB/s (Btrfs subvolume).
+- **Remote NFS write speed from kuaray:** ~3.6 MB/s — the primary throughput bottleneck is the host's physical Wi-Fi connection (`wlp6s0`, SSID "Cratos"; ethernet `enp7s0` disconnected). Ping latency to kuaray ranges between 74–190 ms.
+- While `async` improves transmission bursts, physical link saturation remains the limiting factor for batch rescans.
+- **kavure Gigabit Link:** Kavure connects via physical Ethernet (`192.168.3.41`) with 0.17–0.28 ms local latency. Operating through the dedicated `IT-BLUE LE-4203` Gigabit switch, measured raw LAN throughput delivers **912 Mbps up / 858 Mbps down** (93% line rate saturation) — see [`topology.md`](topology.md).
 
-## Testes (07/08/2026)
+## Boot-Race Mitigation (2026-09-22) — Tailscale Binding & tailscaled-wait
 
-- Mount OK no kuaray: `df -h /mnt/storage/data/media/music` → `100.82.51.112:/mnt/BACKUP/media/music 932G` (5232 arquivos).
-- Escrita OK (Lidarr/root e Transmission): arquivo criado via NFS aparece como `edu:edu` no psicopompo.
-- Navidrome + Lidarr reiniciados e lendo a biblioteca (60 pastas de topo).
-- Exports trocadas `sync` → `async` e re-exportadas (`exportfs -ra`) — confirmado em `exportfs -v`.
+**Historical Issue:** `nfs-server` failed at startup with `rpc.nfsd: unable to bind AF_INET TCP socket: errno 99` because the explicit Tailscale IP bind (`host=100.82.51.112`, adhering to zero-trust rules prohibiting `0.0.0.0`) initialized before Tailscaled completed network negotiation.
 
-## Backup frio
-
-O mesmo conteúdo (`/mnt/BACKUP` inteiro) é **também** espelhado no HD do kuaray via **Syncthing** (folder `backup`, receiveonly) — ver [`services/syncthing.md`](../services/syncthing.md).
-
-## Boot-race fix (22/09/2026) — bind em IP TS + tailscaled-wait
-
-**Problema:** `nfs-server` falhava no boot com `rpc.nfsd: unable to bind AF_INET TCP socket: errno 99` — o `host=100.82.51.112` (IP Tailscale, conforme regra `ports.md` de nunca bindar 0.0.0.0) subia **antes do tailscaled atribuir o IP**.
-
-**Fix (padrão Hellings "NFS Over Tailscale"):**
-1. `/usr/local/bin/tailscaled-wait.sh` + `/etc/systemd/system/tailscaled-wait.service` — espera `tailscale status → BackendState=Running` (timeout 60s) antes de liberar dependentes.
-2. `nfs-server.service.d/10-tailscaled-wait.conf` → `After/Wants=tailscaled-wait` — **mantém `host=100.82.51.112`** (regra de segurança intacta).
-
-**Conferido:** UFW restringe `2049/tcp` + `111/tcp` só aos 4 clientes TS (kuaray/kavure/ybytu-vnic/ybyra) — clientes montam NFSv4 (só 2049); `rpcbind/mountd` bindam 0.0.0.0 (default Arch) mas bloqueados pelo UFW p/ hosts externos. **Multi-cliente:** 40 exports ativos via 1 bind no IP TS.
+**Resolution:**
+1. Deployed `/usr/local/bin/tailscaled-wait.sh` and `/etc/systemd/system/tailscaled-wait.service` — pauses service dependencies until `tailscale status` confirms `BackendState=Running` (timeout 60s).
+2. Service drop-in `/etc/systemd/system/nfs-server.service.d/10-tailscaled-wait.conf` enforces `After=tailscaled-wait.service` and `Wants=tailscaled-wait.service`.
+3. Preserves strict Tailscale IP binding on `100.82.51.112` without exposing listening ports across LAN broadcast domains.

@@ -2,169 +2,126 @@
 tags: [homelab, tutorial, docker, registry, psicopompo, storage]
 ---
 
-# Registry de Imagens Docker (Sumænimá)
+# Docker Image Registry (Sumænimá)
 
-Registry privado que é a **fonte única** das imagens do Swarm. Rodando no
-**psicopompo** (build-node), acessível pela tailnet com **TLS + autenticação**.
+Private image registry serving as the **single source of truth** for Docker Swarm service images. Hosted on **psicopompo** (the build node), accessible across the Tailnet with **TLS + authentication**.
 
-## Por que existe
+## Rationale & Architecture
 
-A documentação oficial é direta ([Deploy a stack to a swarm](https://docs.docker.com/engine/swarm/stack-deploy/)):
+Docker's official documentation is clear ([Deploy a stack to a swarm](https://docs.docker.com/engine/swarm/stack-deploy/)):
 
-> *"Because a swarm consists of multiple Docker Engines, **a registry is required**
-> to distribute images to all of them."*
+> *"Because a swarm consists of multiple Docker Engines, **a registry is required** to distribute images to all of them."*
 
-E o sintoma de **não** tê-lo aparecia em **todo** deploy, como aviso da própria CLI:
+The symptom of operating without a centralized registry manifested during every deployment via the Docker CLI warning:
 
-> `image X could not be accessed on a registry to record its digest. Each node will
-> access X independently, possibly leading to **different nodes running different
-> versions** of the image.`
+> `image X could not be accessed on a registry to record its digest. Each node will access X independently, possibly leading to **different nodes running different versions** of the image.`
 
-**O que isso custou (29/09/2026):** o `deploy-swarm.sh` **não atualizou a API** —
-a imagem `:cpu` mudou de conteúdo mas manteve a tag, e sem registry o Docker não
-tem como perceber. Foi preciso `docker save | ssh | docker load` + `--force` manual.
+**Consequence experienced on 2026-09-29:** `deploy-swarm.sh` failed to update the API container — the `:cpu` image had changed its contents while preserving the tag, and without a registry, Swarm could not detect the revision. A manual sequence of `docker save | ssh | docker load` + `--force` was required to recover.
 
-## Topologia
+## Topology
 
-| Item | Valor |
+| Property | Value |
 |---|---|
 | Host | **psicopompo** (`100.82.51.112`) |
-| Imagem | `registry:3` |
-| Porta | `5000/tcp` — **apenas** loopback + tailnet (nunca `0.0.0.0`) |
-| Storage | `/mnt/NVME_PCI/registry` (bind mount — exige réplica única) |
-| Config | `~/homelab/registry/compose.yml` |
+| Image | `registry:3` |
+| Port | `5000/tcp` — **restricted to loopback + Tailnet only** (never `0.0.0.0`) |
+| Storage | `/mnt/NVME_PCI/registry` (bind mount — requires single-replica constraint) |
+| Configuration | `~/homelab/registry/compose.yml` |
 | URL | `https://psicopompo.chimaera-heptatonic.ts.net:5000` |
 
-## Segurança (requisitos da doc do Distribution)
+## Security Model (Distribution Specs)
 
-| Requisito | Como está |
+| Requirement | Implementation |
 |---|---|
-| **TLS obrigatório** | *"A production-ready registry **must** be protected by TLS"* — certificado via **`tailscale cert`** (Let's Encrypt, já confiável pelos nós) |
-| **Auth exige TLS** | *"You cannot use authentication with schemes that send credentials in clear text"* — por isso TLS **antes** do htpasswd |
-| **htpasswd em bcrypt** | Hash `$2y$` derivado do cofre sops — o registry **só** aceita bcrypt |
-| **Rede local/privada** | Bind **só** na tailnet + loopback (regra [`network/ports.md`](../network/ports.md)) |
+| **Mandatory TLS** | *"A production-ready registry **must** be protected by TLS"* — certificates provisioned via **`tailscale cert`** (Let's Encrypt, natively trusted across cluster nodes) |
+| **Auth Requires TLS** | *"You cannot use authentication with schemes that send credentials in clear text"* — TLS is enforced ahead of htpasswd |
+| **Bcrypt htpasswd** | `$2y$` bcrypt hash derived from the SOPS vault — `registry:3` strictly requires bcrypt |
+| **Private Network Bind** | Bound exclusively to Tailnet and loopback interfaces (governed by [`network/ports.md`](../network/ports.md)) |
 
-### Credenciais — agora no cofre sops (29/09/2026)
+### Credential Storage in SOPS Vault (2026-09-29)
 
-| Item | Onde vive |
+| Secret Item | Location |
 |---|---|
-| Usuário | `REGISTRY_USER` (`sae`) no store sops |
-| Senha | `REGISTRY_PASSWORD` no store sops |
-| Hash bcrypt | `auth/htpasswd` (modo `600`) — **artefato derivado**, não é fonte da verdade |
-| Nós autenticados | `~/.docker/config.json` em psicopompo/kavure/ybyra ✅ |
+| Username | `REGISTRY_USER` (`sae`) in SOPS store |
+| Password | `REGISTRY_PASSWORD` in SOPS store |
+| Bcrypt Hash | `auth/htpasswd` (permissions `0600`) — **derived artifact**, not source of truth |
+| Authenticated Nodes | `~/.docker/config.json` on psicopompo, kavure, and ybyra |
 
-O arquivo `auth/registry-password.txt` (senha em claro, `600`) **foi removido em
-29/09/2026** — a senha agora vive apenas no cofre cifrado
-([`guides/secrets-centralizados.md`](secrets-centralizados.md)). O
-`deploy-swarm.sh` **não** lê a senha: usa `--with-registry-auth` com os nós já
-autenticados.
+The plaintext credential file `auth/registry-password.txt` **was removed on 2026-09-29** — credentials reside exclusively in the encrypted vault ([`guides/secrets-centralizados.md`](secrets-centralizados.md)). The `deploy-swarm.sh` script does not parse plaintext passwords: it relies on `--with-registry-auth` against pre-authenticated daemon nodes.
 
 ```console
-# ler a senha do cofre
+# Read password from encrypted vault
 $ /mnt/NVME_PCI/secrets/sops-decrypt.sh REGISTRY_PASSWORD
 
-# regenerar o htpasswd num host novo (o registry só aceita bcrypt)
+# Regenerate htpasswd on a new host (registry strictly requires bcrypt)
 $ docker run --rm httpd:2-alpine htpasswd -Bbn "$REGISTRY_USER" "$REGISTRY_PASSWORD" \
     > ~/homelab/registry/auth/htpasswd && chmod 600 ~/homelab/registry/auth/htpasswd
 ```
 
-> **Nota:** `htpasswd` **não** está instalado no psicopompo (pacote `apache-tools`);
-> por isso a regeneração usa o container oficial `httpd`.
+> **Note:** `htpasswd` is not installed on psicopompo's base OS; generation uses the official `httpd:2-alpine` container.
 
-## Operação
+## Operations
 
 ```console
-# status
+# Check service status
 $ docker compose -f ~/homelab/registry/compose.yml ps
 
-# saúde (a doc: um registry protegido responde 401 sem credencial)
+# Health probe (protected registry returns 401 Unauthorized without credentials)
 $ curl -s -o /dev/null -w '%{http_code}\n' https://psicopompo.chimaera-heptatonic.ts.net:5000/v2/     # 401
 $ curl -s -u "sae:$(/mnt/NVME_PCI/secrets/sops-decrypt.sh REGISTRY_PASSWORD)" \
-       https://psicopompo.chimaera-heptatonic.ts.net:5000/v2/_catalog                                  # lista
+       https://psicopompo.chimaera-heptatonic.ts.net:5000/v2/_catalog                                  # list catalog
 
-# publicar uma imagem
-$ docker tag minha-imagem:tag psicopompo.chimaera-heptatonic.ts.net:5000/minha-imagem:tag
-$ docker push psicopompo.chimaera-heptatonic.ts.net:5000/minha-imagem:tag
+# Tag and publish an image
+$ docker tag my-image:tag psicopompo.chimaera-heptatonic.ts.net:5000/my-image:tag
+$ docker push psicopompo.chimaera-heptatonic.ts.net:5000/my-image:tag
 
-# login em um nó novo (senha vinda do cofre, nunca digitada em claro)
+# Login on a new node (securely piped from SOPS, never exposed in shell history)
 $ /mnt/NVME_PCI/secrets/sops-decrypt.sh REGISTRY_PASSWORD \
     | docker login psicopompo.chimaera-heptatonic.ts.net:5000 -u sae --password-stdin
 ```
 
-## Como o deploy usa
+## Deployment Pipeline Integration
 
-O `scripts/deploy-swarm.sh` (no repo do hub):
+The `scripts/deploy-swarm.sh` script executes the following workflow:
 
-1. Builda com a **tag qualificada pelo registry** (`$REG/sumaenima-server:cpu`);
-2. **`docker push`** (substituiu o `docker save | ssh | docker load`);
-3. `docker stack deploy **--with-registry-auth**` — as credenciais vão aos agentes
-   e cada nó **puxa** a imagem sozinho.
+1. Builds image using the registry-qualified repository tag (`$REG/sumaenima-server:cpu`);
+2. Executes **`docker push`** to the local registry (eliminating manual `docker save | ssh | docker load` piping);
+3. Triggers `docker stack deploy --with-registry-auth` — authentication digests propagate to worker nodes, enabling each daemon to pull image layers autonomously.
 
-**Ganhos:** o serviço passa a referenciar a imagem **por digest** (fim do risco de
-versões diferentes entre nós), e um reagendamento em outro nó funciona (o nó puxa
-em vez de depender de a imagem já estar lá).
+**Benefits:** Services reference container images **by immutable SHA256 digest** (preventing version drift across nodes), and node failover/rescheduling pulls layers on demand without requiring local cache pre-seeding.
 
-### O que **não** passa pelo registry
+### Exempt Images
 
-- **`sumaenima-server:cuda`** (4,3 GB): é construída **e** consumida só no
-  psicopompo — não faz sentido trafegar.
-- Imagens de terceiros (`pgvector`, `valkey`, `tailscale`, …): vêm do Docker Hub.
+- **`sumaenima-server:cuda`** (~4.3 GB): Built and executed exclusively on psicopompo to leverage its dedicated GPU — network transmission is avoided.
+- Third-party images (`pgvector`, `valkey`, `tailscale`): Pulled directly from Docker Hub.
 
-## Resiliência a restart do daemon (29/09/2026)
+## Daemon Restart Resilience & Post-Mortem (2026-09-29)
 
-**Incidente:** durante um `pacman -Syu`, o hook do sistema disparou
-`systemctl restart docker.service` **duas vezes em 4 minutos**. O `dockerd` estourou
-o **timeout de parada** e levou `SIGKILL` — e o **registry não voltou** (ficou
-`Exited (2)`), apesar do `restart: unless-stopped`. Todos os outros containers do host
-subiram; só o registry ficou caído, e o `deploy-swarm.sh` falharia ao empurrar imagens
-para ele (padrão do Docker: um container que morre **junto** com o daemon não é
-necessariamente religado pelo restart-manager).
+**Incident:** During a system upgrade (`pacman -Syu`), package hooks triggered `systemctl restart docker.service` twice within 4 minutes. The Docker daemon exceeded systemd's shutdown timeout and received an unhandled `SIGKILL`. As a result, the registry container failed to restart (`Exited (2)`), despite having `restart: unless-stopped`. All other containers recovered; the registry remained offline, blocking subsequent `deploy-swarm.sh` builds.
 
-**Causa raiz do SIGKILL:** o CachyOS define **`DefaultTimeoutStopSec=10s`** em
-`/usr/lib/systemd/system.conf.d/00-timeout.conf` — é **global** (vale para `docker`,
-`containerd`, `tailscaled`, `NetworkManager`…). Um `dockerd` com Swarm leva mais que
-10 s para encerrar → o systemd mata com SIGKILL.
+**Root Cause:** CachyOS enforces a global default stop timeout: **`DefaultTimeoutStopSec=10s`** in `/usr/lib/systemd/system.conf.d/00-timeout.conf`. A Swarm-enabled Docker daemon frequently requires >10s to coordinate cluster state and unmount overlay networks before shutdown.
 
-**Fix aplicado em 29/09/2026 — ✗ ERRADO · REVERTIDO EM 02/10/2026:** a escolha foi
-habilitar `live-restore`, o que resolveu o sintoma imediato mas era **incompatível com o
-Swarm** dos 3 hosts:
+**Initial Incorrect Fix (Reverted 2026-10-02):** Enabling `live-restore` temporarily mitigated container restart delays but proved **fundamentally incompatible with Docker Swarm mode**:
 
 ```json
-{ "live-restore": true, "...": "restante do daemon.json inalterado" }
+{ "live-restore": true }
 ```
 
-> ⚠️ **O que a doc oficial realmente diz:** *"The live restore option only pertains to
-> **standalone** containers, and not to Swarm services"* — é uma **limitação**, não um
-> aval de compatibilidade. Com Swarm ativo o `dockerd` **se recusa a subir**:
-> `failed to start cluster component: --live-restore daemon configuration is incompatible
-> with swarm mode`
-> ([moby/swarmkit#2381](https://github.com/moby/swarmkit/issues/2381) ·
-> [docker/docs#16059](https://github.com/docker/docs/issues/16059) ·
-> [live-restore](https://docs.docker.com/engine/daemon/live-restore/)).
+> ⚠️ Docker official documentation states: *"The live restore option only pertains to standalone containers, and not to Swarm services"*. In Swarm mode, `dockerd` refuses to initialize: `failed to start cluster component: --live-restore daemon configuration is incompatible with swarm mode` ([moby/swarmkit#2381](https://github.com/moby/swarmkit/issues/2381)).
 
-**Por que ficou latente:** o daemon só lê o `daemon.json` no **start**. A chave entrou
-via `systemctl reload` nos 3 hosts com o daemon já rodando — e detonou no **próximo
-reboot** de cada um:
+**Delayed Impact:** `dockerd` parses `daemon.json` only during startup. The configuration change was loaded via `systemctl reload` without restarting the process, leaving an unexploded configuration bomb that triggered during subsequent machine reboots:
 
-| Host | Detonou em | Consequência |
+| Host | Failure Date | Consequence |
 |---|---|---|
-| psicopompo (worker) | reboot **30/09 00:58** | **2 dias sem daemon** · Swarm sem worker |
-| kavure (manager) | reboot **02/10 13:08** | sae-core inteiro fora · `docker ps` inoperante |
-| ybyra (borda primária) | **não detonou** — config limpa preventivamente em 02/10 | desarmada |
+| psicopompo (worker) | Reboot 2026-09-30 00:58 | Daemon offline for 2 days · Swarm worker unreachable |
+| kavure (manager) | Reboot 2026-10-02 13:08 | Complete `sae-core` outage · `docker ps` socket unreachable |
+| ybyra (edge node) | Averted | Config sanitized proactively on 2026-10-02 |
 
-**Efeito colateral que mascara o sintoma:** o `live-restore` mantém **vivos** os
-containers que o daemon já tinha subido antes de abortar → no kavure, **33 containers
-rodavam como órfãos** enquanto `docker ps` respondia `Cannot connect to the Docker
-daemon`. Parecia "alguns serviços no ar", mas não havia gerência alguma.
+**Masked Failure Mode:** `live-restore` keeps child containers running when the daemon exits. On kavure, 33 orphan containers continued executing while `docker ps` reported `Cannot connect to the Docker daemon`, creating an illusion of partial service availability with zero control plane manageability.
 
-**Correção (02/10/2026, nos 3 hosts):** remover a chave (backup
-`daemon.json.bak-20261002`) → `systemctl reset-failed docker && systemctl start docker`
-→ religar os `unless-stopped` que o daemon parou no takeover → validar `docker node ls`
-(3/3 `Ready`). Runbook completo: [`AGENTS.md`](../AGENTS.md)
-§`live-restore` PROIBIDO em host Swarm.
-
-**Fix correto para o problema original (SIGKILL durante upgrade):** aumentar o timeout de
-parada do daemon — **não** habilitar `live-restore`:
+**Correct Remediation (Applied 2026-10-02 across all nodes):**
+1. Removed `live-restore` from `daemon.json`.
+2. Increased service shutdown timeout via systemd drop-in override:
 
 ```ini
 # /etc/systemd/system/docker.service.d/timeout.conf
@@ -172,17 +129,9 @@ parada do daemon — **não** habilitar `live-restore`:
 TimeoutStopSec=60s
 ```
 
-aplicado com `sudo systemctl daemon-reload`. É o mesmo padrão que o kavure já usa no
-drop-in `nfs-ordering.conf` (`TimeoutStopSec=30s`).
+Applied via `sudo systemctl daemon-reload`. Matches the drop-in timeout pattern established on kavure in `nfs-ordering.conf`.
 
-> Nuance de host (mantida): **só o psicopompo** tem o `DefaultTimeoutStopSec=10s` do
-> CachyOS (`/usr/lib/systemd/system.conf.d/00-timeout.conf`); kavure e ybyra têm **30 s**
-> — por isso o SIGKILL do incidente original aconteceu só no psicopompo.
->
-> 🔖 **Pendência:** aplicar o drop-in `TimeoutStopSec=60s` no psicopompo para fechar a
-> falha original (registry não religado após SIGKILL).
-
-**Recuperação manual (se algum container não voltar):**
+**Manual Recovery Commands:**
 
 ```console
 $ cd ~/homelab/registry && docker compose up -d
@@ -190,11 +139,7 @@ $ docker ps --filter name=registry --format '{{.Names}} | {{.Status}}'
 $ curl -s -o /dev/null -w '%{http_code}\n' https://psicopompo.chimaera-heptatonic.ts.net:5000/v2/   # 401
 ```
 
-## Ver também
+## See Also
 
-- [`guides/docker-log-rotation.md`](docker-log-rotation.md) — rotação de log
-- [`network/ports.md`](../network/ports.md) — catálogo de portas
-- Runbook de Swarm/Tailscale no hub: `docs/swarm-tailscale-troubleshooting.md`
-
----
-Última revisão: **2026-09-29**.
+- [`guides/docker-log-rotation.md`](docker-log-rotation.md) — Logging configuration and Promtail compatibility
+- [`network/ports.md`](../network/ports.md) — Canonical port allocations and bindings

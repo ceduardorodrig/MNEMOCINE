@@ -2,87 +2,66 @@
 tags: [homelab, service, arandu, scryfall, postgres, psicopompo, kavure]
 ---
 
-# Arandu — Catálogo Scryfall (sync)
+# Arandu — Scryfall Catalog Sync
 
-Sincroniza o bulk do Scryfall para a tabela `arandu_cartas` do PostgreSQL
-(`stenio_db`), alimentando o catálogo do Arandu TCG.
+Synchronizes upstream Scryfall bulk card dumps into the PostgreSQL `arandu_cartas` table (`stenio_db`), powering the Arandu TCG card search engine.
 
-**Binário:** `app/arandu-sync` (Rust) — compilado no **psicopompo** (build-node, ADR-026)
-**Banco:** `sae-core_db` (kavure), alcançado pela overlay `sae-net`
-**Agendamento:** diário **04:00** via `hl-arandu-sync.timer`
+**Binary:** `app/arandu-sync` (Rust) — compiled on **psicopompo** (designated build node, ADR-026)  
+**Database:** `sae-core_db` (kavure), accessed over `sae-net` Swarm overlay network  
+**Schedule:** Daily at **04:00** via `hl-arandu-sync.timer`  
 
-## Por que o timer roda "depois" do mirror
+## Execution Order Rationale
 
-A cadeia de horários é intencional e não deve ser alterada sem reavaliar tudo:
+The morning schedule sequence is strictly ordered:
 
-| Hora | Unit | O que faz |
+| Time | Systemd Unit | Workload |
 |---|---|---|
-| **03:00** | `hl-scryfall-mirror` | Baixa o bulk e as imagens do Scryfall (no kavure) |
-| **04:00** | `hl-arandu-sync` | Lê o bulk e popula `arandu_cartas` |
-| **05:00** | `hl-config-backup` | Espelha as configs dos hosts |
+| **03:00** | `hl-scryfall-mirror` | Fetches Scryfall bulk data and card art images (runs on kavure) |
+| **04:00** | `hl-arandu-sync` | Ingests bulk JSON into `arandu_cartas` table |
+| **05:00** | `hl-config-backup` | Mirrors node configuration files to NAS storage |
 
-## Onde roda e por quê
+## Host Execution Architecture
 
-O sync roda no **psicopompo**, não no kavure: o binário é compilado lá (é a máquina
-de build) e o kavure não tem toolchain Rust. O contato com o banco é feito por um
-container efêmero anexado à overlay `sae-net` — o `DATABASE_URL` aponta para
-`db:5432`, o nome do **serviço** dentro da overlay, que só resolve de dentro dela.
-**O 5432 não é publicado no host** (a matriz de `network/ports.md` está desatualizada
-nesse ponto).
+The synchronization binary executes on **psicopompo**, not kavure: Binaries are compiled locally on the build machine and kavure lacks a Rust compiler toolchain. Database connectivity is achieved via an ephemeral Docker container attached to the `sae-net` overlay — `DATABASE_URL` targets `db:5432`, the internal Swarm service hostname. **Port 5432 is not exposed on host interfaces**.
 
-## Operação
+## Operation
 
 ```console
-# status / próximo disparo
+# Check timer schedule
 $ systemctl list-timers hl-arandu-sync.timer
 
-# rodar agora (manual)
+# Manual trigger
 $ sudo systemctl start hl-arandu-sync.service
 $ journalctl -u hl-arandu-sync -f
 
-# conferir o catálogo (dentro do container do banco, pela overlay)
+# Verify database catalog (inside database container via overlay)
 $ SELECT count(*) FROM arandu_cartas;
 ```
 
-**Health:** o wrapper grava `/srv/health/arandu-sync-last-ok`, que o
-`health-files-metrics.sh` (timer de 5 min) expõe como métrica ao Prometheus.
-**Falha:** alerta por **ntfy** (`ybytu:8083/backup`). Não usa
-`OnFailure=notify-backup-failure@` por padrão porque aquele template **não existia
-em nenhum host** até 29/09/2026 — o `hl-scryfall-mirror` apontava para ele e falhava
-em silêncio. O template foi criado e testado.
+**Health Telemetry:** Wrapper touches `/srv/health/arandu-sync-last-ok`, scraped by `health-files-metrics.sh` (5-minute timer) into Prometheus.  
+**Alerting:** Dispatches failure notifications to **ntfy** (`ybytu:8083/backup`).
 
-## Nuances da unit (aprendidas no teste ponta a ponta)
+## Systemd Unit Implementation Details
 
-| Nuance | Detalhe |
+| Nuance | Detail |
 |---|---|
-| **`User=edu`** (não root) | A chave age do cofre (`~/.config/sops/age/keys.txt`, `0600`) é do `edu`; como root o `sops` não decripta e o sync morre na leitura do `DATABASE_URL` |
-| **`RuntimeMaxSec` não vale aqui** | Não tem efeito com `Type=oneshot` — o systemd avisa e ignora. É a **mesma armadilha do `Restart=`** já documentada no `sumaenima-gpu.service`. O teto de tempo fica no wrapper |
-| **`/srv/health` é do root** | O health file é escrito via `tmpfiles.d` (`/etc/tmpfiles.d/hl-arandu-sync.conf`) concedendo escrita ao **grupo `edu`** só nesse arquivo — não a world |
-| **Imagem runner** | `rust:1-slim-bookworm` (já traz `libssl.so.3`). A `debian:bookworm-slim` exigia `apt-get install libssl3` em runtime — lento e sujeito a falha de rede no meio do job |
-| **Roda na overlay** | O `DATABASE_URL` aponta para `db:5432`, nome do **serviço** dentro da `sae-net`; container efêmero é anexado a essa rede para alcançá-lo |
+| **`User=edu`** (Non-root) | Decryption key (`~/.config/sops/age/keys.txt`, permissions `0600`) belongs to `edu`; running as root fails `sops` decryption. |
+| **`RuntimeMaxSec` Unsupported** | Ignored by systemd on `Type=oneshot` units. Execution timeouts enforced within shell wrapper. |
+| **Root-Owned `/srv/health`** | Health file permissions managed via `tmpfiles.d` (`/etc/tmpfiles.d/hl-arandu-sync.conf`), granting write permissions specifically to group `edu`. |
+| **Runner Image** | `rust:1-slim-bookworm` (includes `libssl.so.3` out of the box). |
+| **Overlay Attachment** | Ephemeral container connects to `sae-net` overlay network to reach internal `db:5432` service. |
 
-> ⚠️ **Lição de método:** rodar só o binário à mão não valida o serviço. Os três
-> defeitos acima **só apareceram** no `systemctl start` de verdade — é o mesmo
-> princípio de "testar o artefato implantado, não a fonte".
+## Bugs Remediated on 29/09/2026
 
-## Bugs corrigidos em 29/09/2026 (o catálogo estava em 0,5%)
+The catalog previously contained only **600 of 118,406 cards** while falsely reporting success. Four chained root causes were identified and fixed:
 
-O catálogo tinha **600 de 118.406 cartas** e o sync reportava *sucesso*. Eram
-**quatro defeitos encadeados**, cada um mascarando o próximo:
-
-| # | Defeito | Efeito |
+| # | Bug | Impact |
 |---|---|---|
-| 1 | A API renomeou `download_uri` → **`jsonl_download_uri`** | Falhava com "não encontrada URL", parecendo erro de `bulk_type` |
-| 2 | Bulk **gzip lido como texto** | Nenhuma linha virava JSON → "sucesso" com **0 cartas** |
-| 3 | `arandu_cartas.id` é `NOT NULL` **sem DEFAULT** e o INSERT não o listava | Abortava por constraint |
-| 4 | Default era `oracle_cards` (~33k, carta única) em vez de `default_cards` (~118k impressões) | Indexava um conjunto que não bate com o produto |
+| 1 | Scryfall API renamed `download_uri` → **`jsonl_download_uri`** | Raised "URL not found" errors. |
+| 2 | Gzipped bulk file **parsed as raw plaintext** | Zero lines deserialized into JSON → reported false success on empty ingest. |
+| 3 | `arandu_cartas.id` was `NOT NULL` **without DEFAULT** and omitted from INSERT | Failed on database constraint violations. |
+| 4 | Default dataset pointed to `oracle_cards` (~33k unique cards) instead of `default_cards` (~118k printings) | Incomplete artwork indexing. |
 
-**Resultado:** 118.448 cartas, 118.286 com imagem, 1.052 sets distintos, em ~50 s.
-O sync agora **falha explicitamente** se nenhuma carta for lida, em vez de fingir
-sucesso.
+**Result:** Ingests 118,448 cards (118,286 with artwork) across 1,052 sets in ~50 seconds. The binary now **hard-fails** if zero cards are parsed.
 
-Ver [`scryfall-mirror.md`](scryfall-mirror.md) (o mirror das imagens) e
-[`../servers/kavure.md`](../servers/kavure.md).
-
----
-Última revisão: **2026-09-29**.
+See [`scryfall-mirror.md`](scryfall-mirror.md) and [`../servers/kavure.md`](../servers/kavure.md).

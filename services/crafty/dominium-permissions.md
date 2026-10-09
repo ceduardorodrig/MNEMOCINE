@@ -2,145 +2,132 @@
 tags: [homelab, service, crafty, gaming, server, kavure]
 ---
 
-# Dominium — Servidor Minecraft
+# Dominium — Minecraft Server Runbook & Permissions
 
-Servidor modded Fabric gerenciado pelo Crafty Controller no kavure (migrado do psicopompo em 08/08/2026).
+Modded Fabric Minecraft server orchestrated via Crafty Controller 4 on kavure (migrated from psicopompo on 2026-08-08).
 
-**Servidor físico:** kavure
-**Container:** crafty-controller
-**Diretório:** `/srv/data/minecraft/minecraftserver [dominium]/`
+**Physical Node:** kavure  
+**Container:** `crafty-controller`  
+**Filesystem Path:** `/srv/data/minecraft/minecraftserver [dominium]/`  
 
-## Acesso
+## Connection & Management Endpoints
 
-| Tipo | Como |
+| Connection Type | Target / Method |
 |---|---|
-| IP do servidor | `kavure.chimaera-heptatonic.ts.net` |
-| Porta | `25565` (Java Edition) |
-| Console | Crafty Admin → `https://kavure.chimaera-heptatonic.ts.net:8444` |
-| RCON | localhost:25575 (apenas do host) |
+| Server IP | `kavure.chimaera-heptatonic.ts.net` |
+| Port | `25565` (Java Edition) |
+| Web Management Console | Crafty Admin → `https://kavure.chimaera-heptatonic.ts.net:8444` |
+| Local RCON | `localhost:25575` (Loopback binding on host) |
 
-## Grupos do LuckPerms
+## LuckPerms Group Hierarchy
 
-| Grupo | Prefixo | Herda de | Permissões principais |
+| Group | Chat Prefix | Inherits From | Core Permissions |
 |---|---|---|---|
 | `admin` | `<dark_gray>[<red>Admin<dark_gray>]` | — | All commands: give, time, weather, tp, gamemode, selector, advancedbackups, ledger |
-| `dominium` | — | default | Survival + confiança total |
-| `builder` | — | default | Survival + `/gamemode` |
-| `lonewanderer` | — | default | Survival + `/tpa`, `/tpaccept`, `/back`, `/home`, `/sethome`, `/spawn` |
-| `default` | — | — | `/msg`, `/tpa`, `/tpaccept`, `/back`, `/home`, `/sethome`, `/spawn` |
+| `dominium` | — | `default` | Survival mode + trusted access |
+| `builder` | — | `default` | Survival mode + `/gamemode` |
+| `lonewanderer` | — | `default` | Survival mode + `/tpa`, `/tpaccept`, `/back`, `/home`, `/sethome`, `/spawn` |
+| `default` | — | — | Standard player baseline: `/msg`, `/tpa`, `/tpaccept`, `/back`, `/home`, `/sethome`, `/spawn` |
 
-## Players Registrados
+## Registered Player Profiles
 
-| Player | UUID | Grupo |
+| Player Username | UUID | Assigned Group |
 |---|---|---|
 | oxelytrum | `86869f39-8b2e-4519-bfa1-6c86e0b49d4c` | `dominium` |
 | twister2700 | `9d6c62d9-16ca-4159-8614-9a067848bf53` | `dominium` |
 | onidsouza | `f971f8da-379e-4190-9032-c3ba8fc3eda5` | `builder` |
 
-## Comandos Úteis (LuckPerms)
+## Essential LuckPerms CLI Commands
 
 ```bash
-# Ver grupo de um player
+# Display user details and parent groups:
 /lp user <player> info
 
-# Ver permissões de um grupo
-/lp group <grupo> permission info
+# Inspect group permissions:
+/lp group <group> permission info
 
-# Adicionar player a um grupo
-/lp user <player> parent set <grupo>
+# Assign user to parent group:
+/lp user <player> parent set <group>
 
-# Dar permissão específica
-/lp user <player> permission set <permissao> true
+# Grant specific node permission:
+/lp user <player> permission set <permission.node> true
 
-# Criar grupo
-/lp creategroup <nome>
+# Create permission group:
+/lp creategroup <name>
 
-# Exportar todas as permissões
+# Export permissions registry:
 /lp export
 ```
 
-## Backup
+## Permissions Storage & Backups
 
-As permissões estão no banco H2 do LuckPerms dentro do container:
+LuckPerms stores its database in an H2 database file inside the container volume:  
 `/crafty/servers/dominium/mods/luckperms/luckperms-h2-v2.mv.db`
 
-Para backup:
+Backup database snapshot:
 ```bash
 docker cp crafty-controller:/crafty/servers/dominium/mods/luckperms/luckperms-h2-v2.mv.db /backup/
 ```
 
-Para restaurar:
+Restore database snapshot:
 ```bash
 docker cp /backup/luckperms-h2-v2.mv.db crafty-controller:/crafty/servers/dominium/mods/luckperms/
 docker restart crafty-controller
 ```
 
-## Modpack (Dominium)
+## Modpack Architecture (Dominium)
 
-A **fonte de verdade é a instância do Prism Launcher** em psicopompo (`/home/edu/.local/share/PrismLauncher/instances/Dominium/`).
+The **canonical source of truth is the Prism Launcher client instance** hosted on psicopompo (`/home/edu/.local/share/PrismLauncher/instances/Dominium/`).
 
-| Item | Valor |
+| Specification | Configuration |
 |---|---|
-| Cliente | Prism Launcher — instância `Dominium` (psicopompo) |
-| Mod loader | **Fabric 0.19.5** (cliente e servidor) |
-| MC Version | 1.21.1 |
-| Mods | **111 jars no cliente / 103 no servidor** → 77 compartilhados em versões idênticas, 33 client-only, 24 server-only |
-| Diretório do servidor | `/srv/data/minecraft/minecraftserver [dominium]/MINECRAFT SERVER/` (kavure) |
-| Scripts | **centralizados na pasta do servidor (kavure)**: `/srv/data/minecraft/minecraftserver [dominium]/` — `client-push.sh`, `sync_mods.py`, `export_mrpack.py`, `README.md` |
+| Client Environment | Prism Launcher — `Dominium` instance (psicopompo) |
+| Mod Loader | **Fabric 0.19.5** (Unified across client and server) |
+| Minecraft Version | 1.21.1 |
+| Mod Distribution | **111 JARs in client / 103 JARs on server** → 77 shared identical versions, 33 client-only, 24 server-only |
+| Server Directory | `/srv/data/minecraft/minecraftserver [dominium]/MINECRAFT SERVER/` (kavure) |
+| Automation Tooling | Centralized inside `/srv/data/minecraft/minecraftserver [dominium]/` (`client-push.sh`, `sync_mods.py`, `export_mrpack.py`) |
 
-> ⚠️ **Canal packwiz + GitHub Pages MORTO (06/10/2026):** o repo [ceduardorodrig/DOMINIUM-MODPACK](https://github.com/ceduardorodrig/DOMINIUM-MODPACK) e a Pack URL `https://ceduardorodrig.github.io/DOMINIUM-MODPACK/pack.toml` respondem **404** (privado ou removido), sem credencial git no kavure. O fluxo antigo (`packwiz update --all`, `packwiz mr add`, `deploy.sh`) **não funciona mais** — ver [[crafty]].
+> ⚠️ **packwiz & GitHub Pages Distribution Deprecated (2026-10-06):**  
+> The historical repository `ceduardorodrig/DOMINIUM-MODPACK` and its GitHub Pages endpoint return HTTP 404. Packwiz sync flows are replaced by direct synchronization scripts and `.mrpack` distribution.
 
-### Sincronizar servidor com o cliente (fluxo canônico desde 06/10/2026)
+### Synchronizing Server with Client (Canonical Workflow Since 2026-10-06)
 
-Regras de ouro:
-
-1. **Fonte de verdade = a instância do Prism.** Não se edita mods "no servidor".
-2. Pareamento **por `id` do `fabric.mod.json`** (estável entre versões), **nunca por nome de arquivo**.
-3. Mods com `environment: "client"` **nunca** vão para o servidor; mods server-only são **preservados** (LuckPerms + `mods/luckperms/`, AdvancedBackups, Chunky, Ledger…).
-4. **Backup antes de mexer** (servidor parado ⇒ mundo estático): `/srv/data/minecraft/pre-update/<data>/` (local, rollback rápido) + `offbox/archive/pre-update-<data>/` (NAS, off-box).
-5. Servidor é subido/parado **pelo Crafty** (`POST /api/v2/servers/{id}/action/start_server`, API key `agentic.ai` no store sops).
-
-Todas as ferramentas ficam **na pasta do servidor, no kavure** (fonte canônica, centralizada em 06/10/2026). Como `client-push.sh` e `export_mrpack.py` **precisam rodar no psicopompo** (é onde está a instância do Prism), eles são **buscados do kavure na hora**:
+Operational Rules:
+1. **Source of Truth = Prism Client Instance.** Do not modify mods directly on the server without client parity.
+2. Pair mod files **by Fabric mod ID in `fabric.mod.json`**, never by arbitrary JAR filenames.
+3. Mods declared with `environment: "client"` are strictly excluded from the server; server-only mods (LuckPerms, AdvancedBackups, Chunky, Ledger) are preserved.
+4. **Mandatory Snapshot Prior to Updates:** Create pre-update backup at `/srv/data/minecraft/pre-update/<date>/` (local fast rollback) and `offbox/archive/pre-update-<date>/` (NAS target).
+5. Start and stop servers cleanly via Crafty API (`POST /api/v2/servers/{id}/action/start_server`, authenticated with `agentic.ai` key in SOPS).
 
 ```bash
 D="/srv/data/minecraft/minecraftserver [dominium]"
 
-# 1) kavure: parar o servidor pelo Crafty + snapshot pré-update (ver crafty.md)
-# 2) psicopompo: buscar e rodar o client-push.sh (envia os mods do Prism -> staging no kavure)
+# 1) kavure: Suspend server via Crafty and generate pre-update snapshot
+# 2) psicopompo: Fetch and execute client-push.sh (transfers Prism mods -> staging directory on kavure)
 tailscale ssh kavure@kavure "cat '$D/client-push.sh'" > /tmp/dominium-push.sh && bash /tmp/dominium-push.sh
-# 3) kavure: aplicar por id (dry-run, depois --apply)
+
+# 3) kavure: Reconcile mod IDs (dry-run first, then commit with --apply)
 tailscale ssh kavure@kavure "python3 '$D/sync_mods.py'"
 tailscale ssh kavure@kavure "python3 '$D/sync_mods.py' --apply"
 ```
 
-Ao terminar: subir pelo Crafty e conferir `Done (...)` em `MINECRAFT SERVER/logs/latest.log` (e o probe SLP `:9095`).
+Restart through Crafty and inspect startup completion (`Done (...)`) in `MINECRAFT SERVER/logs/latest.log`.
 
-> **Loader:** o Fabric Loader do servidor é atualizado com o instalador oficial dentro do container do Crafty:
-> `java -jar fabric-installer.jar server -mcversion 1.21.1 -loader <versão>` (sem `-downloadMinecraft`, para preservar o `server.jar`) e **apagar o `.fabric/`** em seguida.
+### Distributing Client Packs to Players (`.mrpack`)
 
-> **Instalação limpa no Prism:** o pack URL está morto — uma instalação do zero hoje só é possível copiando a instância `Dominium` do psicopompo ou usando o `.mrpack` (abaixo).
-
-### Distribuir para novos jogadores (`.mrpack`) — desde 06/10/2026
-
-Como o Prism **não tem export por CLI** e o canal packwiz morreu, a distribuição é feita gerando um **`.mrpack` (Modrinth)**. O gerador fica na **pasta do servidor (kavure)** e é buscado na hora (ele precisa rodar no psicopompo, onde está o Prism):
+Because Prism does not support headless CLI export, client distribution packages are compiled into standard Modrinth format (`.mrpack`):
 
 ```bash
 D="/srv/data/minecraft/minecraftserver [dominium]"
-# na máquina com a instância (psicopompo):
 tailscale ssh kavure@kavure "cat '$D/export_mrpack.py'" > /tmp/dominium-mrpack.py \
   && python3 /tmp/dominium-mrpack.py 1.1.0
-# -> ~/Dominium-1.1.0.mrpack  (~73 MB)
+# Outputs ~/Dominium-1.1.0.mrpack (~73 MB)
 ```
 
-O script: resolve cada jar por **sha512** no Modrinth (110 dos 111 viram **link**; o que não resolver — ex.: o `archers`, build CurseForge — vai **embutido** em `overrides/mods/`), monta o `modrinth.index.json` com `dependencies { minecraft 1.21.1, fabric-loader 0.19.5 }` e empacota os overrides (`config/`, `defaultconfigs/`, `resourcepacks/`, `shaderpacks/`, `emi.json`, `ph_config.txt`, `icon.png`).
+The script resolves each JAR against the Modrinth API by SHA-512 (linking online files while embedding unindexed dependencies like `archers`), generates `modrinth.index.json`, and bundles necessary configuration overrides (`config/`, `shaderpacks/`, `resourcepacks/`). Players import the generated `.mrpack` into Prism Launcher, Modrinth App, or ATLauncher via **Add Instance → Import from file**.
 
-Regras do script:
-- **`env.client = "required"` para TODOS** — o Modrinth marca alguns worldgen/libs como `client=unsupported` (ex.: `structure_pool_api`, dependência do `jewelry`); pular esses quebraria o cliente.
-- **Exclui**: `Distant_Horizons_server_data` (cache de LOD, GBs), `saves`, `logs`, `crash-reports`, `xaero`, `screenshots`, `essential`, `pfm`, `options.txt` (keybinds) e as libs nativas do Super Resolution (`config/super_resolution/libraries`, ~135 MB — o mod re-extrai/rebaixa).
-
-O amigo importa no Prism via **Add Instance → Import from file** (funciona também no Modrinth App/ATLauncher).
-
-## See also
-- [[crafty]] — Crafty Controller
-- [[kavure]] — Servidor (hospeda o Dominium desde 08/08/2026)
-- [[mods-list]] — Lista de mods cliente/servidor
+## See Also
+- [`../crafty.md`](../crafty.md) — Crafty Controller architecture
+- [`../../servers/kavure.md`](../../servers/kavure.md) — Kavure dedicated server profile
+- [`mods-list.md`](mods-list.md) — Full client/server mod catalog

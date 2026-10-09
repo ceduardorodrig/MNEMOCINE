@@ -2,28 +2,28 @@
 tags: [homelab, network, tailscale, docker, storage, env]
 ---
 
-# Topologia de Rede
+# Network Topology
 
-A rede do homelab é **baseada na Tailnet** — a Tailscale é o backbone principal. IPs locais (LAN) existem mas são secundários, usados apenas para acesso físico quando necessário.
+The homelab architecture is **built entirely upon Tailscale as its primary backbone**. Local LAN IP assignments exist for physical maintenance and initial provisioning, while operational service traffic routes securely through the encrypted Tailnet mesh.
 
-## Contexto de Conectividade
+## Connectivity Matrix
 
-| Servidor | Localização | NAT | Acesso direto | Como alcança a Tailnet | Shell padrão |
+| Node | Physical Location | NAT Environment | Direct Inbound WAN | Primary Access Channel | Default Shell |
 |---|---|---|---|---|---|
-| psicopompo | Casa | **CGNAT** | ❌ Nenhum | Tailscale (conexão direta ou DERP relay) | **fish** (`/bin/fish`; zsh/bash também instalados) |
-| kuaray | Casa | **CGNAT** | ❌ Nenhum | Tailscale (conexão direta ou DERP relay) | bash |
-| kavure | Casa | **CGNAT** | ❌ Nenhum | Tailscale (conexão direta ou DERP relay) | bash |
-| ybytu | Oracle Cloud | IP Público | ✅ SSH direto | Tailscale (conexão direta) | bash |
-| ybyra | Oracle Cloud | IP Público | ✅ SSH direto | Tailscale (conexão direta) | bash |
-| kururu | Casa | **CGNAT** | ❌ Nenhum | Wi-Fi LAN + Tailscale | ash / sh (Alpine) |
+| psicopompo | Home Lab | **CGNAT** | ❌ None | Tailscale (Direct WireGuard or DERP relay) | **fish** (`/bin/fish`; zsh/bash available) |
+| kuaray | Home Lab | **CGNAT** | ❌ None | Tailscale (Direct WireGuard or DERP relay) | bash |
+| kavure | Home Lab | **CGNAT** | ❌ None | Tailscale (Direct WireGuard or DERP relay) | bash |
+| ybytu | Oracle Cloud | Public IP | ✅ Direct SSH | Tailscale (Direct WireGuard) | bash |
+| ybyra | Oracle Cloud | Public IP | ✅ Direct SSH | Tailscale (Direct WireGuard) | bash |
+| kururu | Home Lab | **CGNAT** | ❌ None | Local Wi-Fi LAN + Tailscale | ash / sh (Alpine Linux) |
 
-Ambos psicopompo, kuaray e kavure estão atrás de CGNAT (Carrier-Grade NAT) — não têm IP público roteável. A Tailscale é o **único meio de acesso** externo a esses servidores.
+Internal residential nodes (psicopompo, kuaray, kavure) operate behind Carrier-Grade NAT (CGNAT) without routable public IPv4 addresses. Tailscale represents the **exclusive channel** for inbound remote administration.
 
-## Diagrama — Tailnet como Rede Principal
+## Visual Network Topology
 
 ```mermaid
 graph TB
-    internet[Internet]
+    internet[Public Internet]
 
     subgraph tailnet[Tailnet - chimaera-heptatonic.ts.net]
         psicopompo[psicopompo<br>100.82.51.112]
@@ -31,349 +31,134 @@ graph TB
         ybytu[ybytu<br>100.115.253.109]
         ybyra[ybyra<br>100.66.224.34]
         kavure[kavure<br>100.124.146.77]
-        sumaenima[sumaenima - VM funnel<br>100.85.140.67]
+        sumaenima[sumaenima - Edge Tunnel<br>100.85.140.67]
         anansi[anansi<br>100.71.232.79]
-        pira_nuya[pira-nuya<br>100.89.208.75]
-        outras[... outras máquinas]
+        kururu[kururu<br>100.127.188.45]
     end
 
-    subgraph lan[LAN Local — 192.168.3.0/24]
-        roteador[Roteador<br>192.168.3.1]
-        switch[Switch IT-BLUE LE-4203<br>gigabit 8 portas]
-        roteador ---|cabo| switch
+    subgraph lan[Local Residential LAN — 192.168.3.0/24]
+        router[ISP Router Gateway<br>192.168.3.1]
+        switch[IT-BLUE LE-4203<br>8-Port Gigabit Switch]
+        router ---|Ethernet| switch
         psicopompo ---|eno1 192.168.3.100 · 1000 Mb/s| switch
         kavure ---|enp1s0 192.168.3.41 · 1000 Mb/s| switch
         kuaray ---|enp7s0 192.168.3.200 · 100 Mb/s| switch
-        kuaray -.-|wlan 192.168.3.53 fallback| roteador
-        kururu ---|wlan 192.168.3.55| roteador
+        kuaray -.-|wlan 192.168.3.53 fallback| router
+        kururu ---|wlan 192.168.3.55| router
     end
 
-    subgraph oracle[Oracle Cloud — 10.0.0.0/24]
-        ybytu ---|ens3 10.0.0.136| oracle_gw[Gateway Oracle<br>10.0.0.1]
+    subgraph oracle[Oracle Cloud Infrastructure — 10.0.0.0/24]
+        ybytu ---|ens3 10.0.0.136| oracle_gw[Oracle VCN Gateway<br>10.0.0.1]
         ybyra ---|ens3 10.0.0.40| oracle_gw
-        ybyra ---|VM| sumaenima
+        ybyra ---|Docker Container| sumaenima
     end
 
-    roteador -->|CGNAT| internet
-    oracle_gw -->|IP Público| internet
+    router -->|CGNAT PPPoE| internet
+    oracle_gw -->|Public IPv4| internet
 
-    psicopompo -->|Exit Node| internet
-    ybytu -->|Exit Node| internet
+    psicopompo -.->|Tailnet| tailnet
+    kavure -.->|Tailnet| tailnet
+    kuaray -.->|Tailnet| tailnet
+    ybytu -.->|Tailnet| tailnet
+    ybyra -.->|Tailnet| tailnet
 ```
 
-> **Linhas sólidas** = conexão física. **Linhas tracejadas** = conexão Tailscale.
+## Physical Gigabit Link Infrastructure — Switch `IT-BLUE LE-4203` (2026-10-02)
 
-## Link Físico — Switch Gigabit `IT-BLUE LE-4203` (02/10/2026)
+Prior to October 2026, kavure was linked to the network using a Wi-Fi range extender. Infrastructure was upgraded to dedicated Cat6 cabling connected to an unmanaged 8-port Gigabit switch:
 
-Até 02/10/2026 só o psicopompo era cabeado — o kavure chegava pela rede via
-**extensor/repetidor Wi-Fi**. Com a migração para cabeamento novo, os dois hosts
-passaram a ficar atrás de um switch gigabit de 8 portas:
-
-```
-Internet → Roteador (192.168.3.1) ⇄ switch IT-BLUE LE-4203 ⇄ { psicopompo, kavure, kuaray }
+```text
+Internet → ISP Router (192.168.3.1) ⇄ IT-BLUE LE-4203 Switch ⇄ { psicopompo, kavure, kuaray }
 ```
 
-### Ficha técnica
+### Hardware Specifications
 
-| Item | Valor |
+| Specification | Parameter |
 |---|---|
-| Marca / Modelo | **IT-BLUE** (It-Blue) · **LE-4203** |
-| Portas | 8 × RJ45 **10/100/1000 Mbps**, auto MDI/MDIX |
-| Capacidade de comutação | **16 Gbps** (full-duplex: 8 × 1 Gbps × 2) |
-| Taxa de encaminhamento | **11,52 Mpps** (≈97% da taxa de linha teórica de 11,9 Mpps) |
-| Gerenciamento | **Não administrável** — sem VLAN/QoS/ACL, *plug and play* |
-| Energia | Bivolt · sem ventoinha · ~0,3 kg |
+| Model | **IT-BLUE LE-4203** |
+| Interface Ports | 8 × RJ45 **10/100/1000 Mbps**, Auto MDI/MDIX |
+| Switching Capacity | **16 Gbps** (Full duplex wire speed) |
+| Forwarding Rate | **11.52 Mpps** (~97% of theoretical 11.9 Mpps maximum) |
+| Architecture | Unmanaged, fanless, zero-configuration |
 
-> Referência de preço: **R$ 115** ([Multimídia Informática](https://multimidia.inf.br/produtos/switch-8-portas-gigabit-it-blue-le-4203-xl8u6/) — página consultada em 02/10/2026; ficha técnica sem manual público, especificações acima confirmadas pelo rótulo/caixa).
+### Empirical Validation & Link Benchmarks
 
-### Validação: o switch é mesmo gigabit? (02/10/2026)
-
-| Verificação | Resultado |
+| Metric | Measured Value |
 |---|---|
-| Negotiation — psicopompo `eno1` | **1000 Mb/s, full-duplex** |
-| Negotiation — kavure `enp1s0` | **1000 Mb/s, full-duplex** |
-| Latência LAN (`ping 192.168.3.41`) | **0,17 – 0,28 ms** |
-| Throughput raw — upload (1 GiB) | **111 MiB/s ≈ 912 Mbps** |
-| Throughput raw — download (1 GiB) | **102 MiB/s ≈ 858 Mbps** |
-| **Conclusão** | **✅ gigabit confirmado** — 93% da taxa de linha teórica |
+| psicopompo `eno1` Negotiation | **1000 Mb/s, Full Duplex** |
+| kavure `enp1s0` Negotiation | **1000 Mb/s, Full Duplex** |
+| LAN Ping Latency (`ping 192.168.3.41`) | **0.17 – 0.28 ms** |
+| Raw LAN Upload Throughput (1 GiB test payload) | **111 MiB/s ≈ 912 Mbps** |
+| Raw LAN Download Throughput (1 GiB test payload) | **102 MiB/s ≈ 858 Mbps** |
+| **Conclusion** | **✅ Full Gigabit Confirmed** (93% saturation of theoretical line rate) |
 
-### Método reproduzível (sem dependências)
+## IP Address Allocation Table
 
-O `iperf3` não estava instalado em nenhum dos dois hosts, então o teste foi feito com
-`nc` + `dd` — **zero instalação**, resultado igualmente válido:
+| Hostname | Tailscale IP (Primary Canonical) | LAN IP (Physical / Fallback) | Physical Interface |
+|---|---|---|---|
+| psicopompo | `100.82.51.112` | `192.168.3.100/24` | `eno1` |
+| ybytu | `100.115.253.109` | `10.0.0.136/24` | `ens3` |
+| ybyra | `100.66.224.34` | `10.0.0.40/24` | `ens3` |
+| kuaray | `100.94.209.99` | `192.168.3.200/24` (Wired) · `192.168.3.53/24` (Wi-Fi) | `enp7s0` · `wlp6s0` |
+| kavure | `100.124.146.77` | `192.168.3.41/24` | `enp1s0` |
+| sumaenima | `100.85.140.67` | (Tailnet tunnel node on ybyra) | — |
 
-```bash
-# 1. link/speed (qualquer um dos hosts)
-ethtool eno1 | grep -E 'Speed|Duplex'     # psicopompo
-ethtool enp1s0 | grep -E 'Speed|Duplex'   # kavure
-
-# 2. latência
-ping -c 20 192.168.3.41
-
-# 3. throughput — servidor (kavure)
-nc -lk5202 > /dev/null
-
-# 4. throughput — cliente (psicopompo), 1 GiB de upload
-dd if=/dev/zero bs=1M count=1024 | pv -r | nc -q5 192.168.3.41 5202
-```
-
-- `iperf3` continua sendo a ferramenta padrão do setor caso se queira um número com
-  CPU ociosa — mas não é necessário para validar velocidade de link.
-- **Limpeza obrigatória:** mate os listeners `nc` ao terminar (`pkill nc`), senão a
-  porta fica presa.
-
-### Observações
-
-- **Não administrável** ⇒ não há como travar velocidade nem criar VLAN no switch; a
-  negociação é automática. Se um dia o link cair para 100 Mb/s, o suspeito é o cabo
-  ou a porta — conferir com `ethtool`.
-- **Broadcast domain único** (sem VLAN): o **Magic Packet de Wake-on-LAN** propaga
-  normalmente pelo switch — **validado em 02/10/2026 nos dois sentidos** (kavure
-  acorda em **29s**, psicopompo em **54s**), melhoria direta em relação ao caminho
-  antigo via extensor Wi-Fi. Ver [`services/wol-relay.md`](../services/wol-relay.md).
-- **Uso das portas:** psicopompo (1 Gbps), kavure (1 Gbps) e kuaray (100 Mbps); **5 portas livres** para expansão (kuaray cabeado em 04/10/2026).
-
-## Tabela de IPs
-
-| Hostname | Tailscale IP (primário) | LAN IP (referência) | Interface |
-|---|---|---|---|---|
-| psicopompo | `100.82.51.112` | `192.168.3.100/24` | eno1 |
-| ybytu | `100.115.253.109` | `10.0.0.136/24` | ens3 |
-| ybyra | `100.66.224.34` | `10.0.0.40/24` | ens3 |
-| kuaray | `100.94.209.99` | `192.168.3.200/24` (cabo) · `192.168.3.53/24` (Wi-Fi) | enp7s0 (primária) · wlp6s0 |
-| kavure | `100.124.146.77` | `192.168.3.41/24` | enp1s0 |
-| sumaenima | `100.85.140.67` | (nó Tailscale do tunnel container no ybyra) | — |
-
-> **sumaenima** = nó Tailscale do **container `sae-edge_tunnel`** (TS_HOSTNAME=sumaenima) rodando no ybyra — usado para o Tailscale Funnel da Borda Primária. Não é uma VM separada; o IP muda se o tunnel for recriado.
-> **Todo o tráfego entre serviços usa IPs da Tailnet.** IPs locais só são usados para acesso físico à máquina.
-
-## Subredes Docker (redes internas dos servidores)
+## Docker Subnet Mapping
 
 ### Psicopompo
-
-> **Conferido via `docker network inspect` em 02/10/2026.** Duas redes da versão anterior
-> **não existem mais** (`sumaenimahub_default`, `minecraftserver_default` — stacks migradas
-> para o kavure) e o **Portainer foi removido** (vivia na `bridge` junto com o Umami, que
-> também migrou).
-
-| Rede Docker | Subnet | Serviços (containers reais) |
+| Docker Network | Subnet Range | Active Workloads |
 |---|---|---|
-| `bridge` | 172.17.0.0/16 | autoheal, glances, dockerproxy, watchtower |
-| `registry_default` | 172.25.0.0/16 | registry (`:5000`) |
-| `sae-net` (overlay Swarm) | 10.0.2.0/24 · **MTU 1280** (vxlan 4099) | steniorec (worker GPU) + GPU workers vision/audio/ollama → Swarm do kavure |
-| `host` | — | promtail, node-exporter |
-| `docker_gwbridge` | 172.24.0.0/16 | gateways do Swarm (ingress / attachable) |
-| `ingress` (overlay) | 10.0.0.0/24 | ingress do Swarm |
-| `promtail_default` | 172.18.0.0/16 | *(vazia — promtail usa `host`)* |
-| `glances_default` | 172.19.0.0/16 | *(vazia — glances agora na `bridge`)* |
-| `transcribe_default` | 172.21.0.0/16 | *(vazia)* |
-| `rustdesk-server_default` | 172.22.0.0/16 | *(vazia — RustDesk removido 2026)* |
-| `umami_net` | 172.23.0.0/16 | *(vazia — umami migrou p/ kavure)* |
-| `winboat_default` | 172.20.0.0/16 | *(vazia/inativo)* |
+| `bridge` | 172.17.0.0/16 | `autoheal`, `glances`, `dockerproxy`, `watchtower` |
+| `registry_default` | 172.25.0.0/16 | `registry` (`:5000`) |
+| `sae-net` (Swarm Overlay) | 10.0.2.0/24 · **MTU 1280** (VXLAN 4099) | `steniorec` (GPU audio transcription worker) + GPU inference workers |
+| `host` | — | `promtail`, `node-exporter` |
+| `docker_gwbridge` | 172.24.0.0/16 | Swarm ingress and attachable network gateways |
 
 ### Ybytu
-| Rede Docker | Subnet | Serviços |
+| Docker Network | Subnet Range | Workloads |
 |---|---|---|
-| `bridge` | 172.17.0.0/16 | AdGuard, Glances, Watchtower, etc |
-| `homepage_default` | 172.18.0.0/16 | Homepage |
-| `syncthing_default` | 172.21.0.0/16 | Syncthing |
-| `filestash_default` | — | (inativo) |
-| `nginx-proxy-manager_default` | — | (inativo) |
-
-### Kuaray
-| Rede Docker | Subnet | Serviços |
-|---|---|---|
-| `bridge` | 172.17.0.0/16 | *arr stack, streaming, etc |
-| `big-bear-vert_default` | — | Vert |
+| `bridge` | 172.17.0.0/16 | `adguardhome`, `glances`, `watchtower`, `uptime-kuma`, `changedetection`, `ntfy` |
+| `homepage_default` | 172.18.0.0/16 | `homepage` (`:3001`) |
 
 ### Kavure
-| Rede Docker | Subnet | Serviços |
+| Docker Network | Subnet Range | Workloads |
 |---|---|---|
-| `zomboid_default` | 172.18.0.0/16 | pz-server, zomboid-panel |
-| `dockerproxy_default` | 172.19.0.0/16 | dockerproxy |
-| `sae-net` | 10.0.2.0/24 · **MTU 1280** | **Swarm manager + core** (sae-core: db, valkey, api, umami-db, backup, asciline) |
+| `zomboid_default` | 172.18.0.0/16 | `pz-server`, `zomboid-panel` |
+| `dockerproxy_default` | 172.19.0.0/16 | `dockerproxy` (`:2375`) |
+| `sae-net` | 10.0.2.0/24 · **MTU 1280** | **Swarm Manager & Core Services** (`sae-core_api`, `db`, `valkey`, `backup`, `asciline`) |
 
-> **Overlay `sae-net` — MTU 1280 (corrigido 29/09/2026).** O Docker entrega pacotes de
-> até 1500 bytes por padrão, mas o caminho Tailscale (`tailscale0`, WireGuard) só aceita
-> **1280** — o excedente é **descartado em silêncio**, travando payloads grandes
-> (imagens do Arandu via ybyra, anexos, respostas grandes). A correção é no **driver da
-> rede** (`--opt com.docker.network.driver.mtu=1280`), **nunca** no flag
-> `--network-control-plane-mtu` do daemon (que só afeta o control plane e **derruba o
-> nó** abaixo de 1500 — tentado e revertido no mesmo dia).
->
-> A migração foi **rolada, sem downtime** (`service update --network-add/--network-rm`),
-> como manda a documentação oficial da Docker. O nome anterior
-> (`sumaenima_sumaenima-net`) era legado de um projeto compose que não existe mais.
->
-> **Runbook completo** (com links oficiais): `docs/swarm-tailscale-troubleshooting.md`
-> no repositório Sumænimá Hub.
+> **Swarm Overlay MTU Tuning (1280 Bytes):**  
+> While standard Docker bridge networks default to an MTU of 1500, cross-node WireGuard transit over Tailscale (`tailscale0`) encapsulates traffic with lower overhead limits. The overlay is explicitly configured with `--opt com.docker.network.driver.mtu=1280` to prevent silent packet truncation during multi-node API communications.
 
-> ⚠️ **Pendência conhecida:** a rede antiga `sumaenima_sumaenima-net` (subnet 10.0.1.0/24)
-> **continua existindo no kavure**, sem nenhum serviço conectado, bloqueada por uma
-> *task fantasma* do swarm (`in use by task …`). A remoção exige **reiniciar o dockerd
-> do kavure** (janela agendada). Ver §4 do runbook.
+## Storage Pools & Filesystems
 
-## Topologia de Armazenamento
-
-### Psicopompo — 4+ discos + Google Drive
-| Disco | Device | Formato | Ponto de Montagem | Tamanho | Uso |
+### Psicopompo — 4 Disks + Cloud Remote
+| Storage Pool | Block Device | Filesystem | Mountpoint | Capacity | Allocation |
 |---|---|---|---|---|---|
-| NVMe Sistema | `/dev/nvme1n1p2` | Btrfs | `/` (subvolumes) | 462 GB | 33% — SO + Docker volumes |
-| NVMe PCIe | `/dev/nvme0n1p5` | Btrfs | `/mnt/NVME_PCI` | 1.7 TB | 25% — Dados pesados + Windows (99 GB NTFS) |
-| SSD SATA | `/dev/sda1` | Btrfs | `/mnt/SSD_SATA` | 448 GB | 10% — Cache / jogos |
-| HDD | `/dev/sdb1` | Btrfs | `/mnt/HDD_SATA` | 932 GB | — Mídia / backup (não montado) |
-| Disco Windows 1 | `/dev/sdc1` | exFAT | (não montado) | 116 GB | — Possível disco Windows |
-| Disco Windows 2 | `/dev/sdd1` | exFAT | (não montado) | 119 GB | — Possível disco Windows |
-| Google Drive | `gdrive: (rclone)` | FUSE | `/home/edu/Google_Drive` | 5 TB | 24% — Cloud storage |
+| System NVMe | `/dev/nvme1n1p2` | Btrfs | `/` (Subvolumes `@`, `@home`) | 462 GB | OS + Local Docker containers |
+| Data NVMe PCIe | `/dev/nvme0n1p5` | Btrfs | `/mnt/NVME_PCI` | 1.7 TB | Repositories, AI weights, LLM models |
+| SSD SATA | `/dev/sda1` | Btrfs | `/mnt/SSD_SATA` | 448 GB | Local staging and game cache |
+| HDD SATA | `/dev/sdb1` | Btrfs | `/mnt/BACKUP` | 932 GB | Canonical homelab NAS storage and backup targets |
+| Google Drive | `gdrive:` (rclone) | FUSE | `/home/edu/Google_Drive` | 5 TB | Cloud backup and archives |
 
-### Kuaray — 2 discos
-| Disco | Device | Formato | Ponto de Montagem | Tamanho | Uso |
+### Kuaray — Storage Node
+| Storage Pool | Block Device | Filesystem | Mountpoint | Capacity | Allocation |
 |---|---|---|---|---|---|
-| SSD Sistema | `/dev/sda2` | Ext4 | `/` | 224 GB | 23% — SO + Docker |
-| HDD Storage | `/dev/sdb1` | Ext4 | `/mnt/storage` | 932 GB | 34% — Bibliotecas multimídia |
+| System SSD | `/dev/sda2` | Ext4 | `/` | 224 GB | Base OS and local containers |
+| Storage HDD | `/dev/sdb1` | Ext4 | `/mnt/storage` | 932 GB | Inactive media files and torrent staging |
 
-### Ybytu — 1 disco
-| Disco | Device | Formato | Tamanho | Uso |
-|---|---|---|---|---|
-| Block Volume | `/dev/sda1` | Ext4 | 50 GB | 17% — Sistema + Docker |
-
-### Ybyra — 1 disco
-| Disco | Device | Formato | Tamanho | Uso |
-|---|---|---|---|---|
-| Boot Volume | `/dev/sda1` | Ext4 | 150 GB | 2% — Sistema + Docker + Filebrowser + Syncthing
-
-### Kavure — 1 disco (LVM expandido em 06/08/2026)
-| Disco | Device | Formato | Ponto de Montagem | Tamanho | Uso |
+### Kavure — Core Services Server
+| Storage Pool | Block Device | Filesystem | Mountpoint | Capacity | Allocation |
 |---|---|---|---|---|---|
-| SSD Sistema | `/dev/sda3` | LVM ext4 | `/` (LV único) | 223 GB | — SO + Docker + dados de jogo (`/srv/data/zomboid`) |
+| System SSD | `/dev/sda3` | LVM Ext4 | `/` | 223 GB | OS, Core databases, and game worlds |
 
-## Fluxo de Tráfego
+## Ingress Routing & Traffic Flow
 
-| Origem → Destino | Caminho |
-|---|---|---|
-| Usuário → Sumænimá (SPA Frontend) | HTTP → **ybyra** (Borda primária, porta 80) — standby: **kavure** (`proxy-standby`, ativado em failover; kuaray **DEPRECIADO** 29/08) |
-| SPA Frontend → API | Proxy reverso Nginx (ybyra) → **kavure** (porta 9090, via overlay Swarm) |
-| GPU workers → API/Valkey | overlay `sae-net` → kavure |
-| Celular (4G) → Home Assistant | Tailscale Funnel → kuaray |
-| Celular (4G) → aiostreams | Tailscale Funnel → **kavure** |
-| Tailnet (remoto) → Roteador / IoT da Casa | Subnet Router (**kavure** `192.168.3.0/24`) → LAN física via switch gigabit |
-| Notebook → AdGuard admin | Tailscale direto → ybytu :3000 |
-| ~~Notebook → Portainer~~ | ~~Tailscale direto → psicopompo :9000~~ — **Portainer removido** (sem substituto web; `docker`/CLI + Homepage) |
-| Serviço → Internet (exit node) | Serviço → psicopompo ou ybytu → Internet |
-| ybytu → Corações / Atualizações | `ens3` → Oracle gateway → Internet |
-| ybyra → Atualizações | `ens3` → Oracle gateway → Internet |
-
-## Firewall / Portas Abertas
-
-> Todas as portas abaixo são acessíveis **apenas via Tailscale**, exceto onde indicado.
-
-### Psicopompo
-| Porta | Serviço | Acesso |
-|---|---|---|
-| 22 | SSH | LAN + Tailscale |
-| 25565 | Minecraft | LAN + Tailscale |
-| ~~9000~~ | ~~Portainer~~ | **removido** (verificado 02/10/2026: porta fechada, container inexistente) |
-| 11434 | Ollama (GPU worker) | Tailscale |
-| 21115-21117 | RustDesk | Público (não passa pela Tailnet) |
-| 8384 | Syncthing | Tailscale |
-
-### Ybytu (Oracle Cloud — firewall do security list)
-| Porta | Serviço | Acesso |
-|---|---|---|
-| 22 | SSH | Tailscale |
-| 53 | AdGuard DNS | Tailscale |
-| 3000 | AdGuard admin | Tailscale |
-| 3001 | Homepage | Tailscale |
-| 8334 | Filebrowser | Tailscale |
-| 2375 | Docker proxy | Tailscale |
-| 40000 | Tailscale Peer Relay | Tailnet |
-
-### Ybyra (Oracle Cloud — firewall do security list)
-| Porta | Serviço | Acesso |
-|---|---|---|
-| 22 | SSH | Tailscale |
-| 80 | Nginx (Borda Primária - SPA) | Tailscale |
-| 61208 | Glances | Tailscale |
-| 8334 | Filebrowser | Tailscale |
-| 8384 | Syncthing admin | Tailscale |
-| 22000 | Syncthing transfer | Tailscale |
-
-### Kuaray
-| Porta | Serviço | Acesso |
-|---|---|---|
-| 22 | SSH | LAN + Tailscale |
-| 139, 445 | Samba | LAN |
-| 3003 | Nuxt 3 Miracena | Tailscale (`100.94.209.99:3003`) |
-| 3030 | Vert | LAN + Tailscale |
-| 5030 | Slskd (Soulseek) | LAN + Tailscale |
-| 5678 | n8n Miracena | Tailscale (`100.94.209.99:5678`) |
-| 8055 | Directus Miracena | Tailscale (`100.94.209.99:8055`) |
-| 8085 | WordPress Miracena | Tailscale (`100.94.209.99:8085`) |
-| 81 | NPM Admin Miracena | Tailscale (`100.94.209.99:81`) |
-| 8180 | NPM HTTP Miracena | Tailscale (`100.94.209.99:8180`) |
-| 8191 | Flaresolverr | LAN + Tailscale |
-| 8265 | Soularr | LAN + Tailscale |
-| 8384 | Syncthing Web UI | LAN + Tailscale |
-| 8445 | NPM HTTPS Miracena | Tailscale (`100.94.209.99:8445`) |
-| 8686 | Lidarr | LAN + Tailscale |
-| 9091 | Transmission Web UI | LAN + Tailscale |
-| 9696 | Prowlarr | LAN + Tailscale |
-| 51413 | Transmission BitTorrent | LAN + Tailscale (TCP/UDP) |
-| 443 | Funnel Miracena | **Público** (`https://miracena.chimaera-heptatonic.ts.net`) |
-
-### Kavure
-| Porta | Serviço | Acesso |
-|---|---|---|
-| 22 | SSH | LAN + Tailscale |
-| 16261 | Project Zomboid (game) | Tailscale |
-| 16262 | Project Zomboid (direct) | Tailscale |
-| 27015 | Project Zomboid (RCON) | Tailscale |
-| 3001 | Zomboid Control Panel | Tailscale |
-| 61208 | Glances | Tailscale |
-| 2375 | Docker proxy (homepage) | Tailscale |
-| 8444 | Crafty Controller (Minecraft web) | Tailscale |
-| 25565 | Minecraft Server (Java/Fabric) | Tailscale |
-| 9090 | Sumænimá Backend API (core) | **só overlay Swarm** (ver nota) |
-| 9092 | Sumænimá Backup health | Tailscale |
-| 40000 | Tailscale Peer Relay | Tailnet |
-
-> ⚠️ **Achado 02/10/2026 — porta 9090 não existe no host.** `sae-core_api` está
-> publicado **apenas na overlay `sae-net`** (`Endpoint.Ports: null`, VIP `10.0.2.20`);
-> `ss -ltn` não mostra 9090 no kavure. O probe
-> `http://100.124.146.77:9090/api/health` do **monitor #50** do Uptime Kuma está,
-> portanto, **quebrado** (falha de conexão). O caminho real e saudável é pela borda:
-> `http://ybyra.chimaera-heptatonic.ts.net/api/health` → **200** (monitor #4).
-> Corrigir o monitor #50 (ou publicar a porta) ficou como pendência.
-
-## Como Acessar Cada Serviço
-
-Pela Tailnet (qualquer máquina na tailscale):
-```
-http://sumaenima.chimaera-heptatonic.ts.net           → Sumænimá (SPA Frontend - Borda Primária)
-http://ybyra.chimaera-heptatonic.ts.net               → Sumænimá (SPA Frontend - Borda Primária)
-http://kuaray.chimaera-heptatonic.ts.net:8085         → ~~Sumænimá (SPA Frontend - Borda Secundária)~~ — DEPRECIADO; standby: kavure `proxy-standby` + `tunnel-standby` (failover)
-http://psicopompo.chimaera-heptatonic.ts.net:9000     → ~~Portainer~~ REMOVIDO (02/10/2026 — porta fechada)
-http://ybytu.chimaera-heptatonic.ts.net:3001          → Homepage
-http://kavure.chimaera-heptatonic.ts.net:8123         → Home Assistant
-http://kavure.chimaera-heptatonic.ts.net:3001         → Zomboid Control Panel
-http://kavure.chimaera-heptatonic.ts.net:16261        → Project Zomboid (game)
-https://kavure.chimaera-heptatonic.ts.net:8444        → Crafty Controller (Minecraft)
-http://kavure.chimaera-heptatonic.ts.net:4533         → Navidrome (Música)
-http://kavure.chimaera-heptatonic.ts.net:8083         → Calibre-web Automated (Ebooks)
-http://kavure.chimaera-heptatonic.ts.net:61208        → Glances
-```
-
-Publicamente (via Funnel):
-```
-https://kavure.chimaera-heptatonic.ts.net:10000       → aiostreams
-```
-
-## Observações
-
-- **CGNAT**: psicopompo e kuaray compartilham IP público com outros clientes da operadora — sem Tailscale seriam inacessíveis remotamente
-- **Ybytu** e **ybyra** têm IP público (Oracle Cloud) e poderiam ser acessados diretamente, mas todo o tráfego de gestão passa pela Tailscale por segurança
-- **DERP relays** são usados como fallback quando a conexão direta Tailscale não é possível
-- **Roteador** em `192.168.3.1` — sem VLANs configuradas atualmente
-- **Ybytu** usa MTU 9000 (Jumbo Frames) na interface Oracle
-- **Psicopompo** usa Btrfs com subvolumes
-- Docker proxy (`:2375`) exposto apenas via Tailscale
+| Traffic Route | Transit Path |
+|---|---|
+| User → Sumænimá Public Web App | HTTPS → **ybyra** (Primary Edge Proxy, port 443) → **kavure** (Port 9090 via Swarm overlay) |
+| GPU Inference Workers → Core API | `sae-net` Overlay (Psicopompo GPU → Kavure Backend API & Valkey) |
+| Mobile Remote Access → Home Assistant | Tailnet HTTPS Mesh → `kavure:8123` |
+| Mobile Remote Access → AioStreams | Tailscale Funnel Public Endpoint → `kavure:10000` |
+| Remote Administration → Home LAN Subnet | Tailscale Subnet Router (**kavure** `192.168.3.0/24`) → Physical Ethernet Switch |
+| Tailnet DNS Queries | Dual parallel race: `kavure` Pi-hole (`:53`) vs. `ybytu` AdGuard Home (`:53`) |

@@ -4,199 +4,145 @@ tags: [homelab, service, homepage, monitoring]
 
 # Homepage
 
-Dashboard central do homelab — agrega links e status de todos os serviços.
+Central homelab dashboard — aggregates links, live metrics, and real-time health across all services.
 
-**Servidor:** ybytu
-**Porta:** `3001`
-**URL:** `http://ybytu.chimaera-heptatonic.ts.net:3001`
+**Server:** ybytu  
+**Port:** `3001`  
+**URL:** `http://ybytu.chimaera-heptatonic.ts.net:3001`  
 
 ## Stack
 
-| Container | Imagem | Status |
+| Container | Image | Status |
 |---|---|---|
 | homepage | ghcr.io/gethomepage/homepage:latest | Up |
 
-> **`network_mode: host` + `PORT=3001` (07/10/2026):** o Homepage passou de `ports: 3001:3000`
-> (bridge) para **host networking** — mesmo motivo do Uptime Kuma: o `INPUT` do ybytu é
-> **default-deny** (só loopback é aceito), então em bridge o container **não alcançava** os
-> serviços locais (`EHOSTUNREACH` em `:3002`/`:8082`/`:61208`).
->
-> Consequência nos `siteMonitor`: serviços **locais** ao ybytu usam **`127.0.0.1`** — exceção
-> **glances** (`:61208`), que escuta só no IP da tailnet e por isso mantém `100.115.253.109`.
-> O healthcheck foi corrigido para `http://127.0.0.1:3001/api/healthcheck`: o `${PORT:-3000}`
-> do compose era expandido **no parse** para `3000` — que, em host net, é o **AdGuard**
-> (responde 401 e deixava o Homepage "unhealthy").
+> **`network_mode: host` + `PORT=3001` (07/10/2026):** Homepage transitioned from `ports: 3001:3000` (bridge) to **host networking** — identical rationale to Uptime Kuma: ybytu's `INPUT` iptables policy is **default-deny** (only loopback is accepted), so inside a bridge network the container **failed to reach** local host services (`EHOSTUNREACH` on `:3002`/`:8082`/`:61208`).  
+>  
+> Operational impact on `siteMonitor`: Local services on ybytu target **`127.0.0.1`** — with the exception of **glances** (`:61208`), which binds strictly to the Tailscale IP and retains `100.115.253.109`. The healthcheck was updated to `http://127.0.0.1:3001/api/healthcheck`: the compose `${PORT:-3000}` was evaluated **at parse time** to `3000` — which under host networking hit **AdGuard** (returning 401 and flagging Homepage as "unhealthy").
 
-## Configuração
+## Configuration
 
-O Homepage usa arquivos YAML em `/app/config/` (host: `/home/ubuntu/homelab/homepage/config/`).
+Homepage utilizes YAML files located in `/app/config/` (host: `/home/ubuntu/homelab/homepage/config/`).
 
-Arquivos de configuração:
-- `docker.yaml` — instâncias Docker conectadas (status up/down automático)
-- `services.yaml` — serviços por grupo
-- `bookmarks.yaml` — favoritos
-- `settings.yaml` — tema e layout
-- `widgets.yaml` — widgets (Disk, Weather, etc.)
+Configuration files:
+- `docker.yaml` — Connected Docker daemon instances (automatic up/down container status)
+- `services.yaml` — Service definitions grouped by category
+- `bookmarks.yaml` — Quick access bookmarks
+- `settings.yaml` — Visual theme, layout, and header settings
+- `widgets.yaml` — Dashboard widgets (Disk, Weather, etc.)
 
-### Chips de status (convenção — 07/10/2026)
+### Status Chips (Convention — 07/10/2026)
 
-O Homepage tem **dois** mecanismos de status, e a regra do homelab é usar **um por serviço**:
+Homepage provides **two** distinct status indicators, and homelab governance enforces **strictly one per service**:
 
-| Mecanismo | Mostra | Quando usar |
+| Mechanism | Display | When to Use |
 |---|---|---|
-| `server:` + `container:` | **chip Docker** — "healthy"/"unhealthy" (o healthcheck do container) | **todo serviço que é container** em host com `docker.yaml` |
-| `siteMonitor:` | **latência em ms** (verde/vermelho) | o que **não é container** (nativo) ou é **externo/Swarm/Funnel** |
+| `server:` + `container:` | **Docker chip** — "healthy"/"unhealthy" (container healthcheck state) | **Every containerized service** on a host configured in `docker.yaml` |
+| `siteMonitor:` | **Latency in ms** (green/red) | **Non-containerized services** (native systemd) or **external/Swarm/Funnel** endpoints |
 
-- **Estado atual:** 58 serviços com chip Docker, 10 com `siteMonitor`, **0 com dois chips**.
-- Ficam em `siteMonitor` (por não terem container correspondente estável): Portal Sumænimá,
-  Sumænimá API/Backup/Umami (serviços **Swarm** — nome do container muda por task), Minecraft
-  e Valheim (protocolo de jogo), Punktfunk/Syncthing-Psicopompo (nativos) e os relés de
-  **Wake-on-LAN** (`Ligar Kavure/Psicopompo`).
+- **Current state:** 58 services with Docker chips, 10 with `siteMonitor`, **0 with duplicate chips**.
+- Designated for `siteMonitor` (due to lacking a stable, persistent container name): Sumænimá Portal, Sumænimá API/Backup/Umami (**Swarm** services — container names change per task recreation), Minecraft and Valheim (native game protocols), Punktfunk/Syncthing-Psicopompo (bare-metal systemd), and **Wake-on-LAN** relays (`Power on Kavure/Psicopompo`).
 
-> O chip Docker reflete o `healthcheck` — que desde 07/10 existe em **todos** os containers
-> (ver [`guides/docker-healthchecks.md`](../guides/docker-healthchecks.md)). Por isso ele é o
-> padrão: mostra o estado real do serviço, não só se a porta responde.
+> The Docker status chip reflects the container `healthcheck` — present on **all** production containers since 07/10 (see [`guides/docker-healthchecks.md`](../guides/docker-healthchecks.md)). This is the enforced default: it displays true internal operational health rather than mere port responsiveness.
 
-> ⚠️ **Validação do `services.yaml` (07/10/2026):** o PyYAML **não** acusa **chave duplicada**
-> (silenciosamente mantém a última) — um `yaml.safe_load` passou enquanto o Homepage quebrava
-> com `YAMLException: duplicated mapping key`. **Sempre** validar com um checador de duplicatas
-> (ou `yamllint`) antes de recriar o container.
+> ⚠️ **Validation of `services.yaml` (07/10/2026):** PyYAML **does not** flag **duplicate mapping keys** (silently preserving the last occurrence) — a standard `yaml.safe_load` passed while Homepage crashed with `YAMLException: duplicated mapping key`. **Always** validate with a strict duplicate key checker (or `yamllint`) before recreating the container.
 
-### Docker instances (`docker.yaml`)
+### Docker Instances (`docker.yaml`)
 
-| Instância | Endpoint | Servidor |
+| Instance | Endpoint | Server |
 |---|---|---|
 | `ybytu` | `/var/run/docker.sock` | local |
 | `psicopompo` | `100.82.51.112:2375` | dockerproxy |
 | `kuaray` | `100.94.209.99:2375` | dockerproxy |
 | `kavure` | `100.124.146.77:2375` | dockerproxy |
 
-Cada serviço no `services.yaml` com `server:` + `container:` mostra status up/down automaticamente. Containers Exited (ex: kuaray) aparecem como down sem config manual.
+Each service in `services.yaml` with `server:` + `container:` displays live status automatically. Containers in `Exited` states (e.g. on kuaray) appear offline without manual intervention.
 
-### Grupos do `services.yaml` (10/09/2026)
+### Groups in `services.yaml` (10/09/2026)
 
-Ordem atual (cloud no final):
-1. **Psicopompo (Workstation)** — **Ligar Kavure (WoL)**, Syncthing, Punktfunk, Glances
-2. **Kavure (Serviços)** — **Ligar Psicopompo (WoL)**, Project Zomboid, Zomboid Control Panel, Crafty Controller, Minecraft Server, Valheim Server, Sumænimá API, Sumænimá Backup, **AioStreams, Comet**, **WordPress (10/09)**, **Directus (10/09)**, **NPM Admin (10/09)**, **n8n (10/09 — badge Docker)**, **Grafana (28/08)**, **Prometheus (28/08)**, **SearXNG (28/08)**, Pi-hole, Home Assistant, Navidrome, Calibre Web, Glances
-3. **Kuaray (Midia e Automacao)** — Syncthing, Transmission, Prowlarr, Lidarr, slskd, FlareSolverr, Soularr, Vert, Glances
+Active ordering (cloud infrastructure placed last):
+1. **Psicopompo (Workstation)** — **Power on Kavure (WoL)**, Syncthing, Punktfunk, Glances
+2. **Kavure (Services)** — **Power on Psicopompo (WoL)**, Project Zomboid, Zomboid Control Panel, Crafty Controller, Minecraft Server, Valheim Server, Sumænimá API, Sumænimá Backup, **AioStreams, Comet**, **WordPress (10/09)**, **Directus (10/09)**, **NPM Admin (10/09)**, **n8n (10/09 — Docker badge)**, **Grafana (28/08)**, **Prometheus (28/08)**, **SearXNG (28/08)**, Pi-hole, Home Assistant, Navidrome, Calibre Web, Glances
+3. **Kuaray (Media & Automation)** — Syncthing, Transmission, Prowlarr, Lidarr, slskd, FlareSolverr, Soularr, Vert, Glances
 4. **Ybytu (Cloud)** — AdGuard Home, Glances, Uptime Kuma, Changedetection, Ntfy
-5. **Ybyra (Cloud)** — Sumænimá (Borda Primária), Glances
+5. **Ybyra (Cloud)** — Sumænimá (Primary Edge), Glances
 
-> **08/08/2026:** **CasaOS removido** (desinstalado do kuaray); **Crafty/Minecraft migrado** p/ o kavure (grupo Kavure); grupos reordenados (cloud no final).
->
-> **28/08/2026:** **Infra em todos os grupos** — cada host ganhou badges `Watchtower`, `Autoheal`, `Node Exporter`, `Promtail` (`server:` + `container:`, padrão badge docker) para mostrar o status dos containers de infra/monitoramento. Container names por host: `autoheal-autoheal-1` (kuaray), `monitoring-promtail` (kavure), `promtail` (demais).
->
-> **09/08/2026:** **aiostreams e comet migrados do kuaray → kavure** (grupo Kavure, `100.124.146.77:3000` e `:8000`); removidos do grupo Kuaray. URLs internas (tailnet) mantidas no padrão do grupo.
-> **Crafty Controller** web movido p/ porta **`8444`** (a `8443` virou funnel do aiostreams — depois migrado p/ `:10000` em 18/09/2026, ver nota abaixo) + badge docker; **Minecraft Server** usa `siteMonitor` do endpoint `minecraft-status` (kavure `:9095`, probe SLP → chip pequeno com status real do jogo).
->
-> **Pi-hole e Home Assistant migrados do kuaray → kavure** (grupo Kavure); **Home Assistant** passou para acesso **tailnet-only** (`http://100.124.146.77:8123`, sem Funnel público — 18/09/2026); **AioStreams** movido para Funnel porta **`:10000`** (`kavure.chimaera-heptatonic.ts.net:10000` → `localhost:3000`) — porta `:8443` era inválida para Funnel público Tailscale (suportadas: 443, 8080, 10000); removidos do grupo Kuaray.
->
-> **Navidrome e Calibre Web** no grupo Kavure; **Kavita removido (10/08)** — entrada retirada do grupo Kavure e container desinstalado do kavure.
-> **Minecraft Server** `description` corrigida p/ **`Docker`** — o server Dominium roda como **subprocesso Java dentro do container `crafty-controller`** (bind-mount `MINECRAFT SERVER` → `/crafty/servers/dominium`); não é container separado nem nativo. Só o probe `minecraft-status.service` (systemd, `:9095`) é nativo.
-> **Pi-hole** `icon` trocado p/ **`pi-hole`** (Dashboard Icons colorido; o `pihole.svg` local era monocromático).
->
-> **26/08/2026:** **Mosquitto removido do dashboard** (container já removido do kuaray em 16/08 — entrada órfã) e **Rclone GUI removido** (webgui desativado/deletado no psicopompo — porta `46295` liberada; o siteMonitor do homepage era a única conexão à porta). Backup da config: `services.yaml.bak-20260826`.
->
-> **01/09/2026:** **Wake-on-LAN adicionado** — entradas "Ligar Kavure" (grupo Psicopompo) e "Ligar Psicopompo" (grupo Kavure) com `href` para o relay WoL (binário Rust `wol-relay`/`kururu-wake`, porta `9096` — o `wol-relay.py` original foi arquivado em `scripts/archive/`) + `siteMonitor` pro chip de saúde. Ver [`wol-relay`](wol-relay.md).
-> **02/10/2026:** ✅ **WoL resolvido e validado** — teste real: kavure **29s** / psicopompo **54s** após soft-off, sem tocar no power; a causa da falha era a BIOS `Deep Sleep Control`. Ver [`wol-relay.md`](wol-relay.md) §Validação de ponta a ponta.
->
-> **03/10/2026:** ⚡ **WoL Smart Dispatcher implementado no Ybytu (`100.115.253.109:9096`)**: os botões foram alinhados aos seus respectivos grupos ("Ligar Psicopompo" no card do Psicopompo e "Ligar Kavure" no card do Kavure). O endpoint agora aponta para o despachante central com auto-failover (tenta o Kururu primeiro; se o Kururu estiver offline, aciona automaticamente o par x86 em fallback). Backup: `services.yaml.bak-20261003`.
->
-> **29/08/2026:** **`Sumænimá (Borda Secundária)` removido do grupo Kuaray** — kuaray deprecado no Sumænimá (borda secundária deixa de usar `kuaray:8085`); o standby agora vive no **kavure** (ver `network/service-topology.md`). Grupo Kuaray mantém apenas serviços de mídia/automação do Homelab. **`Sumænimá Backup`** (grupo Kavure) volta a ficar ✅ — o health server `:9092` passou a responder **HEAD** (bug do widget: `BaseHTTPRequestHandler` sem `do_HEAD` → 501 em probe HEAD do Homepage; corrigido 29/08). Monitor aponta para `http://100.124.146.77:9092/health`.
->
-> **09/09/2026:** **Valheim Server adicionado** ao grupo Kavure — `valheim-server` (Docker, `mbround18/valheim:3`, porta `2456`/udp). Badge Docker (container `valheim-server`). Ícone `valheim.png` (walkxcode/dashboard-icons). Ver [`valheim-server`](valheim/valheim-server.md).
->
-> **10/09/2026:** **Miracena Stack adicionado** ao grupo Kavure — **WordPress** (`miracena-wordpress`, `:8085`), **Directus** (`miracena-directus`, `:8055`), **NPM Admin** (`miracena-nginx-proxy-manager`, `:81`). **n8n atualizado** para badge Docker (`miracena-n8n`). Todos os serviços da stack Miracena agora aparecem no dashboard com status up/down e label `Docker · Miracena` para diferenciação. Ver [`miracena-stack`](miracena-stack.md).
->
-> **27/09/2026:** **Glances no Ybytu normalizado + Política de Restart Always** — Glances no Ybytu reconfigurado de `siteMonitor` para Docker socket (`server: ybytu`, `container: glances`), eliminando erro HTTP 500 por `EHOSTUNREACH` (loopback bridge → tailscale0 bloqueado pelo iptables). Containers essenciais de infraestrutura (`dockerproxy`, `glances`, `node-exporter`, `promtail`, `autoheal`, `watchtower`) atualizados com política `restart: always` em todos os nós (`psicopompo`, `ybyra`, `ybytu`) para evitar que permaneçam em estado `exited` após reinicializações.
+> **08/08/2026:** **CasaOS removed** (uninstalled from kuaray); **Crafty/Minecraft migrated** to kavure (Kavure group); groups reordered (cloud at the bottom).  
+>  
+> **28/08/2026:** **Infrastructure across all groups** — Each host received `Watchtower`, `Autoheal`, `Node Exporter`, and `Promtail` badges (`server:` + `container:`, Docker badge standard) to monitor core runtime infra. Container names per host: `autoheal-autoheal-1` (kuaray), `monitoring-promtail` (kavure), `promtail` (remaining nodes).  
+>  
+> **09/08/2026:** **aiostreams and comet migrated from kuaray → kavure** (Kavure group, `100.124.146.77:3000` and `:8000`); purged from Kuaray group. Internal tailnet URLs aligned with group standards.  
+> **Crafty Controller** web moved to port **`8444`** (port `8443` was temporarily assigned to aiostreams funnel — later moved to `:10000` on 18/09/2026, see note below) + Docker badge; **Minecraft Server** uses `siteMonitor` pointing to the `minecraft-status` endpoint (kavure `:9095`, SLP probe → compact badge showing true game availability).  
+>  
+> **Pi-hole and Home Assistant migrated from kuaray → kavure** (Kavure group); **Home Assistant** restricted to **tailnet-only access** (`http://100.124.146.77:8123`, no public Funnel — 18/09/2026); **AioStreams** moved to Funnel port **`:10000`** (`kavure.chimaera-heptatonic.ts.net:10000` → `localhost:3000`) — port `:8443` is unsupported for public Tailscale Funnels (valid ports: 443, 8080, 10000); removed from Kuaray group.  
+>  
+> **Navidrome and Calibre Web** configured in Kavure group; **Kavita removed (10/08)** — entry removed from Kavure group and container purged from kavure.  
+> **Minecraft Server** `description` updated to **`Docker`** — Dominium server executes as a **Java child process inside the `crafty-controller` container** (bind mount `MINECRAFT SERVER` → `/crafty/servers/dominium`); not an isolated container or bare-metal binary. Only the `minecraft-status.service` probe daemon (systemd, `:9095`) runs natively on the host.  
+> **Pi-hole** `icon` updated to **`pi-hole`** (vibrant Dashboard Icons asset; the local `pihole.svg` was monochrome).  
+>  
+> **26/08/2026:** **Mosquitto removed from dashboard** (container uninstalled from kuaray on 16/08 — orphaned entry) and **Rclone GUI removed** (webgui disabled/deleted on psicopompo — port `46295` released; Homepage siteMonitor was the sole open connection). Configuration backup: `services.yaml.bak-20260826`.  
+>  
+> **01/09/2026:** **Wake-on-LAN integrated** — Entries "Power on Kavure" (Psicopompo group) and "Power on Psicopompo" (Kavure group) with `href` pointing to the WoL relay (Rust binary `wol-relay`/`kururu-wake`, port `9096` — legacy `wol-relay.py` archived in `scripts/archive/`) + `siteMonitor` for health metrics. See [`wol-relay`](wol-relay.md).  
+> **02/10/2026:** ✅ **WoL resolved and verified** — Physical testing: kavure **29s** / psicopompo **54s** from soft-off, fully hands-off; root cause of earlier failures was BIOS `Deep Sleep Control`. See [`wol-relay.md`](wol-relay.md) §End-to-End Validation.  
+>  
+> **03/10/2026:** ⚡ **WoL Smart Dispatcher deployed on Ybytu (`100.115.253.109:9096`)**: Buttons aligned to their respective target cards ("Power on Psicopompo" on Psicopompo card, "Power on Kavure" on Kavure card). Endpoint points to the central dispatcher with automatic failover (attempts Kururu first; if offline, dispatches via x86 peer fallback). Backup: `services.yaml.bak-20261003`.  
+>  
+> **29/08/2026:** **`Sumænimá (Secondary Edge)` removed from Kuaray group** — kuaray deprecated from Sumænimá topology (secondary edge no longer targets `kuaray:8085`); hot standby now resides on **kavure** (see `network/service-topology.md`). Kuaray group solely hosts homelab media/automation. **`Sumænimá Backup`** (Kavure group) restored to ✅ — health server `:9092` now handles **HEAD** requests (resolved widget bug: `BaseHTTPRequestHandler` lacked `do_HEAD` → 501 on Homepage HEAD probes; fixed 29/08). Monitor points to `http://100.124.146.77:9092/health`.  
+>  
+> **09/09/2026:** **Valheim Server added** to Kavure group — `valheim-server` (Docker, `mbround18/valheim:3`, port `2456`/udp). Docker badge (container `valheim-server`). Icon `valheim.png` (walkxcode/dashboard-icons). See [`valheim-server`](valheim/valheim-server.md).  
+>  
+> **10/09/2026:** **Miracena Stack added** to Kavure group — **WordPress** (`miracena-wordpress`, `:8085`), **Directus** (`miracena-directus`, `:8055`), **NPM Admin** (`miracena-nginx-proxy-manager`, `:81`). **n8n updated** to Docker badge (`miracena-n8n`). All Miracena stack services appear on the dashboard with up/down health and label `Docker · Miracena`. See [`miracena-stack`](miracena-stack.md).  
+>  
+> **27/09/2026:** **Glances on Ybytu normalized + Restart Always Policy** — Glances on Ybytu transitioned from `siteMonitor` to Docker socket (`server: ybytu`, `container: glances`), eliminating HTTP 500 errors from `EHOSTUNREACH` (bridge loopback → tailscale0 blocked by iptables). Core infrastructure containers (`dockerproxy`, `glances`, `node-exporter`, `promtail`, `autoheal`, `watchtower`) updated with `restart: always` across all nodes (`psicopompo`, `ybyra`, `ybytu`) preventing persistent `exited` states following reboots.
 
-### Padrão de status (CONVENÇÃO — seguir SEMPRE em novas adições)
+### Status Standard (CONVENTION — Enforced for all additions)
 
-| Tipo de serviço | Fonte de status | Config no `services.yaml` |
+| Service Type | Status Source | Config in `services.yaml` |
 |---|---|---|
-| **Serviço HTTP** | Chip `siteMonitor` — ping em **ms** | `siteMonitor: <url>` |
-| **Serviço docker sem HTTP** (jogos, MQTT) | Badge Docker (dot running/stopped) | `server:` + `container:` |
-| **Serviço nativo** (systemd/processo, sem container) | Chip `siteMonitor` | `siteMonitor: <url>` |
+| **HTTP Service** | Chip `siteMonitor` — latency in **ms** | `siteMonitor: <url>` |
+| **Docker service without HTTP** (games, MQTT) | Docker badge (running/stopped dot) | `server:` + `container:` |
+| **Native service** (systemd daemon without container) | Chip `siteMonitor` | `siteMonitor: <url>` |
 
-**Regras:**
-1. **HTTP → `siteMonitor`** (chip com ms). É o padrão preferido.
-2. **Sem HTTP → badge docker** (`server` + `container`). Ex.: Project Zomboid (`pz-server`).
-   - **Jogos com protocolo próprio (ex: Minecraft)** → para **chip pequeno (padrão) + status real do jogo**, usar um **mini endpoint HTTP de status** no host e `siteMonitor: <url>`. No kavure: serviço `minecraft-status` (porta `9095`, probe Minecraft SLP em `25565` → 200 up / 503 down). Não usar badge do `crafty-controller` (container fica sempre up e engana) nem widget `minecraft` (renderiza painel de 3 campos, fora do padrão).
-3. **⚠️ Evitar widget `customapi`** — renderiza um **painel** (não o chip padrão) e quebra fácil (ex: API error). Só usar se não houver alternativa e validar o visual.
-4. **Env vars**: para segredos/configs no gethomepage, definir no `.env` do config dir com o **prefixo `HOMEPAGE_VAR_`** (ex: `HOMEPAGE_VAR_CRAFTY_API_KEY=...`) e referenciar `{{HOMEPAGE_VAR_CRAFTY_API_KEY}}`. Sem o prefixo a var fica indefinida.
-5. **Serviços do swarm** (sae-core/sae-edge): badge via nome do serviço + `swarm: true` na instância do `docker.yaml` (dockerproxy com `SERVICES=1`).
-6. **⚠️ Serviços locais no Ybytu (mesmo host do Homepage):** NUNCA usar o IP Tailscale (`100.115.253.109`) com `siteMonitor` para containers que rodem em `network_mode: host` ou sem port forward DNAT. O container do Homepage roda em bridge e não alcança o IP Tailscale da própria máquina (`EHOSTUNREACH` via iptables `icmp-host-prohibited`, gerando erro 500 no dashboard). Para containers no Ybytu, monitorar sempre via Docker Socket (`server: ybytu`, `container: <nome>`), mantendo o `href` com o IP/URL público/tailnet para acesso do usuário pelo navegador. **(Atualização 08/10/2026:** o `EHOSTUNREACH` pressupunha o container do Homepage em bridge — verificado via `docker inspect`: ele roda em **`network_mode: host`** e `wget` de dentro dele alcançou `127.0.0.1:9096` **e** `ybytu:9096` com rc=0. O padrão recomendado acima (chip Docker Socket) segue válido; `siteMonitor` por nome também passou a funcionar.**)**
+**Rules:**
+1. **HTTP → `siteMonitor`** (latency chip in ms). This is the preferred default.
+2. **Non-HTTP → Docker badge** (`server` + `container`). E.g.: Project Zomboid (`pz-server`).
+   - **Game servers with custom binary protocols (e.g. Minecraft)** → To maintain a **compact chip + true in-game state**, deploy a **lightweight HTTP status endpoint** on the host and configure `siteMonitor: <url>`. On kavure: `minecraft-status` service (port `9095`, Minecraft SLP probe on `25565` → 200 up / 503 down). Avoid the `crafty-controller` badge (the manager stays up even when the server crashes) and avoid the `minecraft` widget (renders an oversized 3-field card outside UI conventions).
+3. **⚠️ Avoid `customapi` widget** — Renders an oversized card panel rather than a compact status chip and fails easily on API schema changes. Only use when no standard alternative exists and visually validated.
+4. **Environment variables**: For credentials/tokens in gethomepage, define them in the config directory `.env` with the **`HOMEPAGE_VAR_` prefix** (e.g. `HOMEPAGE_VAR_CRAFTY_API_KEY=...`) and reference via `{{HOMEPAGE_VAR_CRAFTY_API_KEY}}`. Without the prefix, variables remain unset.
+5. **Swarm services** (sae-core/sae-edge): Badge mapped via service name + `swarm: true` on the `docker.yaml` instance (dockerproxy with `SERVICES=1`).
+6. **⚠️ Local services on Ybytu (same host as Homepage):** NEVER use the Tailscale IP (`100.115.253.109`) in `siteMonitor` for containers running in `network_mode: host` or lacking DNAT port forwarding. When Homepage ran in bridge mode, it could not reach the host's Tailscale IP (`EHOSTUNREACH` via iptables `icmp-host-prohibited`, throwing 500 errors). Monitor local ybytu containers via Docker Socket (`server: ybytu`, `container: <name>`), retaining the public/tailnet URL in `href` for browser navigation. **(Update 08/10/2026:** The bridge `EHOSTUNREACH` constraint was superseded: Homepage now runs in **`network_mode: host`** and internal probes reach both `127.0.0.1:9096` and `ybytu:9096` cleanly. Docker Socket monitoring remains the recommended default; MagicDNS `siteMonitor` references also function correctly.**)**
+7. **⚠️ `siteMonitor` requires an `href` to render:** Homepage **silently drops** `siteMonitor` if an entry lacks an `href` (verified 08/10/2026 in rendered HTML — the `service-site-monitor` element only appears when `href` is present). Every entry requiring a status chip must provide a valid `href`; if the service lacks a dedicated UI, point `href` to the health endpoint itself (e.g. *Unbound* tile: `href` and `siteMonitor` both target `http://kavure:9097`).
 
-7. **⚠️ `siteMonitor` só renderiza com `href`:** o Homepage **descarta silenciosamente** o `siteMonitor` de uma entrada **sem** `href` (verificado 08/10/2026 no JSON/HTML — o chip `service-site-monitor` só aparece quando há `href`). Toda entrada com chip precisa de `href` válido; se o serviço não tem UI, apontar para o próprio endpoint de status (padrão do tile *Unbound*: `href` + `siteMonitor` ambos em `http://kavure:9097`).
+> **08/10/2026 — `href` Corrections:** 6 service links for **ybytu** had `http://127.0.0.1:PORT`, opening on the **client machine** rather than ybytu. Migrated to `http://ybytu:PORT` (MagicDNS hostname). Impacted: AdGuard admin (`:3000`), Uptime Kuma (`:3002`), ChangeDetection (`:8082`), Ntfy (`:8083`), and WoL relays (`:9096`). Backup: `services.yaml.bak-20261008-href`.  
+>  
+> **08/10/2026 — MagicDNS Standard:** **All** remote `href` and `siteMonitor` entries migrated from raw Tailscale IPs to **MagicDNS hostnames** (`100.82.51.112`→`psicopompo`, `100.124.146.77`→`kavure`, `100.94.209.99`→`kuaray`, `100.115.253.109`→`ybytu`, `100.66.224.34`→`ybyra`). Verified: The container resolves all hostnames via Node DNS lookup. **Local services on ybytu maintain `127.0.0.1` in `siteMonitor`** (see Rule 6). Backup: `services.yaml.bak-20261008-nomes`.  
+>  
+> **08/10/2026 — Cleanup Pass:** Corrected 3 non-standard items: (1) **Crafty** `href` from FQDN to short MagicDNS name (`https://kavure:8444`); (2)+(3) Both `siteMonitor` entries for **wol-relay** updated to `http://ybytu:9096/health`. Final state: Zero hardcoded raw Tailscale IPs in `services.yaml`; FQDNs preserved strictly for public Funnels (`sumaenima.*` and `miracena.*`). Backup: `services.yaml.bak-20261008-magicdns`.  
+>  
+> **08/10/2026 — `minecraft-status` (HEAD Support):** Minecraft `siteMonitor` raised `<httpProxy> Error` because the native endpoint returned **HEAD responses with bodies** (violating RFC 7231 §4.3.2). Resolved in Rust source (`SUMAENIMA-HUB/provisioning/minecraft-status`): HEAD returns empty body. Validated with zero log errors. See [`minecraft-status.md`](minecraft-status.md).  
+>  
+> **08/10/2026 — Unbound Tile (Invalid Docker Chip → Mini Endpoint):** The tile used `server: kavure` + `container: unbound`, but unbound is **native systemd** — showing "not found". In accordance with conventions (**native service without HTTP → lightweight HTTP status endpoint + `siteMonitor`**), created **`unbound-status`** (`:9097`, Rust, in `SUMAENIMA-HUB/provisioning/unbound-status/`) with `siteMonitor: http://kavure:9097`. Backup: `services.yaml.bak-20261008-unbound-status`.
 
-> **08/10/2026 — correção dos `href`:** 6 links de serviços do **ybytu** estavam com
-> `http://127.0.0.1:PORT`, que abre no computador **do usuário** (não no ybytu) → o link
-> "não abria". Trocados para `http://ybytu:PORT` (nome do MagicDNS), conforme a convenção
-> acima. Afetados: AdGuard admin (`:3000`), Uptime Kuma (`:3002`), ChangeDetection
-> (`:8082`), Ntfy (`:8083`) e os dois wake do `wol-relay` (`:9096`).
-> Backup: `services.yaml.bak-20261008-href`.
+### Custom Icons (`config/icons/`)
 
-> **08/10/2026 — padronização nos nomes do MagicDNS:** **todos** os `href` e `siteMonitor`
-> remotos foram migrados de IP tailnet → **nome** (`100.82.51.112`→`psicopompo`,
-> `100.124.146.77`→`kavure`, `100.94.209.99`→`kuaray`, `100.115.253.109`→`ybytu`,
-> `100.66.224.34`→`ybyra`) — mais legível e independente de IP. **Verificado:** o container
-> do Homepage **resolve** os nomes (testado com `node dns.lookup`) e os links respondem
-> (ntfy 200, AdGuard 302, prowlarr 200, HA 200). ⚠️ **Os `siteMonitor` dos serviços
-> locais ao ybytu continuam em `127.0.0.1`** (o container não alcança o IP tailnet da
-> própria máquina — ver regra 6 acima). Backup: `services.yaml.bak-20261008-nomes`.
-
-> **08/10/2026 — 2ª passada (varredura de sobras):** 3 itens localizados fora do padrão, todos corrigidos: (1) **Crafty** `href` em FQDN
-> (`https://kavure.chimaera-heptatonic.ts.net:8444` → **`https://kavure:8444`** — o cert
-> é self-signed com SAN só do hostname do container, então FQDN e nome curto têm o
-> mesmo warning; igual aos demais `https://<nome>:PORT`); (2)+(3) os dois `siteMonitor`
-> do **wol-relay** `http://127.0.0.1:9096/health` → **`http://ybytu:9096/health`**,
-> testado de dentro do container (`wget` rc=0 nos dois formatos). **Motivo:** o container
-> do Homepage hoje roda em **`network_mode: host`** (verificado via `docker inspect`) —
-> o `EHOSTUNREACH` da regra 6 (bridge) não se aplica mais. **Estado final:** zero
-> `127.0.0.1` e zero IP tailnet no `services.yaml`; FQDN mantidos **só** nos Funnels
-> públicos (`sumaenima.*` e `miracena.*` — URL pública, é o nome correto ali).
-> Backup: `services.yaml.bak-20261008-magicdns`.
-
-> **08/10/2026 — `minecraft-status` (HEAD):** o `siteMonitor` do Minecraft acusava
-> `<httpProxy> Error` a cada probe porque o endpoint nativo respondia **HEAD com corpo**
-> (violação RFC 7231 §4.3.2 — o parser do Node rejeita). Corrigido no binário Rust
-> (`SUMAENIMA-HUB/provisioning/minecraft-status`): HEAD devolve só cabeçalhos. Validado:
-> `HEAD ×3` → 200 corpo vazio, **0 erros** no log em 100 s; chip verde com o jogo ligado
-> (503/vermelho com ele parado — estado real). Ver [`minecraft-status.md`](minecraft-status.md).
-
-> **08/10/2026 — tile "Unbound" (chip Docker inválido → mini endpoint):** a entrada usava
-> `server: kavure` + `container: unbound`, mas o unbound é **nativo (systemd)** — não existe
-> container com esse nome → o Homepage mostrava **"not found"**. Pela convenção (**serviço
-> nativo sem HTTP → mini endpoint HTTP de status + `siteMonitor`**), foi criado o
-> **`unbound-status`** (`:9097`, Rust, em `SUMAENIMA-HUB/provisioning/unbound-status/`) e a
-> tile passou a usar `siteMonitor: http://kavure:9097` — chip de **ms** real (503/vermelho
-> com o unbound parado, provado). Backup: `services.yaml.bak-20261008-unbound-status`.
-
-### Ícones custom (config/icons/)
-
-| Ícone | Origem |
+| Icon | Origin |
 |---|---|
-| `sumaenima.svg` | logo da Sumænimá (`logo-8.svg`) |
-| `zomboid.png` | mascote Spiffo do Project Zomboid (`spiffo.png` do repo `fpsacha/zomboid-control-panel`) |
-| `zombie.svg` | asset do painel (`zombie.svg` do mesmo repo) |
+| `sumaenima.svg` | Sumænimá branding logo (`logo-8.svg`) |
+| `zomboid.png` | Spiffo mascot from Project Zomboid (`spiffo.png` from `fpsacha/zomboid-control-panel`) |
+| `zombie.svg` | Panel visual asset (`zombie.svg` from same repository) |
 
-> **Monitors uptime-kuma (07/08/2026):** corrigido o IP velho do psicopompo (`100.76.19.118` → `100.82.51.112`)
-> em Crafty, Syncthing e Sumænimá API; **Sumænimá Backup desativado** (migração); **AdGuard** volta a usar IP de
-> bridge (`172.17.0.5:3000`) — containers no ybytu não alcançam o próprio IP tailnet (`EHOSTUNREACH`).
-> Ícone da Sumænimá: `config/icons/sumaenima.svg` (origem `logo-8.svg`).
-
-## Manutenção
+## Maintenance
 
 ```bash
 docker restart homepage
 ```
 
-> **Aplicar mudanças de config:** o homepage é **estático** — após editar `services.yaml`/`settings.yaml` etc., regenerar o HTML com o **botão de refresh** (canto inferior direito) ou:
+> **Applying Configuration Changes:** Homepage is **statically generated** — after modifying `services.yaml`/`settings.yaml`, regenerate the dashboard via the **refresh button** (bottom right corner) or:  
 > ```bash
-> curl http://127.0.0.1:3001/api/revalidate   # demora ~1 min; retorna quando terminar
-> ```
-> Não precisa rebuild nem recriar o container. `docker restart homepage` também funciona (recarrega na 1ª requisição).
+> curl http://127.0.0.1:3001/api/revalidate   # takes ~1 min; returns on completion
+> ```  
+> No container rebuild required. `docker restart homepage` also refreshes on initial request.
 
-> **⚠️ Healthcheck:** a imagem usa `wget 127.0.0.1:3000` (IPv4) mas o Next.js 16 escuta em IPv6 — o healthcheck default falha e o autoheal reinicia em loop. Corrigido no `docker-compose.yml` com healthcheck custom usando `[::1]` (06/08/2026). Backup do original em `docker-compose.yml.bak`.
+> **⚠️ Healthcheck:** Upstream container image executes `wget 127.0.0.1:3000` (IPv4) but Next.js 16 binds to IPv6 — causing default healthchecks to fail and triggering autoheal loops. Resolved in `compose.yml` with custom healthcheck using `[::1]`.
 
-Logs do container são gerenciados pelo Docker e watchtower faz auto-update.
+Container logs are managed by Docker and Watchtower handles automatic image updates.

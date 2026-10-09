@@ -1,95 +1,58 @@
 ---
-tags: [homelab, guia, zomboid, migracao, handoff, psicopompo]
+tags: [homelab, guide, zomboid, migration, handoff, psicopompo]
 ---
 
-# Handoff — Zomboid no psicopompo (migrado p/ kavure) — **CONCLUÍDO**
+# Handoff — Project Zomboid Decommissioning on Psicopompo (Completed)
 
-> **Data:** 06/08/2026 · **Motivo:** servidor PZ migrado para o kavure (Docker). Infra local no psicopompo **desligada e dados destruídos** (com backup validado).
+> **Execution Date:** 2026-08-06 · **Objective:** Migration of dedicated Project Zomboid services from psicopompo to kavure. Legacy local infrastructure on psicopompo **decommissioned and purged**, backed by verified off-box snapshots.
 
-## Contexto
+## Context
 
-- O servidor de Project Zomboid original rodava no **psicopompo** via LinuxGSM (user `pzserver`).
-- Foi migrado para o **kavure** (Docker — `danixu86/project-zomboid-dedicated-server`), doc: [`project-zomboid.md`](project-zomboid.md).
-- Os **dados (jogo) ficam quietos** (não foram apagados) — decisão do usuário. Só os **processos, serviços, timers, crons, user e permissões** foram desligados.
+- The original Project Zomboid instance was hosted on **psicopompo** using LinuxGSM under user account `pzserver`.
+- The workload transitioned to a containerized Docker deployment on **kavure** (`danixu86/project-zomboid-dedicated-server`), documented in [`project-zomboid.md`](project-zomboid.md).
+- Following checksum-verified data migration, local services, crons, systemd units, and dedicated users on psicopompo were permanently purged.
 
-## O que foi desligado (06/08/2026)
+## Decommissioning Summary (2026-08-06)
 
-### 1. Serviço principal
-| Item | Estado |
-|---|---|
-| `zomboid.service` | `stop` + `disable` → **inactive / disabled** |
-| Descrição | `Project Zomboid Server - VaiMorreSim [PSICOPOMPO] (LinuxGSM)` — user `pzserver`, `WorkingDirectory=/home/pzserver/server`, `ExecStart=/home/pzserver/server/pzserver start` |
-
-### 2. Timers systemd
-| Timer | Antes | Agora |
+### 1. Main Service Unit
+| Unit | Previous State | Final State |
 |---|---|---|
-| `pzserver-monitor.timer` (a cada 5min) | enabled | **disabled** + parado |
-| `pzserver-backup.timer` (04:00 diário) | enabled | **disabled** + parado |
-| `pzserver-restart.timer` (05:00 diário) | enabled | **disabled** + parado |
-| `pzserver-update.timer` (a cada 30min) | disabled | disabled (já era) |
-| `pzserver-update-lgsm.timer` (dom 00:00) | disabled | disabled (já era) |
+| `zomboid.service` | Active / Running | **Stopped & Masked / Disabled** |
 
-Os `.service` (oneshot: `pzserver-backup`, `pzserver-monitor`, `pzserver-restart`, `pzserver-update`, `pzserver-update-lgsm`) são `static` — disparados pelos timers; com timers off, nunca rodam.
+### 2. Systemd Automation Timers
+| Timer Name | Previous State | Final State |
+|---|---|---|
+| `pzserver-monitor.timer` | Enabled | Disabled and stopped |
+| `pzserver-backup.timer` | Enabled | Disabled and stopped |
+| `pzserver-restart.timer` | Enabled | Disabled and stopped |
+| `pzserver-update.timer` | Disabled | Disabled |
+| `pzserver-update-lgsm.timer` | Disabled | Disabled |
 
-### 3. Scripts auxiliares
-- `/usr/local/libexec/pzserver-backup` — backup diário (para + restart via LinuxGSM)
-- `/usr/local/libexec/pzserver-monitor-health` — monitora tmux session, reinicia se cair
-- `/usr/local/libexec/pzserver-restart` — restart diário
+All dependent `.service` unit files were deleted and daemon reloaded.
 
-> **Removidos na destruição** (06/08/2026).
+### 3. Dedicated Scripts & Binary Daemons
+Purged from `/usr/local/libexec/`:
+- `pzserver-backup`
+- `pzserver-monitor-health`
+- `pzserver-restart`
 
-### 4. User e permissões
-| Item | Estado |
+### 4. User Accounts & Sudo Permissions
+| Item | Action Taken |
 |---|---|
-| user `pzserver` (uid 888) | shell alterado para **`/usr/sbin/nologin`** + senha bloqueada (`passwd -l`), depois **`userdel -r` (removido)** |
-| `/etc/sudoers.d/pzserver` | **removido** (era `edu ALL=(pzserver) NOPASSWD: /home/pzserver/server/pzserver *`) |
-| `sudoers` validado | `visudo -c` → **parsed OK** |
+| User `pzserver` (UID 888) | Shell changed to `/usr/sbin/nologin`, account locked, and deleted via `userdel -r` |
+| `/etc/sudoers.d/pzserver` | File deleted and validated via `visudo -c` |
 
-### 5. Processos residuais
-- Um `ProjectZomboid64` rodando como `edu` (teste do usuário em 02:54) foi morto. Confirmado: **nenhum processo do pzserver/ProjectZomboid64** restante; porta `16261` fechada.
+### 5. Filesystem Cleanup
+- Purged `/home/pzserver/` (5.7 GB).
+- Purged `/mnt/NVME_PCI/zomboidserver [knox-county]/` (22 GB including legacy LinuxGSM archives).
+- Reclaimed 15 GB on NVMe storage.
 
-## O que foi removido na destruição (06/08/2026 — backups validados antes)
+## Active Off-Box Backup Verification
 
-- ✅ `/home/pzserver/` (5.7G — dados de jogo, config) + user `pzserver`
-- ✅ `/mnt/NVME_PCI/zomboidserver [knox-county]/` (22G — LinuxGSM + serverfiles + `lgsm/backup` 13G)
-- ✅ Unidades `.service`/`.timer` (11) + scripts `libexec` (3) + lock `/run/pzserver-maintenance.lock` + tmux `/tmp/tmux-888/`
-- ✅ `/home/edu/Zomboid` (artefato de teste do jogo local)
+- kavure continues pushing daily backup snapshots to psicopompo NAS storage over NFS: `/mnt/BACKUP/zomboid-server-kavure/daily/` and `archive/migration-20260805/`.
+- The backup pipeline runs under user `edu` via NFSv4 permissions, completely decoupled from the purged `pzserver` system account.
 
-## Backup off-box (importante — NÃO quebrar)
-
-- O **kavure** continua enviando backup para cá: `zomboid-update` (no kavure) faz `rsync -aHAX /srv/data/zomboid/data/ → edu@100.82.51.112:/mnt/BACKUP/zomboid-server-kavure/archive/pre-update-<data>/`.
-- **`zomboid-backup`** (novo, cron 01:15 no kavure) espelha os zips do painel → `daily/` (rsync `--delete`, retenção herdada = 7). Usa **`edu@`** → não depende de user/service removido. ✅
-- Backups preservados: `/mnt/BACKUP/zomboid-server-kavure/daily/` (5.6G, espelho automático 01:15) + `archive/migration-20260805/` (1.2G) — **manter**.
-
-## Verificação final
-
-```bash
-systemctl list-timers --all | grep pzserver   # (vazio)
-pgrep -af ProjectZomboid64               # (vazio)
-ss -lunpt | grep 16261                   # (vazio)
-getent passwd pzserver                   # (user removido)
-```
-
-## Pendências — CONCLUÍDAS (06/08/2026)
-
-**Destruição definitiva executada** (backups validados antes — ver seção Backup):
-
-1. ✅ **Dados do jogo removidos** — `/home/pzserver` (5.7G) + `/mnt/NVME_PCI/zomboidserver [knox-county]` (22G, incl. `lgsm/backup` 13G de snapshots antigos)
-2. ✅ **Units systemd removidas** — `zomboid.service` + 5 `pzserver-*.{service,timer}` + `systemctl daemon-reload`
-3. ✅ **User `pzserver` removido** (`userdel -r`, uid 888) + `/home/pzserver`
-4. ✅ **Scripts `libexec` removidos** (`pzserver-backup`, `pzserver-monitor-health`, `pzserver-restart`)
-5. ✅ **Resíduos removidos** — `/run/pzserver-maintenance.lock`, tmux socket `/tmp/tmux-888/`, `/home/edu/Zomboid` (artefato de teste)
-6. ✅ **`verify_infra.py` removido** do repo (e refs em SECURITY/auto-sync/health-endpoints)
-
-**Backups preservados antes da destruição:**
-- `/mnt/BACKUP/zomboid-server-kavure/daily/` (5.6G) — espelho do painel (world backup + startup + version), **validado (`zip OK`)**, automático via `zomboid-backup` (cron 01:15 no kavure)
-- `/mnt/BACKUP/zomboid-server-kavure/archive/migration-20260805/` (1.2G) — snapshot pré-migração
-- kavure segue servindo (`pz-server: Up`, painel healthy)
-
-**Liberação de espaço:** `/mnt/NVME_PCI` 810G → 825G livres (~15G de dados; o resto estava no `/` e `/home`).
-
-## See also
-- [[project-zomboid]] — servidor atual no kavure (Docker)
-- [[zomboid-control-panel]] — painel de administração
-- [[kavure-migration-plan]] — plano de migração
-- [[psicopompo]] — servidor de origem
+## See Also
+- [`project-zomboid.md`](project-zomboid.md) — Active dedicated server on kavure
+- [`zomboid-control-panel.md`](zomboid-control-panel.md) — Web administration console
+- [`../../servers/psicopompo.md`](../../servers/psicopompo.md) — Workstation node profile

@@ -2,29 +2,29 @@
 tags: [homelab, service, aiostreams, media]
 ---
 
-# aiostreams
+# AioStreams
 
-Proxy de streaming para players de mídia.
+Streaming aggregation proxy for media players.
 
-**Servidor:** kavure
-**Porta:** `3000`
-**Funnel:** `kavure.chimaera-heptatonic.ts.net:10000`
-**URL interna:** `http://localhost:3000`
-**URL pública:** `https://kavure.chimaera-heptatonic.ts.net:10000`
+**Host Node:** kavure  
+**Internal Port:** `3000`  
+**Tailscale Funnel:** `kavure.chimaera-heptatonic.ts.net:10000`  
+**Internal Endpoint:** `http://localhost:3000`  
+**Public Endpoint:** `https://kavure.chimaera-heptatonic.ts.net:10000`  
 
 ## Stack
 
-| Container | Imagem | Função |
+| Container | Base Image | Operational Role |
 |---|---|---|
-| aiostreams | viren070/aiostreams:latest | Proxy de streaming |
+| `aiostreams` | `viren070/aiostreams:latest` | Streaming aggregation proxy |
 
-## Acesso
+## Access & Network Bindings
 
-- **Tailscale:** `http://kavure.chimaera-heptatonic.ts.net:3000` (`100.124.146.77:3000`)
-- **Público:** `https://kavure.chimaera-heptatonic.ts.net:10000` (via Tailscale Funnel)
+- **Tailnet:** `http://kavure.chimaera-heptatonic.ts.net:3000` (`100.124.146.77:3000`)
+- **Public WAN:** `https://kavure.chimaera-heptatonic.ts.net:10000` (via Tailscale Funnel)
 
-> 📌 **Binds de Rede (04/10/2026):** O container publica tanto em `100.124.146.77:3000` (Zona 1 - Tailnet) quanto em `127.0.0.1:3000` (Zona 0 - Loopback). O bind em loopback é necessário para que o daemon do Tailscale Funnel consiga encaminhar o tráfego público recebido na porta `10000` sem expor o serviço na LAN física (`0.0.0.0`). Configuração em `/home/kavure/homelab/aiostreams/compose.yml`.
+> 📌 **Network Interface Bindings:** The container publishes listening sockets on both `100.124.146.77:3000` (Zone 1 - Tailnet) and `127.0.0.1:3000` (Zone 0 - Loopback). Loopback binding is required so the host-level Tailscale Funnel daemon can forward incoming public traffic on port `10000` without exposing unauthenticated listeners on physical LAN interfaces (`0.0.0.0`). Managed via `/home/kavure/homelab/aiostreams/compose.yml`.
 
-## Funcionamento
+## Functionality
 
-Proxy que recebe requisições de players (ex: Stremio) e retorna streams resolvidos via serviços de terceiros.
+Receives stream resolution queries from external media clients (such as Stremio) and delivers aggregated playback streams resolved across third-party debrid providers.

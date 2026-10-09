@@ -2,6 +2,8 @@
 tags: [homelab, service, stremio, media]
 ---
 
-URL do addon: `{{STREMIO_ADDON_URL}}`
+# Stremio Addon Manifest
 
-> Token configurado via .env. Substitua `{{STREMIO_ADDON_URL}}` pelo valor real no seu ambiente.
+Addon URL endpoint: `{{STREMIO_ADDON_URL}}`
+
+> Authentication token injected via environment variables (`.env`). Replace `{{STREMIO_ADDON_URL}}` with the operational endpoint in your deployment environment.

@@ -2,51 +2,46 @@
 tags: [homelab, tutorial, hardware, usb, fat, storage]
 ---
 
-# Hollyland FAT Fix — Dirty Bit / Read-Only em Dispositivos FAT32
+# Hollyland FAT Fix — Dirty Bit / Read-Only on FAT32 Storage Media
 
-## O Problema
+## The Issue
 
-Gravadores de áudio/vídeo como **Hollyland Lark Max, Lark M2 e similares** usam cartão SD ou memória interna formatada em **FAT32**. Quando o aparelho é desligado, ele simplesmente corta a energia — **não desmonta o sistema de arquivos**. Isso deixa o chamado **dirty bit** (bit de desmontagem suja) ativo no FAT32.
+Hardware audio and video field recorders such as **Hollyland Lark Max, Lark M2, and related transceivers** record to internal flash memory or SD cards formatted in **FAT32**. Powering off these units abruptly cuts electricity to the controller without executing an orderly filesystem unmount, leaving the filesystem's **dirty bit** asserted.
 
-O Linux **respeita esse bit** e monta o dispositivo como **read-only (`ro`)** para evitar corrupção de dados. O resultado: você consegue ler os arquivos, mas **não consegue deletar, criar ou editar nada**.
+The Linux kernel strictly observes this flag and mounts the volume in **read-only (`ro`)** mode to prevent subsequent metadata corruption. Users can read captured media, but **cannot delete, create, or alter files**.
 
-Windows e Mac **ignoram** esse bit e montam como leitura-escrita normalmente — por isso o problema só aparece no Linux.
+Proprietary operating systems (Windows, macOS) routinely ignore unmount dirty flags on removable drives, which masks the behavior outside of Linux environments.
 
-## A Solução — Automação Completa com UDEV + Systemd
+## Automated Architecture: UDEV + Systemd
 
-Três componentes trabalham juntos para resolver isso **automaticamente** toda vez que você conectar um Hollyland:
+Three integrated components resolve this automatically upon USB insertion:
 
-| Componente | Função |
+| Component | Responsibility |
 |---|---|
-| **Regra udev** (`99-hollyland.rules`) | Detecta o dispositivo pelo vendor ID `3547` (Hollyland) + filesystem vfat |
-| **Systemd service** (`hollyland-fix@.service`) | Executa o script de forma assíncrona (não trava a inicialização) |
-| **Script** (`hollyland-fix.sh`) | Desmonta, roda `fsck.vfat -a` (auto, não-interativo) e limpa o dirty bit |
+| **UDEV Rule** (`99-hollyland.rules`) | Detects device insertion by Vendor ID `3547` (Hollyland) and filesystem type `vfat` |
+| **Systemd Service** (`hollyland-fix@.service`) | Triggers asynchronous repair execution outside udev device isolation namespaces |
+| **Repair Script** (`hollyland-fix.sh`) | Unmounts volume, executes automated `fsck.vfat -a` repair, and clears the dirty bit |
 
-### Fluxo
+### Execution Sequence
 
-1. Você conecta o Hollyland no USB
-2. Udev detecta: `idVendor=3547` + `vfat` → dispara o systemd service
-3. O service executa o script, que:
-   - Aguarda 2 segundos (pra montagem inicial terminar)
-   - Desmonta o dispositivo (lazy unmount)
-   - Roda `fsck.vfat -a` → limpa dirty bit
-4. O sistema (udisks2) **remonta automaticamente** como `rw`
-
-### Por que não usar `RUN` no udev?
-
-O `RUN` do udev executa em um namespace isolado — mounts feitos lá não são visíveis pro resto do sistema. A abordagem correta é `TAG+="systemd"` + `ENV{SYSTEMD_WANTS}`, que dispara um systemd service no namespace global.
+1. Hollyland receiver/transmitter connected over USB.
+2. UDEV detects `idVendor=3547` with `vfat` payload → triggers `hollyland-fix@.service`.
+3. Systemd initiates helper script:
+   - Waits 2 seconds for initial auto-mount settlement;
+   - Unmounts device lazily (`umount -l`);
+   - Executes `fsck.vfat -a` to verify FAT tables and clear the dirty flag.
+4. `udisks2` re-mounts the repaired volume in full read-write (`rw`) mode.
 
 ---
 
-## Arquivos do Sistema
+## Configuration Files
 
 ### `/usr/local/bin/hollyland-fix.sh`
 
 ```bash
 #!/bin/bash
-# hollyland-fix.sh — Limpa dirty bit FAT32 em dispositivos Hollyland
-# Acionado por udev → systemd service quando um dispositivo Hollyland
-# com filesystem vfat é conectado.
+# hollyland-fix.sh — Clears FAT32 dirty bit on Hollyland audio recorders.
+# Triggered asynchronously via udev -> systemd unit.
 
 set -euo pipefail
 
@@ -57,11 +52,11 @@ log() {
     echo "$(date '+%Y-%m-%d %H:%M:%S') $*" | logger -t "$LOGTAG"
 }
 
-log "=== Iniciando fix para $DEVICE ==="
+log "=== Initializing repair for $DEVICE ==="
 
 FSTYPE=$(blkid -o value -s TYPE "$DEVICE" 2>/dev/null || true)
 if [ "$FSTYPE" != "vfat" ]; then
-    log "  Ignorado: tipo=$FSTYPE (não é vfat)"
+    log "  Bypassed: filesystem type=$FSTYPE (not vfat)"
     exit 0
 fi
 
@@ -69,38 +64,29 @@ sleep 2
 
 MOUNTPOINT=$(findmnt -n -o TARGET "$DEVICE" 2>/dev/null || true)
 if [ -n "$MOUNTPOINT" ]; then
-    log "  Desmontando $DEVICE de $MOUNTPOINT"
+    log "  Unmounting $DEVICE from $MOUNTPOINT"
     umount -l "$DEVICE" 2>/dev/null || true
     sleep 1
 fi
 
-log "  Rodando fsck.vfat -a $DEVICE"
+log "  Executing fsck.vfat -a $DEVICE"
 OUTPUT=$(fsck.vfat -a "$DEVICE" 2>&1) || true
 echo "$OUTPUT" | logger -t "$LOGTAG"
 
 if echo "$OUTPUT" | grep -qi "dirty bit"; then
-    log "  dirty bit removido com sucesso"
+    log "  Dirty bit successfully cleared"
 fi
 if echo "$OUTPUT" | grep -qi "changes"; then
-    log "  alterações foram escritas no filesystem"
+    log "  Filesystem repairs committed"
 fi
 
-log "  Finalizado. A remontagem automática deve ocorrer em rw."
+log "  Completed. Automated remount will proceed in rw mode."
 ```
 
 ### `/etc/udev/rules.d/99-hollyland.rules`
 
-```
-# 99-hollyland.rules — Hollyland Lark Max / Lark / Wireless Mic
-#
-# Match por vendor 3547 cobre TODOS os produtos Hollyland
-# (Lark Max, Lark M2, Lark M1, Lark 150, etc).
-#
-# Filtros adicionais:
-#   - SUBSYSTEM=="block" → só dispositivos de bloco
-#   - ENV{ID_FS_TYPE}=="vfat" → só FAT32
-#   - ATTRS{idVendor}=="3547" → só Hollyland
-
+```udev
+# 99-hollyland.rules — Hollyland Lark Series Auto-Remediation
 ACTION=="add", SUBSYSTEM=="block", KERNEL=="sd*", \
   ENV{ID_FS_TYPE}=="vfat", \
   ATTRS{idVendor}=="3547", \
@@ -111,8 +97,7 @@ ACTION=="add", SUBSYSTEM=="block", KERNEL=="sd*", \
 
 ```ini
 [Unit]
-Description=Clear FAT32 dirty bit on Hollyland device (%I)
-Documentation=https://github.com/usbids/usbids/blob/master/usb.ids
+Description=Clear FAT32 dirty bit on Hollyland storage device (%I)
 After=local-fs.target
 
 [Service]
@@ -125,119 +110,62 @@ StandardError=journal
 
 ---
 
-## Boas Práticas Gerais para FAT32 no Linux
+## General Linux FAT32 Optimization Best Practices
 
-### 1. Limitar Write Cache de USBs (`99-usb-fat-tuning.rules`)
+### 1. Removable USB Write Cache Throttling (`99-usb-fat-tuning.rules`)
 
-Por padrão, o Linux usa até **20% da RAM** como cache de escrita (dirty pages). Isso significa que quando você copia um arquivo pra um pendrive, o "copiado" aparece **antes dos dados irem pro dispositivo** — eles estão no cache da RAM. Se você remover o dispositivo nesse momento, os dados são perdidos.
+By default, Linux permits dirty page writeback buffers to consume up to **20% of system RAM**. When transferring large video or audio takes to flash drives, file transfers report complete in UI file managers while dozens of gigabytes remain cached in volatile system memory. Premature drive detachment results in unwritten data loss.
 
-Esta regra udev limita o cache para **5% por dispositivo USB removível** e ativa `strict_limit`:
+Enforce a strict 5% buffer cap per removable drive:
 
-```
+```udev
 # /etc/udev/rules.d/99-usb-fat-tuning.rules
 ACTION=="add|change", SUBSYSTEM=="block", KERNEL=="sd*", \
   ATTR{removable}=="1", ENV{ID_FS_TYPE}=="vfat", \
   ATTR{bdi/max_ratio}="5", ATTR{bdi/strict_limit}="1"
 ```
 
-**Efeito:** o cache máximo para cada USB cai de 20% pra 5% da RAM. Dados chegam no dispositivo mais rápido. A cópia ainda é em `async` (performance não é drasticamente afetada como com `sync`).
+### 2. Explicit Unmounting & Flushing
 
-### 2. Ejetar / Sincronizar
-
-Sempre que possível, ejete o dispositivo antes de remover:
+Always flush memory buffers or safely eject volumes prior to physical detachment:
 
 ```bash
-# Via comando
 udisksctl unmount -b /dev/sdd1
 udisksctl power-off -b /dev/sdd
 
-# Ou via Nautilus / qualquer file manager → "Eject" / "Unmount"
-```
-
-Se precisar garantir que os dados foram pro disco:
-
-```bash
-sync
-# ou para um dispositivo específico
+# Force synchronous buffer synchronization
 sync /dev/sdd
 ```
 
-### 3. Opção `flush` no Mount
+### 3. VFAT Mount Options: `flush` vs `sync`
 
-`flush` é uma opção de montagem do vfat que faz com que os dados sejam liberados pro disco mais cedo que o normal (sem ser tão agressivo quanto `sync`). Por padrão, udisks2 já monta vfat com `flush` — você pode verificar com:
-
-```bash
-mount | grep vfat
-```
-
-Se por algum motivo não estiver usando `flush`, adicione:
+Ensure mount rules leverage `flush`, writing dirty blocks incrementally without the catastrophic flash memory wear and extreme latency associated with `sync`:
 
 ```bash
-sudo mount -o remount,flush /run/media/edu/SEU_DISPOSITIVO
+sudo mount -o remount,flush /run/media/edu/TARGET_DEVICE
 ```
-
-> ⚠️ **Não use `sync`** para vfat — deixa a gravação extremamente lenta e reduz a vida útil de mídias flash.
-
-### 4. Quando Nada disso Funciona
-
-Se mesmo com o dirty bit limpo o dispositivo continuar `ro`:
-
-1. Verifique se há **chave física de write-protect** no cartão SD / adaptador
-2. Verifique **erros de hardware**:
-   ```bash
-   sudo dmesg | grep -i "i/o error\|buffer I/O\|device error"
-   ```
-3. O cartão pode estar **no fim da vida útil** — controladores NAND forçam modo `ro` quando a mídia não é mais confiável. Substitua o cartão.
 
 ---
 
-## Instalação / Reinstalação
+## Manual Recovery Procedure
 
-Se você ~~formatar o PC~~ ~~mudar de distro~~ ~~explodir tudo~~ precisar reaplicar:
-
-```bash
-# 1. Copiar script
-sudo cp /tmp/hollyland-fix.sh /usr/local/bin/hollyland-fix.sh
-sudo chmod +x /usr/local/bin/hollyland-fix.sh
-
-# 2. Copiar regras udev
-sudo cp /tmp/99-hollyland.rules /etc/udev/rules.d/
-sudo cp /tmp/99-usb-fat-tuning.rules /etc/udev/rules.d/
-
-# 3. Copiar service
-sudo cp /tmp/hollyland-fix@.service /etc/systemd/system/
-
-# 4. Recarregar tudo
-sudo udevadm control --reload-rules
-sudo systemctl daemon-reload
-
-# 5. Testar (opcional — com dispositivo conectado)
-sudo journalctl -f -u hollyland-fix@*
-```
-
-### Recuperação Manual (sem automação)
-
-Se o sistema não estiver configurado e você precisar fazer na mão:
+When operating on an unconfigured system:
 
 ```bash
-# 1. Identificar o dispositivo
+# 1. Locate drive identifier
 lsblk
 
-# 2. Desmontar
-sudo umount /dev/sdd
+# 2. Unmount volume
+sudo umount /dev/sdd1
 
-# 3. Rodar fsck
-sudo fsck.vfat -a /dev/sdd
+# 3. Repair FAT allocation table and clear dirty bit
+sudo fsck.vfat -a /dev/sdd1
 
-# 4. Remover e reconectar o dispositivo
+# 4. Detach and re-insert USB cable
 ```
 
----
+## References
 
-## Referências
-
-- [Linux Kernel — vfat documentation](https://www.kernel.org/doc/html/latest/filesystems/vfat.html)
-- [USB ID Repository — Hollyland](https://github.com/usbids/usbids)
-- [Arch Wiki — udev](https://wiki.archlinux.org/title/Udev)
-- [Arch Wiki — FAT](https://wiki.gentoo.org/wiki/FAT)
-- [Udisks2 mount options](https://storaged.org/doc/udisks2-api/latest/mount_options.html)
+- [Linux Kernel vfat Documentation](https://www.kernel.org/doc/html/latest/filesystems/vfat.html)
+- [ArchWiki — udev](https://wiki.archlinux.org/title/Udev)
+- [Udisks2 Mount Architecture](https://storaged.org/doc/udisks2-api/latest/mount_options.html)

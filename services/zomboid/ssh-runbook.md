@@ -2,54 +2,53 @@
 tags: [homelab, service, zomboid, tutorial]
 ---
 
-# Zomboid — Runbook SSH
+# Project Zomboid — SSH Operations Runbook
 
-Operação manual do servidor de **Project Zomboid** no kavure via SSH. Fonte de verdade: [`project-zomboid.md`](project-zomboid.md).
+Operational and maintenance procedures for the dedicated **Project Zomboid** server on kavure via SSH. Canonical architecture: [`project-zomboid.md`](project-zomboid.md).
 
-## Acesso
+## Access Endpoint
 
 ```bash
 tailscale ssh kavure@kavure
 ```
 
-## Scripts de operação (`/usr/local/bin/zomboid-*`)
+## Operations Scripts (`/usr/local/bin/zomboid-*`)
 
-| Script | O que faz |
+| Script | Operational Function |
 |---|---|
-| `zomboid-start` | Liga o servidor (`docker compose up -d`) |
-| `zomboid-stop` | Desliga **gracioso** (save RCON + `docker compose down`) |
-| `zomboid-restart` | Reinicia **gracioso** (save RCON + `docker restart`; re-baixa/atualiza mods no boot) |
-| `zomboid-status` | Status do container + portas UDP |
-| `zomboid-save <cmd>` | Envia comando RCON (save, broadcast, players…) |
-| `zomboid-update` | Atualiza a **build** (backup do save + FORCEUPDATE/steamcmd) |
-| `zomboid-backup` | Backup off-box do painel → psicopompo |
+| `zomboid-start` | Starts the container daemon (`docker compose up -d`) |
+| `zomboid-stop` | Graceful shutdown (issues RCON `save` followed by `docker compose down`) |
+| `zomboid-restart` | Graceful restart (issues RCON `save`, restarts container, checks Workshop mods) |
+| `zomboid-status` | Displays container state, bound UDP sockets, and resource utilization |
+| `zomboid-save <cmd>` | Transmits raw command over Source RCON protocol (`save`, `broadcast`, etc.) |
+| `zomboid-update` | Upgrades game binary build via SteamCMD after taking a compressed world backup |
+| `zomboid-backup` | Synchronizes local backup archives to the off-box NAS target over NFS |
 
-## Comandos rápidos
+## Quick Command Reference
 
 ```bash
 tailscale ssh kavure@kavure
 zomboid-status
-zomboid-restart          # gracioso: salva o mundo + atualiza mods do Workshop
-zomboid-stop             # gracioso: save antes de desligar
+zomboid-restart          # Graceful: flushes world state and pulls Steam Workshop updates
+zomboid-stop             # Graceful: saves world prior to container shutdown
 zomboid-start
-zomboid-save save        # save manual via RCON
+zomboid-save save        # Triggers manual world save via RCON
 ```
 
-## Equivalente Docker manual
+## Manual Docker Equivalent
 
 ```bash
 cd /srv/data/zomboid
-docker compose up -d              # start
-docker compose down               # stop (abrupto — prefira zomboid-stop)
-docker compose restart pz-server  # restart (abrupto — prefira zomboid-restart)
-docker compose ps                 # status
-docker compose logs -f            # console
-docker compose logs -f --tail 100
+docker compose up -d              # Launch daemon
+docker compose down               # Abrupt stop (prefer zomboid-stop)
+docker compose restart pz-server  # Abrupt restart (prefer zomboid-restart)
+docker compose ps                 # Container state
+docker compose logs -f --tail 100 # Live log tail
 ```
 
-> ⚠️ `docker compose restart` direto é **hard-kill** (entry.sh não trap SIGTERM) — por isso os scripts `zomboid-restart`/`zomboid-stop` fazem save via RCON antes.
+> ⚠️ Running `docker compose restart` directly bypasses graceful save handlers (container PID 1 bash does not trap SIGTERM cleanly). Always use `zomboid-restart` or issue `zomboid-save save` first.
 
-## Status / portas
+## Network Port Validation
 
 ```bash
 zomboid-status
@@ -57,109 +56,61 @@ docker ps --filter name=pz-server
 ss -lunpt | grep -E '16261|16262|27015'
 ```
 
-| Porta | Protocolo | Uso |
+| Port | Protocol | Purpose |
 |---|---|---|
-| 16261 | UDP | Jogo |
-| 16262 | UDP | Conexão direta |
-| 27015 | TCP | RCON |
+| 16261 | UDP | Primary gameplay connection |
+| 16262 | UDP | Direct client connection |
+| 27015 | TCP | Source RCON management interface |
 
-## RCON
+## Source RCON Commands
 
 ```bash
-zomboid-save save                                # salva o mundo
-zomboid-save 'servermsg "[SERVER] Aviso global"' # banner no topo da tela (avisos)
-zomboid-save "broadcast Mensagem no chat"        # mensagem no chat
-zomboid-save players                             # lista players (RCON não retorna saída neste build)
-zomboid-save quit                                # sai do jogo → Docker reinicia o container (unless-stopped)
+zomboid-save save                                # Flushes world state to disk
+zomboid-save 'servermsg "[SERVER] Alert text"'   # Displays broadcast banner across top of screen
+zomboid-save "broadcast Chat message"            # Sends standard in-game chat message
+zomboid-save quit                                # Triggers engine exit (Docker restarts container automatically)
 ```
 
-> **⚠️ `servermsg` SEMPRE com aspas** (`servermsg "mensagem"`): sem aspas o PZ mostra só o primeiro token (fix 10/08/2026). Use aspas simples no shell e duplas dentro da mensagem.
-> **Contagem de players:** RCON `players` não retorna dados neste build — para verificar players online use `sudo -n /usr/local/libexec/zomboid-playercount` (lê o `performance_history` do painel, ~1 min de atraso).
+> ⚠️ Always enclose messages in double quotes (`servermsg "message text"`). Without quotes, the game engine parses only the first word.
 
-> **Avisos padronizados (07/08/2026):** os scripts `zomboid-restart` (20s), `zomboid-stop` (10s) e `zomboid-update` emitem um `servermsg` **antes** da ação, avisando que o servidor vai sair (~1 min para salvar/atualizar mods). O banner é **não-fatal** (se o RCON falhar, a ação segue mesmo assim).
+## Workshop Mod Updates
 
-> O script lê a senha RCON de `/srv/data/zomboid/.env` e conecta em `127.0.0.1`/`pz-server:27015`. O comando é o `argv[1]` — use aspas para comandos com espaços.
-
-> **Restart remoto:** um RCON `quit` faz o jogo sair e o container reinicia sozinho (`restart: unless-stopped`), re-baixando os mods no boot — dá pra fazer pelo **Console do painel** no celular (ver [`onboarding`](onboarding.md)). Prefira `zomboid-restart` quando possível (faz save antes de forma explícita).
-
-## Update de mods
-
-1. `zomboid-restart` — no boot o jogo consulta o Steam Workshop e baixa as atualizações (não é o entry.sh; é o próprio jogo).
-2. Confirmar no log do jogo:
-
+1. Execute `zomboid-restart` — upon initialization, the server checks the Steam Workshop and downloads updated mod archives.
+2. Confirm updates inside the runtime server logs:
 ```bash
 grep -iE "workshop|NeedsUpdate|DownloadPending|installed to" \
   /srv/data/zomboid/data/Logs/*DebugLog-server.txt | tail
 ```
 
-3. No painel (Zomboid Control Panel), mods devem ficar sem "Mod update available". Se aparecer persistente, confira que o painel lê `/pz-server/steamapps/workshop` (= `workshop-mods/`, bind adicionado em 07/08/2026).
-
-## Update de build (steamcmd)
+## Binary Build Upgrades (SteamCMD)
 
 ```bash
 zomboid-update
 ```
 
-Fluxo: backup comprimido do save → psicopompo (`archive/pre-update-<data>.tar.zst` via `zstd -3 -T0`), recria com `FORCEUPDATE=true` (steamcmd validate), sobe normal.
+The script automatically executes a fast compressed backup (`tar` piped to `zstd -3 -T0`), pushes the snapshot to `/mnt/BACKUP/zomboid-server-kavure/archive/pre-update-<date>.tar.zst`, and triggers SteamCMD build verification.
 
-> **Após o update, reaplicar as flags ZGC** — o steamcmd sobrescreve o `ProjectZomboid64.json`:
-
+> After a binary build upgrade, re-apply custom ZGC JVM tuning flags inside `ProjectZomboid64.json` before restarting:
 ```bash
 python3 -c "import json;p='/srv/data/zomboid/pz-dedicated/ProjectZomboid64.json';d=json.load(open(p));flags=['-XX:+ZUncommit','-XX:ZUncommitDelay=60','-XX:SoftMaxHeapSize=4g'];a=d.setdefault('vmArgs',[]);[a.append(f) for f in flags if f not in a];json.dump(d,open(p,'w'),indent=2)"
 zomboid-restart
 ```
 
-## Backup
-
-- **Off-box (principal):** `zomboid-backup` (systemd `hl-zomboid-backup.timer`, **05:15**, `Persistent=true`) espelha os zips do painel via **NFS** (`/srv/data/zomboid/offbox/daily/` = NAS psicopompo). Failsafe: reachability + retry (3×/2min) + timeouts + **ntfy** em falha — ver `project-zomboid.md`.
-- **Painel (local):** autobackup diário **00:00**, retenção 7, em `/srv/data/zomboid/data/backups/`.
-- **Pré-update:** `zomboid-update` salva em `offbox/archive/pre-update-<data>.tar.zst` (NFS).
-- Saves: `/srv/data/zomboid/data/Saves/Multiplayer/pzserver`
-
-## Logs
-
-```bash
-# Log do jogo (boot atual)
-ls -lt /srv/data/zomboid/data/Logs/*DebugLog-server.txt
-tail -f /srv/data/zomboid/data/Logs/*DebugLog-server.txt
-
-# Console do container
-docker logs -f pz-server
-
-# Logs de restart/backup
-tail -f /var/log/zomboid-restart.log
-tail -f /var/log/zomboid-backup.log
-```
-
-## Agendamentos (systemd timers)
+## Automated Maintenance Timers
 
 ```ini
-# hl-zomboid-restart.timer — 05:00, 11:00, 17:00, 23:00 (4x OnCalendar, Persistent=true)
-# hl-zomboid-backup.timer  — 05:15 (Persistent=true)
+# hl-zomboid-restart.timer — 05:00, 11:00, 17:00, 23:00 BRT
+# hl-zomboid-backup.timer  — 05:15 BRT
 ```
 
-- **Fuso do host:** `America/Sao_Paulo` (configurado em 07/08/2026 — antes o host estava em UTC e os restarts rodavam 3h mais cedo).
-- **watchtower** (container da stack `ops`, **03:00 BRT**): atualiza imagens de todos os containers, **incluindo `pz-server`** — recria o container sem save RCON (stop-timeout 30s); protegido por autosave + backups do painel/off-box.
-
-## Painel web (Zomboid Control Panel)
-
-- **URL:** `http://kavure.chimaera-heptatonic.ts.net:3001`
-- **Funções:** RCON console, players, mapa ao vivo, gerenciador de mods, backup, scheduler de saves/broadcast, eventos/clima.
-- **Não** faz start/stop do container (falso "stopped" é esperado — o lifecycle é do Docker, via `zomboid-*`).
-- **Mods:** o painel lê o workshop em `/pz-server/steamapps/workshop` (bind de `workshop-mods/`). Em 07/08/2026 foi corrigido: a cópia velha em `pz-dedicated/steamapps/workshop` (que causava "Mod update available" eterno) foi removida.
+Host timezone is set to `America/Sao_Paulo`. If active players are connected during a scheduled restart interval, `hl-zomboid-restart.service` defers execution until the subsequent cycle.
 
 ## Troubleshooting
 
-- **"Joining Game" infinito no cliente?** Incompatibilidade de versão (ex: Build 42.20.2 vs 42.20.3).
-  - No cliente (`console.txt`), aparece `BufferUnderflowException: ChunkNotReadyPacket.parse`.
-  - Solução: rodar `zomboid-update` no `kavure` ou sincronizar `projectzomboid.jar` com hash idêntico ao do cliente.
-- **Servidor não sobe?** `docker logs pz-server --tail 100` + `zomboid-status`.
-- **Mundo não salvo?** `zomboid-save save`; restauração via painel (backups) ou off-box `daily/`.
-- **RAM alta em idle?** `zomboid-stop` libera tudo; o restart 4x/dia (05/11/17/23) limpa o heap.
+- **Client stuck on "Joining Game" screen:** Typically indicates a binary version mismatch (e.g. client on Build 42.20.3 while server runs 42.20.2). Verify `md5sum projectzomboid.jar` between client and server.
+- **Container fails to start:** Inspect `docker logs pz-server --tail 100` and check for file permission issues under `/srv/data/zomboid/pz-dedicated/`.
 
-## See also
-- [[project-zomboid]] — Servidor Project Zomboid (Docker no kavure)
-- [[zomboid-control-panel]] — Painel web
-- [[kavure]] — Servidor de destino
-- [[kavure-disaster-recovery]] — Restore completo a partir do off-box
-
+## See Also
+- [`project-zomboid.md`](project-zomboid.md) — Dedicated server specification
+- [`zomboid-control-panel.md`](zomboid-control-panel.md) — Web administration console
+- [`../../servers/kavure.md`](../../servers/kavure.md) — Hosting server node profile
