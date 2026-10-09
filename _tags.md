@@ -4,113 +4,113 @@ tags: [homelab, meta, taxonomy]
 
 # Tag Taxonomy
 
-Single source of truth for allowed tags in this repository.
-Tags are always in English.
-Every `tags:` in YAML frontmatter must only use tags listed here.
+Single source of truth for allowed tags across the Mnemocine Homelab infrastructure documentation.
+Tags are always written in lowercase English or proper noun identifiers.
+Every `tags:` declaration in YAML frontmatter must strictly use tags listed here.
 
 ## Categories
 
-### `#homelab` — Everything related to this repo
-Root tag. Every file inside `mnemocine` must have it.
+### `#homelab` — Root Namespace Tag
+The mandatory root tag. Every documentation file inside `mnemocine` must include this tag.
 
-### `#server` — Tailnet servers
-- `#psicopompo` — Main / gaming / desktop
-- `#ybytu` — Cloud / DNS (failover do Pi-hole, 06/10)
-- `#ybyra` — Cloud / futuro SPA host
-- `#kuaray` — Media / Home Assistant
-- `#kavure` — Servidor de serviços dedicado (Project Zomboid, painel; Sumænimá em migração)
-- `#kururu` — Nó dedicado headless (Samsung SM-T110 / Alpine Linux / Tailscale SSH)
+### `#server` — Tailnet Node Classification
+- `#psicopompo` — Primary workstation / AI host / gaming node (Xeon E-2246G + RTX 5050, CachyOS)
+- `#ybytu` — Cloud edge / AdGuard DNS server / Pi-hole failover (Oracle Cloud OCI Always Free, Ubuntu 24.04 LTS)
+- `#ybyra` — Cloud edge reverse proxy / Tailscale Funnel gateway (Oracle Cloud OCI Always Free, Ubuntu 24.04 LTS)
+- `#kuaray` — Standby mirror / archive node (Linux Mint 22.3 Zena)
+- `#kavure` — Dedicated services server & Docker Swarm manager (Core i3-8100, Ubuntu 24.04 LTS)
+- `#kururu` — Headless lightweight experiment node (Samsung SM-T110 / Alpine Linux / Tailscale SSH)
 
-### `#service` — Individual services
-- `#adguard` — AdGuard Home (DNS)
-- `#aiostreams` — Streaming de áudio/vídeo web
-- `#calibre-web` — Biblioteca de eBooks
-- `#casaos` — Painel de gerenciamento kuaray (~~ativo~~ — **histórico**, removido 08/08)
-- `#cold-storage` — Serviços congelados (não rodam; preservados p/ rollback)
-- `#comet` — Indexador de Usenet
-- `#crafty` — Minecraft server (kavure)
-- `#dnscrypt` — dnscrypt-proxy (~~ativo~~ — **histórico/rollback**, desativado 08/10/2026)
-- `#duplicati` — Backup de arquivos (~~ativo~~ — **histórico**, removido 06/08)
-- `#flaresolverr` — Proxy para Cloudflare
-- `#grafana` — Dashboards de observabilidade
-- `#home-assistant` — Automação residencial
-- `#homepage` — Dashboard de serviços
-- `#uptime-kuma` — Monitoramento de uptime
-- `#kavita` — Leitor de mangás/quadrinhos (~~ativo~~ — **histórico**, removido 10/08)
-- `#lidarr` — Gerenciador de música
-- `#loki` — Log aggregation (Loki)
-- `#mosquitto` — Broker MQTT
-- `#navidrome` — Streaming de música
-- `#n8n` — Automação visual (workflows)
-- `#pihole` — DNS blocker (kavure)
-- `#portainer` — Gerenciamento Docker
-- `#prometheus` — Métricas time-series (Prometheus)
-- `#punktfunk` — Streaming de jogos/desktop de baixa latência
-- `#changedetection` — Monitoramento de mudanças em páginas
-- `#ntfy` — Notificações push
-- `#prowlarr` — Indexador de torrent/usenet
-- `#soularr` — Integração Soulseek + Lidarr
-- `#searxng` — Busca privada (meta-search)
-- `#slskd` — Cliente Soulseek
-- `#steniobot` — Bot de relatoria com IA
-- `#sumaenima-local` — Controle local do SUMAENIMA (sumaenima-ctl)
-- `#stremio` — Streaming de filmes/séries
-- `#syncthing` — Sincronização de arquivos
-- `#transmission` — Cliente torrent
-- `#unbound` — Unbound (DNS recursivo local com DNSSEC, kavure)
-- `#vert` — Microblogging descentralizado
-- `#watchtower` — Auto-update de containers
-- `#zomboid` — Servidor Project Zomboid
-- `#zomboid-panel` — Painel web do Project Zomboid
-- `#wol` — Wake-on-LAN, relay de acionamento remoto
+### `#service` — Individual Service Tags
+- `#adguard` — AdGuard Home network-wide DNS resolver & ad blocker
+- `#aiostreams` — Audio/video web streaming microservice
+- `#calibre-web` — Web reading interface and eBook library manager
+- `#casaos` — Legacy web administration interface (~~active~~ — **historical archive**, removed 2026-08-08)
+- `#cold-storage` — Frozen services and deactivated runbooks (preserved for reference and rollback)
+- `#comet` — Usenet indexer and scraper
+- `#crafty` — Crafty Controller 4 dedicated Minecraft server web manager (kavure)
+- `#dnscrypt` — dnscrypt-proxy resolver (~~active~~ — **historical archive**, decommissioned 2026-10-08)
+- `#duplicati` — Legacy backup system (~~active~~ — **historical archive**, replaced 2026-08-06)
+- `#flaresolverr` — Proxy service for Cloudflare challenge bypass
+- `#grafana` — Telemetry, metric aggregation, and system observability dashboards
+- `#home-assistant` — Home automation, IoT orchestration, and sensor telemetry
+- `#homepage` — Fast, consolidated homelab landing dashboard and service catalog
+- `#uptime-kuma` — Self-hosted uptime monitoring and incident alerting service
+- `#kavita` — Manga and comic reader (~~active~~ — **historical archive**, removed 2026-08-10)
+- `#lidarr` — Automated music collection and indexing manager
+- `#loki` — Distributed log aggregation and search engine (Grafana Loki)
+- `#mosquitto` — Eclipse Mosquitto MQTT message broker
+- `#navidrome` — Subsonic-compatible music streaming server
+- `#n8n` — Visual workflow automation and self-hosted integration engine
+- `#pihole` — Secondary DNS sinkhole & blocker (kavure)
+- `#portainer` — Legacy Docker container management interface (decommissioned in favor of CLI + Homepage)
+- `#prometheus` — Time-series metrics collection and monitoring system
+- `#punktfunk` — Low-latency desktop and game streaming protocol
+- `#changedetection` — Automated web page change monitoring and notification daemon
+- `#ntfy` — Lightweight push notification server delivering real-time mobile alerts
+- `#prowlarr` — Torrent and Usenet indexer integration hub
+- `#soularr` — Soulseek and Lidarr bridge integration daemon
+- `#searxng` — Privacy-respecting metasearch engine
+- `#slskd` — Headless Soulseek client daemon
+- `#steniobot` — AI meeting reporting and transcription bot
+- `#sumaenima-local` — Local Sumænimá service management interface (`sumaenima-ctl`)
+- `#stremio` — Streaming server integration
+- `#syncthing` — Continuous decentralized peer-to-peer file synchronization
+- `#transmission` — BitTorrent download client and daemon
+- `#unbound` — Validating, recursive, caching DNS resolver with DNSSEC (kavure)
+- `#vert` — Decentralized microblogging service
+- `#watchtower` — Automated Docker container base image updater
+- `#zomboid` — Project Zomboid dedicated persistence game server
+- `#zomboid-panel` — Project Zomboid dedicated server web administration panel
+- `#wol` — Wake-on-LAN and remote network power management relay
 
-### `#network` — Network, DNS and firewall
-### `#tailscale` — Tailscale específico
+### `#network` — Network, DNS & Firewall Architecture
+### `#tailscale` — Tailscale Mesh & WireGuard Zero-Trust Networking
 ### `#oracle` — Oracle Cloud Infrastructure (OCI)
-- `#oracle` — Oracle Cloud (VMs Always Free, tenancy, home region)
-- `#oci` — OCI CLI, API key e automação das VMs via terminal
-### `#backup` — Estratégia e procedimentos de backup
-- `#snapshot` — Snapshots btrfs/snapper (anti-deleção)
-- `#snapper` — Snapper específico
-- `#btrfs` — Filesystem btrfs
-- `#config` — Configurações e compose
-- `#compose` — Docker Compose
-- `#ritual` — Rituais e verificação de backup
-- `#checklist` — Checklist / pendências
-### `#recovery` — Disaster recovery
-### `#docker` — Docker, compose, containers
+- `#oracle` — Oracle Cloud Always-Free tenancy and infrastructure configurations
+- `#oci` — OCI CLI automation, API keys, and cloud virtual machine management
+### `#backup` — Backup Strategies & Procedures
+- `#snapshot` — Btrfs and Snapper copy-on-write filesystem snapshots (anti-deletion safeguard)
+- `#snapper` — Snapper subvolume snapshot configuration
+- `#btrfs` — Btrfs native filesystem features and tuning
+- `#config` — Configuration files, environment templates, and compose manifests
+- `#compose` — Docker Compose configuration and swarm stacks
+- `#ritual` — Scheduled backup drills, verification rituais, and integrity checks
+- `#checklist` — Validation checklists and migration checklists
+### `#recovery` — Disaster Recovery & Contingency Planning
+### `#docker` — Docker Engine, Swarm Mode & Container Infrastructure
 
-### Categorias de serviço
-- `#media` — Streaming, música, livros
-- `#download` — Torrent, Usenet, Soulseek
-- `#dns` — AdGuard, Pi-hole
-- `#automation` — Home Assistant, MQTT
-- `#monitoring` — Uptime Kuma, Homepage, Glances, Prometheus/Grafana
-- `#gaming` — Crafty, Steam, Minecraft
-- `#storage` — Discos, pools, volumes, montagens
-- `#cloud` — Cloud storage, remotes, sincronização off-site
-- `#rclone` — Rclone, mounts, Google Drive
-- `#tutorial` — Guias passo-a-passo
-- `#todo` — Pendências / WIP
-- `#env` — Variáveis de ambiente, portas
-- `#sops` — Criptografia de segredos (sops/age), store central
-- `#ssl` — Certificados, TLS
-- `#meta` — Tags que descrevem o próprio sistema de tags
-- `#taxonomy` — Usada na própria _tags.md
-- `#agents` — Instruções para agentes de IA
-- `#steam` — Steam / jogos no Linux
-- `#power` — Energia, suspensão, hibernação (S3/S4)
+### Functional Service Domains
+- `#media` — Media streaming, audio, and digital reading libraries
+- `#download` — Torrents, Usenet, Soulseek, and download pipelines
+- `#dns` — Recursive DNS, AdGuard, Pi-hole, and local domain resolution
+- `#automation` — IoT automation, Home Assistant, and MQTT brokers
+- `#monitoring` — Uptime Kuma, Homepage, Glances, Prometheus, and Grafana
+- `#gaming` — Crafty Controller, Steam, Project Zomboid, Valheim, and Minecraft
+- `#storage` — Disks, NVMe pools, RAID arrays, mountpoints, and NFS shares
+- `#cloud` — Cloud storage, remote providers, and off-site synchronization
+- `#rclone` — Rclone storage sync, cloud remotes, and Google Drive mounts
+- `#tutorial` — Operational tutorials and step-by-step technical guides
+- `#todo` — Work-in-progress, pending improvements, or roadmap tasks
+- `#env` — Environment variables, port configurations, and socket bindings
+- `#sops` — Centralized secret encryption (SOPS + Age) and credentials store
+- `#ssl` — TLS/SSL certificates, reverse proxy termination, and Let's Encrypt
+- `#meta` — Metadata tags defining repository governance and structure
+- `#taxonomy` — Central taxonomy reference (applied to `_tags.md` itself)
+- `#agents` — Instructions, conventions, and constraints for AI agents
+- `#steam` — Steam client, Proton, and native Linux gaming optimizations
+- `#power` — System power states, ACPI suspend, and hibernation handling (S3/S4)
 
-### `#hardware` — Dispositivos físicos, periféricos, mídias
-- `#usb` — Dispositivos USB, pendrives, gravadores
-- `#fat` — Filesystem FAT32, vfat, dirty bit
-- `#gpu` — Placas de vídeo (GPU) e configuração de vídeo
-- `#nvidia` — Driver e configuração NVIDIA (proprietário)
-- `#rebar` — ReBAR / Resizable BAR (BIOS da Dell não permite; via Linux sim)
+### `#hardware` — Physical Devices, Peripherals & Media
+- `#usb` — USB buses, external drives, flash memory, and flash recorders
+- `#fat` — FAT32 / vfat filesystem handling and dirty bit recovery
+- `#gpu` — Discrete graphic cards (GPUs) and hardware video acceleration
+- `#nvidia` — Proprietary NVIDIA display drivers, CUDA, and cuBLAS runtimes
+- `#rebar` — Resizable BAR (ReBAR) memory addressing under Linux
 
-### `#desktop` — Desktop / Workstation (ex.: KDE no psicopompo)
-- `#kde` — KDE Plasma (sessão, applets, configuração)
-- `#plasma` — Plasma shell / widgets / workarounds
+### `#desktop` — Desktop & Workstation Environments
+- `#kde` — KDE Plasma desktop session, applets, and system configuration
+- `#plasma` — Plasma Shell widgets, system trays, and desktop workarounds
 
-### `#wallpaper` — Acervo de wallpapers
-- `#wallpaper` — Coleção, classificação por resolução/orientação e upscale (psicopompo)
+### `#wallpaper` — Wallpaper Collection & Upscaling
+- `#wallpaper` — Desktop wallpaper collection, resolution categorization, and AI upscaling

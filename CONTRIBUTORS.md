@@ -2,12 +2,12 @@
 tags: [homelab, meta]
 ---
 
-# Contribuidores
+# Contributors
 
-## Humanos
+## Human Contributors
 
-- **Carlos Eduardo Rodrigues** — arquitetura de infra, documentação
+- **Carlos Eduardo Rodrigues** ([@ceduardorodrig](https://github.com/ceduardorodrig)) — Infrastructure architecture, system administration, documentation
 
-## Agentes de IA
+## AI Coding Assistants
 
-- **DeepSeek** (DeepSeek) — documentação de servidores, serviços e scripts de infraestrutura
+- **StenioSentinel** / **Gemini** / **Claude** / **DeepSeek** — Sub-millisecond static governance, server documentation, automated audits, and infrastructure scripts
