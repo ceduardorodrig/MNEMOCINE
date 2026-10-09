@@ -4,69 +4,72 @@ tags: [homelab, recovery, backup, checklist]
 
 # Disaster Recovery — Mnemocine
 
-> Guia **único** de recuperação (substitui os antigos `*-disaster-recovery.md` e `playbook.md`).
-> **Fontes:** espelho NAS · restic · git GitHub `mnemocine` · rclone→Drive · etckeeper · snapper · syncthing.
-> **Regra de ouro:** backup que nunca foi restaurado não existe → **drill mensal** (`backups/backup-rituals.md`).
+> **Unified** recovery playbook (supersedes legacy `*-disaster-recovery.md` and `playbook.md` documents).  
+> **Restoration Sources:** Central NAS Mirror · restic · GitHub Private Mirror `mnemocine` · rclone→Drive · etckeeper · snapper · Syncthing.  
+> **Golden Rule:** A backup that has never been restored does not exist → **monthly drills** (`backups/backup-rituals.md`).
 
-## 1. Fontes de recuperação
+## 1. Restoration Sources
 
-| Fonte | Restaura | Onde |
+| Source | Target Restored | Location |
 |---|---|---|
-| **Espelho NAS** | Configs + composes de todos os hosts | `/mnt/BACKUP/configs-homelab/{host}/` |
-| **restic** | Histórico/versões de configs + vault | `/mnt/BACKUP/repos/restic/configs` (`--insecure-no-password`) |
-| **git GitHub `mnemocine`** | Configs versionadas | repo privado `ceduardorodrig/mnemocine` |
-| **rclone → Google Drive** | **Off-site** — tudo do `/mnt/BACKUP` | pasta `BACKUP MNEMOCINE` |
-| **etckeeper** | `/etc` de cada host | bare repos `/mnt/BACKUP/repos/git/etckeeper-{host}.git` |
-| **snapper** | Snapshots btrfs do psicopompo | configs `nvme`/`backup`/`hdd`/`root` |
-| **syncthing** | Vault + espelho `backup` | kuaray (receiveonly) |
+| **Central NAS Mirror** | Configurations and Docker Compose stacks across all nodes | `/mnt/BACKUP/configs-homelab/{host}/` |
+| **restic** | Versioned configuration history + Obsidian vault | `/mnt/BACKUP/repos/restic/configs` (`--insecure-no-password`) |
+| **git GitHub `mnemocine`** | Declarative configuration history | Private repository `ceduardorodrig/mnemocine` |
+| **rclone → Google Drive** | **Off-Site Storage** — Full mirror of `/mnt/BACKUP` | `BACKUP MNEMOCINE` directory |
+| **etckeeper** | System `/etc` configurations per node | Bare git repositories at `/mnt/BACKUP/repos/git/etckeeper-{host}.git` |
+| **snapper** | Btrfs timeline snapshots on psicopompo | Configs `nvme`/`backup`/`hdd`/`root` |
+| **Syncthing** | Vault + `backup` mirror | kuaray (receive-only) |
 
-## 2. Procedimento genérico de restore (qualquer host)
+## 2. Generic Host Recovery Procedure
 
-1. **SO + Docker/compose** (ver papel do host na seção 4).
-2. **Configs/composes:** `git clone https://github.com/ceduardorodrig/mnemocine` (ou copiar do espelho NAS) → `/home/{user}/homelab/`; `/etc` via etckeeper (`git clone /srv/backup-gitrepos/etckeeper-{host}.git`).
-3. **Subir serviços:** `for d in /home/{user}/homelab/*/; do (cd "$d" && docker compose up -d); done`.
-4. **Dados:** `restic -r /mnt/BACKUP/repos/restic/configs --insecure-no-password restore latest --target /` ou NFS.
-5. **Verificar** (seção 5).
+1. **OS Installation & Container Engine Setup** (see host role in Section 4).
+2. **Restore Configurations & Compose Files:** Clone `git clone https://github.com/ceduardorodrig/mnemocine` (or copy from NAS mirror) → `/home/{user}/homelab/`; restore `/etc` via etckeeper (`git clone /srv/backup-gitrepos/etckeeper-{host}.git`).
+3. **Launch Containers:** `for d in /home/{user}/homelab/*/; do (cd "$d" && docker compose up -d); done`.
+4. **Restore Persistent Volumes:** Extract from restic via `restic -r /mnt/BACKUP/repos/restic/configs --insecure-no-password restore latest --target /` or mount NFS off-box targets.
+5. **Verify Operational Health** (Section 5).
 
-## 3. Ordem de recuperação (dependências cruzadas)
+## 3. Order of Recovery (Cross-Node Dependencies)
 
-> **psicopompo PRIMEIRO** — é o NAS/backup hub. Os demais dependem do NFS/espelho.
+> **psicopompo RESTORED FIRST** — Operates as the Tailnet NAS / central backup repository. Remaining nodes depend on its NFS exports.
 
-### Perda total do psicopompo (incluindo /mnt/BACKUP)
-A fonte passa a ser o **rclone off-site** (Google Drive, `BACKUP MNEMOCINE`, sem criptografia):
+### Total Loss of Psicopompo (Including `/mnt/BACKUP`)
+The recovery path pivots to **rclone off-site storage** (Google Drive `BACKUP MNEMOCINE`):
 
-1. Recriar o psicopompo (SO + NFS + Docker).
-2. `rclone sync "gdrive:BACKUP MNEMOCINE" /mnt/BACKUP` (baixar tudo).
-3. Re-exportar NFS (`/etc/exports`) + `exportfs -arv`.
-4. Restaurar vault: `/mnt/BACKUP/agentic-ai-server-psicopompo/agentic-ai` → `/mnt/NVME_PCI/agentic-ai`.
-5. Segredos: store sops (`secrets.enc.env` no vault) — chave age deve estar no KeePassXC.
+1. Rebuild psicopompo (OS + NFS daemons + Docker).
+2. Retrieve off-site backup: `rclone sync "gdrive:BACKUP MNEMOCINE" /mnt/BACKUP`.
+3. Re-export NFS shares (`/etc/exports`) and run `exportfs -arv`.
+4. Restore Obsidian vault: `/mnt/BACKUP/agentic-ai-server-psicopompo/agentic-ai` → `/mnt/NVME_PCI/agentic-ai`.
+5. Restore credentials: SOPS store (`secrets.enc.env` in vault) using offline age master key from KeePassXC.
 
-> ⚠️ Se nem o Drive estiver disponível: **etckeeper + espelho dos clientes** (`/mnt/BACKUP/configs-homelab/*` é a única cópia completa — priorize `psicopompo`, `kavure`, `kuaray`).
+> ⚠️ If Google Drive is unreachable: **Recover via etckeeper and client mirrors** (`/mnt/BACKUP/configs-homelab/*` is the sole surviving mirror — prioritize `psicopompo`, `kavure`, and `kuaray`).
 
-## 4. Por servidor (papel atual 09/08)
+## 4. Node Roles & Specific Restore Tasks
 
-| Host | Papel | Restore específico |
+| Host | Node Role | Specific Recovery Focus |
 |---|---|---|
-| **psicopompo** | NAS/NFS, vault, GPU workers, build-node | btrfs (snapper `nvme`/`backup`/`hdd`), restic, rclone off-site |
-| **kavure** | Jogos (Zomboid/Minecraft), Swarm sae-core, HA, Pi-hole, Navidrome, Calibre, AIOStreams, Comet | composes `/srv/data/*/compose.yml`; jogos via NFS off-box; música/livros via NFS |
-| **kuaray** | arr-stack (lidarr/prowlarr/transmission/slskd/soularr/flaresolverr), syncthing, vert | composes `/home/kuaray/homelab/*/compose.yml` |
+| **psicopompo** | NAS/NFS, Obsidian vault, GPU inference workers, build node | Btrfs subvolumes (snapper `nvme`/`backup`), restic, rclone off-site |
+| **kavure** | Game servers (Zomboid/Minecraft/Valheim), Swarm sae-core, HA, Pi-hole, Navidrome, Calibre, AioStreams, Comet | Composes in `/srv/data/*/compose.yml`; game saves via NFS off-box; media libraries via NFS |
+| **kuaray** | *arr stack (Lidarr, Prowlarr, Transmission, slskd, Soularr, FlareSolverr), Miracena stack, Syncthing, Vert | Composes in `/home/kuaray/homelab/*/compose.yml`; Miracena PostgreSQL/MariaDB dumps via NFS |
 
-> **Segredos pós-restore (28/08/2026):** API keys do arr-stack e `secrets.yaml` do HA estão no **store sops** — após restaurar os configs, rodar `inject-secrets.sh` (psicopompo) para re-injetar os valores (com `.bak`). Ver `guides/secrets-centralizados.md`.
-| **ybytu** | DNS (AdGuard), Homepage, Uptime Kuma, ntfy, changedetection | composes `/home/ubuntu/homelab/*/` |
-| **ybyra** | Borda primária (sae-edge) | compose `/home/ubuntu/docker-compose.ybyra.yml` |
+> **Post-Restore Secret Injection (28/08/2026):** API keys for the *arr stack and `secrets.yaml` for Home Assistant reside in the **SOPS store** — after restoring configs, run `inject-secrets.sh` (psicopompo) to repopulate credentials. See `guides/secrets-centralizados.md`.
 
-## 5. Verificação pós-restore
+| Host | Node Role | Specific Recovery Focus |
+|---|---|---|
+| **ybytu** | DNS (AdGuard), Homepage dashboard, Uptime Kuma, ntfy, changedetection | Composes in `/home/ubuntu/homelab/*/` |
+| **ybyra** | Primary Public Edge (sae-edge) | Compose `/home/ubuntu/docker-compose.ybyra.yml` |
 
-- `docker ps` — todos os containers **Up**.
-- Homepage HTTP 200 (`http://ybytu:3001`).
-- DNS resolve — `dig @100.124.146.77 google.com` (pihole kavure) e AdGuard ybytu.
-- NFS montado nos clientes — `df /mnt/BACKUP` (kavure/kuaray).
-- Vault presente — `/mnt/NVME_PCI/agentic-ai` (psicopompo).
-- Off-site — `/srv/health/rclone-gdrive-last-ok` recente.
+## 5. Post-Restore Verification Checklist
 
-## 6. Ritual de manutenção
+- `docker ps` — All containers running in **healthy** state.
+- Homepage responds with HTTP 200 (`http://ybytu:3001`).
+- DNS lookup resolves cleanly: `dig @100.124.146.77 google.com` (Pi-hole on kavure) and AdGuard on ybytu.
+- NFS shares mounted on clients: `df /mnt/BACKUP` (kavure/kuaray).
+- Obsidian vault verified: `/mnt/NVME_PCI/agentic-ai` (psicopompo).
+- Off-site pipeline verified: Fresh timestamp in `/srv/health/rclone-gdrive-last-ok`.
 
-- **Drill mensal:** restaurar 1 config do restic + 1 do git (ver `backups/backup-rituals.md`).
-- **Off-site:** conferir `rclone about gdrive:` (quota) + health file.
-- **Snapper:** `snapper -c nvme list` (semana OK).
-- Atualizar este doc sempre que serviços mudarem de host (regra canônica AGENTS.md).
+## 6. Maintenance Rituals
+
+- **Monthly Recovery Drill:** Restore 1 configuration from restic + 1 from git (see `backups/backup-rituals.md`).
+- **Off-Site Quota Audit:** Check `rclone about gdrive:` + verify health files.
+- **Snapper Audit:** Run `snapper -c nvme list` to ensure snapshot timelines are advancing.
+- Update this document whenever services migrate across hosts (canonical AGENTS.md rule).

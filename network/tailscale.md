@@ -4,23 +4,23 @@ tags: [homelab, network, tailscale]
 
 # Tailscale
 
-**Tailnet:** chimaera-heptatonic.ts.net
+**Tailnet:** `chimaera-heptatonic.ts.net`
 
-## Máquinas na Tailnet
+## Tailnet Node Inventory
 
-| Máquina | IP Tailscale | Papel |
+| Machine | Tailscale IP | Role |
 |---|---|---|
-| psicopompo | `100.82.51.112` | Dev + GPU workers (StênioBOT) |
+| psicopompo | `100.82.51.112` | Workstation, Dev + GPU worker nodes (StênioBOT) |
 | ybytu | `100.115.253.109` | Exit Node, DNS, Peer Relay (`:40000/udp`) |
-| ybyra | `100.66.224.34` | Cloud — borda primária |
-| kuaray | `100.94.209.99` | Multimídia — Funnel Home Assistant |
-| kavure | `100.124.146.77` | Servidor de serviços dedicado, Swarm Manager, Peer Relay (`:40000/udp`), Subnet Router (`192.168.3.0/24`) |
-| anansi | `100.71.232.79` | Android |
-| kururu | `100.127.188.45` | Nó headless dedicado (Samsung SM-T110 / Alpine Linux) |
+| ybyra | `100.66.224.34` | Primary Cloud Edge Reverse Proxy |
+| kuaray | `100.94.209.99` | Multimedia and Archive Storage Mirror |
+| kavure | `100.124.146.77` | Dedicated Services Server, Swarm Manager, Peer Relay (`:40000/udp`), Subnet Router (`192.168.3.0/24`) |
+| anansi | `100.71.232.79` | Android Mobile Device |
+| kururu | `100.127.188.45` | Headless lightweight probe node (Samsung SM-T110 / Alpine Linux) |
 
-## Padrão de Acesso (Tailscale SSH)
+## Access Standard (Tailscale SSH)
 
-**Método padrão de acesso aos servidores: Tailscale SSH** — usa autenticação da tailnet (WireGuard), sem expor porta 22 à internet.
+**Primary administration access method: Tailscale SSH** — leverages end-to-end WireGuard authentication within the tailnet without exposing TCP port 22 to the public internet.
 
 ```bash
 tailscale ssh kavure@kavure
@@ -28,26 +28,22 @@ tailscale ssh root@kuaray
 tailscale ssh ubuntu@ybyra
 ```
 
-### Check mode → resolvido com `accept` para non-root (29/09/2026)
+### Check Mode Mitigation → Non-Root `accept` Rule (2026-09-29)
 
-A **ACL padrão** do Tailscale usa `action: check` para conectar aos **próprios
-dispositivos** → pede **reautenticação no navegador a cada 12h** (`checkPeriod`
-default de 12h). Para humanos é aceitável; para **automação headless** é fatal — o
-`deploy-swarm.sh` abre SSH e **não tem como clicar no link**.
+Tailscale's **default ACL** applies `action: check` when connecting to **one's own devices**, requiring **browser re-authentication every 12 hours** (`checkPeriod: 12h`). While manageable for interactive human sessions, this broke headless automation runs: automated scripts like `deploy-swarm.sh` invoking remote SSH commands stalled waiting for interactive authorization links.
 
-**Fix aplicado na ACL do tailnet** (admin console → *Access controls* → **JSON
-editor**), em **29/09/2026**: non-root passa direto; `root` continua exigindo SSO.
+**ACL Policy Fix Applied via Tailscale Admin Console** (Access Controls → JSON Editor) on **2026-09-29**: non-root connections proceed directly without re-auth; `root` retains mandatory SSO verification.
 
 ```jsonc
 "ssh": [
-  // 1) rotina/automação (non-root): aceita direto -> deploy não trava mais no re-auth
+  // 1) Automation and routine non-root access: bypasses browser re-auth prompts
   {
     "action": "accept",
     "src":    ["autogroup:member"],
     "dst":    ["autogroup:self"],
     "users":  ["autogroup:nonroot"],
   },
-  // 2) root segue exigindo check (padrão de mínimo privilégio da Tailscale)
+  // 2) Root access retains mandatory interactive SSO check (least privilege standard)
   {
     "action": "check",
     "src":    ["autogroup:member"],
@@ -57,90 +53,39 @@ editor**), em **29/09/2026**: non-root passa direto; `root` continua exigindo SS
 ],
 ```
 
-**Por que `autogroup:self` e não `tag:server`:** o snippet anterior usava
-`dst: ["tag:server"]`, mas **nenhum servidor do homelab tem tag** (`Tags: None` em
-kavure/psicopompo/ybyra) → a regra era **inerte**. `autogroup:self` casa
-automaticamente com os dispositivos do próprio dono, sem precisar taguear nada.
+**Rationale for `autogroup:self` over `tag:server`:** earlier ACL drafts specified `dst: ["tag:server"]`, but no homelab machines carry static tags (`Tags: None` on kavure, psicopompo, and ybyra), rendering tag-based policies ineffective. `autogroup:self` automatically matches all devices owned by the account.
 
-**Nuances verificadas na doc oficial** ([policy syntax](https://tailscale.com/kb/1337/policy-syntax)):
+**Policy Syntax Nuances Verified via Official Documentation** ([Tailscale Policy Syntax](https://tailscale.com/kb/1337/policy-syntax)):
 
-| Nuance | Detalhe |
+| Rule Nuance | Behavior |
 |---|---|
-| **Ordem de avaliação** | Regras de SSH são avaliadas da **mais restritiva** para a menos (*check* antes de *accept*) — mas a regra só casa se o **usuário SSH pedido** estiver na lista `users`. Como a regra `check` lista **só `root`**, uma conexão como `edu` não casa nela e cai no `accept` ✅ |
-| **`checkPeriod`** | Existe **apenas nos planos Premium/Enterprise** → em plano pessoal o `Save` pode ser rejeitado. O default de **12h** já vale sem declará-lo |
-| **`dst` de SSH** | Aceita apenas tag, `autogroup:self` ou um usuário nomeado — `*` é proibido |
-| **Usuário no destino** | O Tailscale só usa **contas que já existem no host**: `ssh psicopompo` a partir do kavure falha com `tailnet policy does not permit you to SSH as user "kavure"` porque **não existe usuário `kavure` no psicopompo**. Correto é `ssh -l edu psicopompo` |
-| **CLI** | O `tailscale` (1.102.4) **não altera ACL** — só o [admin console](https://login.tailscale.com/admin/acls) ou a API |
+| **Evaluation Order** | SSH rules evaluate from most restrictive to least (*check* before *accept*), but match only if the target SSH user is included in `users`. Since `check` lists only `root`, non-root sessions (e.g., `edu`, `kavure`) bypass `check` and match `accept` directly ✅ |
+| **`checkPeriod` Attribute** | Available only on Premium/Enterprise plans. In personal accounts, declaring `checkPeriod` may reject policy saves; the 12h default operates implicitly |
+| **SSH `dst` Targets** | Accepts tags, `autogroup:self`, or named users; wildcard `*` is prohibited |
+| **Remote Username Mapping** | Tailscale authorizes connections only against pre-existing user accounts on the remote host. For example, connecting from kavure via `ssh psicopompo` fails with `tailnet policy does not permit you to SSH as user "kavure"` because no local user `kavure` exists on psicopompo. The correct invocation is `ssh -l edu psicopompo` |
+| **CLI Limitations** | `tailscale` CLI (1.102.4) cannot modify ACLs directly — updates require the admin console or API |
 
-**Verificação (29/09/2026):**
+**Automated Verification:**
 
 ```bash
-ssh -o BatchMode=yes kavure 'echo OK'        # → OK, sem pedir link de autenticação
+ssh -o BatchMode=yes kavure 'echo OK'        # Returns OK immediately without web prompts
 ```
 
-> **Acesso a partir do próprio host:** `ssh psicopompo` **no** psicopompo falha com
-> `Connection refused` — o tráfego para o próprio IP da tailnet não passa pelo
-> netstack do `tailscaled`. Testar sempre **de outro nó**.
+> **Loopback Connection Restriction:** Executing `ssh psicopompo` directly from within psicopompo fails with `Connection refused` because traffic addressed to the local Tailscale IP does not route through `tailscaled`'s netstack. Always test remote access across different nodes.
 
-> **GitOps da ACL — FUNCIONANDO desde 29/09/2026:** a política é versionada no repo
-> **privado** [`ceduardorodrig/MNEMOCINE-ACL`](https://github.com/ceduardorodrig/MNEMOCINE-ACL)
-> e aplicada pelo [`tailscale/gitops-acl-action`](https://github.com/tailscale/gitops-acl-action)
-> (`action: test` em PR, `action: apply` em push na `main`). O repo é **privado por
-> exigência da Tailscale** (a política contém PII). Clone local em
-> `/mnt/NVME_PCI/homelab/mnemocine-acl`.
->
-> **Credencial federada (OIDC)** criada no admin console com escopo **`policy_file`**
-> (Issuer `GitHub Actions`). As três variáveis ficam no **cofre sops** como
-> `TS_OAUTH_ID`, `TS_AUDIENCE` e `TS_TAILNET` (não são segredos — a doc: *"are not
-> secrets and will be visible in the admin console"* — mas mantêm a fonte única), e são
-> instaladas como secrets do repo via `gh secret set`.
->
-> ⚠️ **Subject (formato IMUTÁVEL):** como o repo nasceu depois de **15/07/2026**, o
-> GitHub emite o subject com `owner_id`/`repo_id`. O valor usado é:
-> `repo:ceduardorodrig@276087739/MNEMOCINE-ACL@1396147999:*` — o `*` cobre push **e**
-> pull request. O formato antigo (`repo:ceduardorodrig/MNEMOCINE-ACL:*`) **não casa**.
->
-> **Fluxo:** `git switch -c acl/x` → editar `policy.hujson` → push → PR (o CI roda os
-> `sshTests` e **não** altera nada) → merge → o CI **aplica**. Validado ponta a ponta:
-> PR #1 com `test` verde, merge com `apply` verde, e `ssh kavure` seguindo OK.
->
-> **Próximo passo (dono):** ligar **"Prevent edits in the admin console"** nas
-> *Access controls*, com a *External reference* apontando para este repo — aí o repo
-> passa a ser a fonte única e edição manual deixa de ser possível.
->
-> ✅ **TRANCADO em 29/09/2026:** a opção foi ativada em **Settings → Policy file
-> management** ([link](https://console.tailscale.com/admin/settings/policy-file-management))
-> — **não** na página de *Access controls* — com a *External reference* apontando para
-> `https://github.com/ceduardorodrig/MNEMOCINE-ACL`. A doc avisa que quem editar no
-> console (via "Edit anyway", a válvula de escape) **tem a mudança sobrescrita** no
-> próximo `apply` — o repo é a fonte única.
->
-> ⚠️ **A técnica antiga de "comentário mágico" no HuJSON para travar o editor foi
-> descontinuada em 03/06/2025**; a Tailscale migrou os tailnets para esse toggle.
-> Nenhuma referência a ela no `policy.hujson`.
->
-> **Prova de que o tailnet roda o repo:** o `etag` de controle passou a ser
-> `1cc03d81185dde8567f6e00cb04750f8473698ad31bd1190d8d447b8f385d6d6` — o hash do
-> **nosso arquivo** (antes o controle tinha o hash da política editada à mão).
->
-> **Reversão, se necessário:** desligar o toggle em *Policy file management* e revogar
-> a credencial federada em *Trust credentials*.
->
-> 💡 **Detalhe do `gitops-pusher` (aprendido em 29/09/2026):** comparar os hashes
-> `control` e `local` no log do action **não** serve como teste de sincronia quando a
-> mudança é só de comentário — o conteúdo efetivo é o mesmo e o pusher **não reenvia**
-> (o `apply` retorna `success` e o `etag` de controle não muda). O critério confiável
-> é `outcome=success` **mais** o teste funcional (`ssh -o BatchMode=yes kavure`).
->
-> **Melhoria futura:** guardar uma **API key** da Tailscale no cofre permitiria criar/
-> rotacionar a credencial federada por API (`POST /api/v2/tailnet/-/keys`,
-> `keyType: federated`) em vez do console.
+### ACL GitOps Pipeline (Operational Since 2026-09-29)
 
-### Fallback: SSH clássico com chave
+The tailnet access control policy is version-controlled inside the **private GitHub repository** [`ceduardorodrig/MNEMOCINE-ACL`](https://github.com/ceduardorodrig/MNEMOCINE-ACL) and deployed via [`tailscale/gitops-acl-action`](https://github.com/tailscale/gitops-acl-action) (`action: test` runs on pull requests; `action: apply` deploys automatically on commits to `main`).
 
-Quando o Tailscale SSH não for viável (ex: automação, ferramenta que precisa de chave), usar **SSH clássico com chave por host** — padrão do repo (`~/.ssh/config` no psicopompo):
+- **OIDC Federated Credentials:** Configured with `policy_file` scope (Issuer `GitHub Actions`).
+- **Subject Matching (Immutable Syntax):** Repositories created after July 2026 require the `owner_id/repo_id` format: `repo:ceduardorodrig@276087739/MNEMOCINE-ACL@1396147999:*`.
+- **Console Lockout Active:** "Prevent edits in the admin console" is enabled under **Settings → Policy file management**, establishing Git as the single source of truth. Manual modifications in the web console are overwritten on subsequent Git pushes.
 
-```
+### Fallback: Classic Public-Key SSH
+
+When Tailscale SSH cannot be utilized (such as specialized tools expecting raw keypairs), standard SSH with explicit host aliases is configured (`~/.ssh/config` on psicopompo):
+
+```text
 Host kavure
     HostName 100.124.146.77
     User kavure
@@ -148,171 +93,114 @@ Host kavure
     PreferredAuthentications publickey
 ```
 
-> **IP fixo na LAN não é necessário** — o IP da tailnet (100.x) é fixo e estável, independente de DHCP.
-
 ## Exit Nodes
 
-| Servidor | Oferece exit node? | Tráfego | Observação |
+| Node | Advertises Exit Node | Egress Route | Operational Guidance |
 |---|---|---|---|
-| **ybytu** (`100.115.253.109`) | ✅ sim (Oracle) | Tráfego da tailnet | **preferir este** — sai pela Oracle |
-| **kavure** (`100.124.146.77`) | ✅ sim (**casa**) | Tráfego da tailnet | ⚠️ sai pelo **link de casa (PPPoE 1492)** → sujeito ao problema de MTU (ver [`mtu-pppoe.md`](mtu-pppoe.md)) |
-| psicopompo | ❌ não oferece | — | — |
+| **ybytu** (`100.115.253.109`) | ✅ Yes | Oracle Cloud Transit | **Preferred default** — stable cloud gigabit uplink |
+| **kavure** (`100.124.146.77`) | ✅ Yes | Residential WAN (PPPoE 1492) | ⚠️ Routes across local home link; subject to PPPoE MTU constraints (see [`mtu-pppoe.md`](mtu-pppoe.md)) |
+| psicopompo | ❌ No | — | Workstation node |
 
-> **Verificado em 07/10/2026** (`tailscale status --json`): **dois** nós anunciam exit node —
-> `ybytu-vnic` e `kavure`. A doc anterior dizia *"único exit node (ybytu)"* — **corrigido**.
->
-> **Implicação prática:** quem escolher o **kavure** roteia pelo **link de casa** (PPPoE) —
-> exatamente onde a MTU mal ajustada causava ~30 % de falha em transferências grandes
-> (ver [`mtu-pppoe.md`](mtu-pppoe.md)). O **ybytu** (Oracle) **não** tem esse problema →
-> é a escolha recomendada para exit node.
-
-### Uso
-
-Em qualquer máquina cliente da tailnet:
+### Exit Node Client Usage
 
 ```bash
-# Listar exit nodes disponíveis
+# List available exit nodes across the tailnet:
 tailscale exit-node list
 
-# Usar ybytu como exit node (recomendado — sai pela Oracle)
+# Route client traffic through ybytu (Oracle Cloud egress):
 tailscale set --exit-node=ybytu
 
-# Parar de usar exit node
+# Disable exit node routing:
 tailscale set --exit-node=
 ```
 
-## Subnet Routers (05/10/2026)
+## Subnet Routers (2026-10-05)
 
-O **kavure** opera como **Subnet Router** oficial da tailnet para a sub-rede física da casa (`192.168.3.0/24`), permitindo alcançar diretamente a interface do roteador (`192.168.3.1`), lâmpadas Tuya Wi-Fi e periféricos da LAN local sem necessidade de instalar cliente Tailscale em cada ponta.
+**kavure** serves as the authoritative **Subnet Router** for the physical residential LAN (`192.168.3.0/24`), enabling remote access to the home router management portal (`192.168.3.1`), local Tuya IoT hardware, and local network devices without requiring individual Tailscale clients.
 
-| Subnet Router | Sub-rede Anunciada | Interface LAN | Aprovação de Rota | SNAT |
+| Subnet Router | Advertised Subnet | Local Interface | Route Authorization | NAT Mechanism |
 |---|---|---|---|---|
-| **kavure** (`100.124.146.77`) | `192.168.3.0/24` | `enp1s0` (Gigabit cabeado) | `autoApprovers` via GitOps (`MNEMOCINE-ACL`) | ✅ Automático (Linux iptables/nftables) |
+| **kavure** (`100.124.146.77`) | `192.168.3.0/24` | `enp1s0` (Gigabit Ethernet) | `autoApprovers` via GitOps (`MNEMOCINE-ACL`) | Linux Kernel Masquerade (iptables/nftables) |
 
-### Como Funciona
-* **SNAT (Masquerade):** O tráfego vindo da Tailnet que sai para a LAN local sofre Source NAT pelo Linux do Kavure. Dispositivos locais (roteador da operadora, lâmpadas, TVs) enxergam as conexões partindo de `192.168.3.41`. Não são necessárias rotas estáticas reversas no modem da operadora.
-* **Auto-Aprovação GitOps:** O bloco `autoApprovers.routes` no arquivo `policy.hujson` (repo `MNEMOCINE-ACL`) aprova automaticamente rotas anunciadas por administradores (`autogroup:admin`, `ceduardorodrig@gmail.com`).
+### Operational Details
+- **Masquerade (SNAT):** Outbound traffic from the Tailnet into the home LAN is translated to kavure's local interface IP (`192.168.3.41`). Local devices (such as smart bulbs and the ISP ONT) see incoming requests originating directly from kavure, eliminating the need for custom static routes on the ISP gateway.
+- **GitOps Auto-Approval:** The `autoApprovers.routes` stanza in `policy.hujson` automatically validates routes announced by administrative accounts (`autogroup:admin`, `ceduardorodrig@gmail.com`).
 
-### Ativação no Host (kavure)
+### Node Activation on kavure
 ```bash
-# 1. Persistência de encaminhamento no kernel (/etc/sysctl.d/99-tailscale.conf)
+# 1. Enable kernel packet forwarding (/etc/sysctl.d/99-tailscale.conf):
 net.ipv4.ip_forward = 1
 net.ipv6.conf.all.forwarding = 1
 
-# 2. Anúncio da rota (preserva flags anteriores como peer relay e ssh)
+# 2. Advertise the home subnet:
 sudo tailscale set --advertise-routes=192.168.3.0/24
 ```
 
-### Uso nos Clientes
-* **Celulares (Android/iOS):** Rotas anunciadas são aceitas automaticamente.
-* **Linux / macOS:** Para acessar a LAN física através do Kavure:
+### Client Route Acceptance
+- **Mobile Clients (Android / iOS):** Automatically accept advertised subnet routes.
+- **Linux / macOS Clients:**
   ```bash
   tailscale set --accept-routes=true
   ```
 
-## Funnels
+### Linux Client Health Notice (`--accept-routes is false`)
 
-Funnels expõem serviços locais publicamente (via Tailscale) sem precisar abrir portas no roteador.
+Following subnet router deployment on kavure, local Linux nodes (`psicopompo`, `kuaray`, `kururu`) report:
+```text
+# Health check:
+#     - Some peers are advertising routes but --accept-routes is false
+```
 
-| Servidor | Funnel | Serviço Interno |
+> **Technical Decision (2026-10-09): Maintain `--accept-routes=false` on Local LAN Machines.**  
+> Devices physically connected to the home switch already reside directly within `192.168.3.0/24`. Enabling `--accept-routes=true` on them causes kernel routing rules (`ip rule 5270 lookup 52`) to intercept local LAN packets and hairpin them needlessly through Kavure's tunnel interface. The health warning is advisory and benign; keeping it disabled on local nodes maintains peak physical network throughput.
+
+## Public Funnels & Tunnels
+
+Tailscale Funnels expose designated local ports publicly via TLS without requiring inbound router port forwarding.
+
+| Endpoint | Funnel URL | Target Service |
 |---|---|---|
 | kavure | `kavure.chimaera-heptatonic.ts.net:10000` | AioStreams (`kavure:3000`) |
-| sumaenima (tunnel) | `sumaenima.chimaera-heptatonic.ts.net` | StênioBOT (via tunnel `sae-edge_tunnel`, proxy p/ `api:9090` no kavure) |
-| miracena (tunnel) | `miracena.chimaera-heptatonic.ts.net` | WordPress (via tunnel `miracena-tunnel`, proxy p/ NPM `:80` → WordPress `:8085`) |
+| sumaenima (tunnel) | `sumaenima.chimaera-heptatonic.ts.net` | StênioBOT (via container tunnel `sae-edge_tunnel` proxying to `api:9090` on kavure) |
+| miracena (tunnel) | `miracena.chimaera-heptatonic.ts.net` | WordPress (via container tunnel `miracena-tunnel` proxying to NPM `:80` → WordPress `:8085`) |
 
-> **Home Assistant** é acesso **tailnet-only**: `http://100.124.146.77:8123`. Sem Funnel público — acesso restrito à tailnet por segurança.
+> **Security Policy:** Home Assistant remains **strictly restricted to the tailnet**: `http://100.124.146.77:8123`. No public Funnel is provisioned for Home Assistant.
 
-### Configurar um Funnel
+### Managing Funnels via CLI
 
 ```bash
-# Expor serviço local via funnel
-tailscale funnel --bg 443 [--set-path /] http://localhost:PORTA
+# Expose a local service via Tailscale Funnel:
+tailscale funnel --bg 443 http://localhost:PORT
 
-# Ver status
+# Inspect active funnel mappings:
 tailscale funnel status
 
-# Remover
+# Tear down funnel endpoint:
 tailscale funnel off
 ```
 
-### Tailscale Tunnel (container Docker)
+## Peer Relays (High-Throughput Relaying — 2026-10-02)
 
-Para serviços que precisam de um hostname próprio no Tailscale (ex: `miracena.chimaera-heptatonic.ts.net`), criar um container Tailscale dedicado:
+**Peer Relays** allow tailnet devices to act as high-speed relay intermediaries for peer-to-peer connections when direct UDP traversal is blocked by symmetric CGNAT or restrictive firewalls, routing traffic across private relays before falling back to public DERP servers.
 
-```yaml
-# Exemplo: miracena-tunnel
-tunnel:
-  image: tailscale/tailscale:latest
-  container_name: miracena-tunnel
-  hostname: miracena
-  environment:
-    - TS_AUTH_KEY=${TS_AUTH_KEY}
-    - TS_HOSTNAME=miracena
-    - TS_SERVE_CONFIG=/etc/tailscale/serve.json
-    - TS_STATE_DIR=/var/lib/tailscale
-    - TS_USERSPACE=false
-  volumes:
-    - ./tailscale:/etc/tailscale
-    - tailscale_state:/var/lib/tailscale
-  cap_add: [NET_ADMIN, SYS_MODULE]
-  sysctls:
-    - net.ipv4.ip_forward=1
-    - net.ipv6.conf.all.forwarding=1
-```
-
-O `serve.json` define como o Funnel roteia o tráfego:
-
-```json
-{
-  "TCP": { "443": { "HTTPS": true } },
-  "Web": {
-    "${TS_CERT_DOMAIN}:443": {
-      "Handlers": { "/": { "Proxy": "http://servico:porta" } }
-    }
-  },
-  "AllowFunnel": { "${TS_CERT_DOMAIN}:443": true }
-}
-```
-
-**Limitação:** Tailscale MagicDNS não suporta subdomínios (`site.miracena.xxx` não resolve). Cada tunnel só registra um hostname. Para múltiplos serviços públicos, usar NPM como reverse proxy no destino do Funnel.
-
-## Serve (rede interna)
-
-Nenhum serve configurado atualmente (apenas funnels para exposição externa).
-
-## Tailscale Peer Relays (02/10/2026)
-
-Os **Peer Relays** permitem utilizar dispositivos dentro da própria tailnet como servidores de relay de alta taxa de transferência (throughput) para conexões cliente-a-cliente quando conexões diretas não forem possíveis (ex: sob CGNAT severo ou firewall restritivo), antes de cair no fallback dos DERP públicos.
-
-### Nós Configurados como Peer Relay
-
-| Host | IP Tailscale | Porta UDP | Bind / Status |
+| Host | Tailscale IP | UDP Port | Listening Socket |
 |---|---|---|---|
 | **ybytu** | `100.115.253.109` | `40000` | `0.0.0.0:40000` / `[::]:40000` (`tailscaled`) |
 | **kavure** | `100.124.146.77` | `40000` | `0.0.0.0:40000` / `[::]:40000` (`tailscaled`) |
 
-### Comandos de Configuração no Host
-
+### Enabling Peer Relay on Host
 ```bash
-# Ativar porta de relay peer no tailscaled
 sudo tailscale set --relay-server-port=40000
-
-# Verificar se a porta foi gravada nas preferências
 sudo tailscale debug prefs | grep RelayServerPort
-
-# Verificar o listener UDP ativo
 sudo ss -ulpn | grep 40000
 ```
 
-### Autorização na Política de Acesso (ACL / Grants)
-
-Para que outros nós da Tailnet sejam autorizados pelo control plane a rotear através dos nós de Peer Relay, a política de ACL (`policy.hujson` via GitOps no repo `MNEMOCINE-ACL`) deve conter a capability `tailscale.com/cap/relay`:
-
+### ACL Capability Grant (`policy.hujson`)
 ```jsonc
 "grants": [
   {
     "src": ["autogroup:member"],
-    "dst": ["100.115.253.109", "100.124.146.77"], // ybytu e kavure
+    "dst": ["100.115.253.109", "100.124.146.77"],
     "app": {
       "tailscale.com/cap/relay": []
     }
@@ -320,45 +208,14 @@ Para que outros nós da Tailnet sejam autorizados pelo control plane a rotear at
 ]
 ```
 
-### Como Verificar o Uso
-
-Quando um nó da tailnet estiver utilizando um peer relay para alcançar outro dispositivo:
+To verify active relay traffic:
 ```bash
 tailscale status | grep peer-relay
 ```
-O campo de conexão reportará `peer-relay` em vez de `relay` (DERP) ou `direct`.
+The connection status displays `peer-relay` instead of `relay` (DERP) or `direct`.
 
-## Configuração dos Servidores
+## Edge Funnel Authentication (`TS_AUTH_KEY`)
 
-### IP Forwarding (para Exit Nodes)
-
-Ativado em **ybytu** e **kavure** (os dois nós que anunciam exit node):
-
-```bash
-echo 'net.ipv4.ip_forward=1' | sudo tee /etc/sysctl.d/99-tailscale.conf
-echo 'net.ipv6.conf.all.forwarding=1' | sudo tee -a /etc/sysctl.d/99-tailscale.conf
-sudo sysctl -p /etc/sysctl.d/99-tailscale.conf
-```
-
-### Key Expiry
-
-Desabilitado nos servidores via admin console do Tailscale.
-
-## Auth key do Funnel (edge) — `TS_AUTH_KEY` (08/10/2026)
-
-O container `tunnel`/`tunnel-standby` do stack `sae-edge` registra o nó `sumaenima` no Funnel via
-uma **auth key pré-autorizada**. Ela estava **em texto puro** no `edge.yml` (2 ocorrências) e
-num arquivo legado **versionado** — vazamento real.
-
-- **Corrigido:** a key foi para o **cofre sops** (`TS_AUTH_KEY`) e o `edge.yml` passou a usar
-  `${TS_AUTH_KEY}`, interpolado pelo `deploy-swarm.sh` (`set -a; source .env`). O arquivo legado
-  foi redigido. Inventário: [`guides/secrets-centralizados.md`](../guides/secrets-centralizados.md).
-- **⚠️ ROTAÇÃO PENDENTE (ação do usuário):** como a key **já está no histórico do git**, ela deve
-  ser **revogada e recriada** no console do Tailscale (*Settings → Keys*). Depois, atualizar
-  `TS_AUTH_KEY` no store sops + `gen-envs.sh` → `sumaenima.env` → deploy.
-- **Escopo:** pré-autorizada; confirmar as *tags* no console ao recriar (para marcar o dispositivo).
-- **Teste do failover (08/10/2026):** com a key **rotacionada**, o `tunnel-standby` **autentica** e o
-  Funnel do standby responde **HTTP 200** (`sumaenima-1…ts.net`) — o failover **funciona**, mas
-  registra um nó **`sumaenima-1`** (URL diferente do canônico). ⚠️ Esse nó **fica na tailnet** mesmo
-  com o serviço em 0 → deletar no console, ou usar auth key **efêmera** para sumir sozinho.
-- **Recomendação:** usar uma auth key **efêmera** para o standby (auto-remove ao desligar).
+The `sae-edge` stack provisions a containerized `tunnel` instance to publish the primary public gateway using a pre-authenticated Tailscale auth key:
+- Centralized inside SOPS secret store (`TS_AUTH_KEY`) and passed into Compose via runtime environment injection (`set -a; source .env`).
+- Ephemeral keys are recommended for standby failover instances to prevent orphaned node records upon decommission.

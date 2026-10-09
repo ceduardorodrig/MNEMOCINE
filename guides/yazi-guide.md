@@ -3,131 +3,127 @@ tags: [homelab, guide, tutorial, desktop]
 created: 2026-09-25
 ---
 
-# Guia de Operação do Yazi — Terminal File Manager (psicopompo)
+# Yazi Operations Guide — Terminal File Manager (psicopompo)
 
-Este guia documenta o uso, arquitetura e atalhos do **Yazi** no CachyOS/Hyprland com Noctalia, substituindo o Dolphin como gerenciador de arquivos padrão do sistema.
+This guide documents the usage, architecture, and keybindings of **Yazi** on CachyOS/Hyprland with Noctalia, replacing Dolphin as the default system file manager.
 
-## Por que o Yazi?
+## Why Yazi?
 
-- **Escrito em Rust:** assíncrono, não-bloqueante e com consumo mínimo de recursos (<30 MB RAM em uso, 0% CPU ocioso).
-- **Sem daemons em segundo plano:** não depende de `kiod6`, `baloo` ou frameworks pesados de desktop.
-- **Integração Hyprland:** invocado em janela flutuante elegante e veloz via atalho de sistema (`Super + E`).
-- **Pré-visualizações nativas:** suporta arquivos de código (`bat`), imagens e vídeos (`ffmpegthumbnailer` + `chafa`), documentos (`pdftoppm`) e arquivos comprimidos (`7z`).
+- **Written in Rust:** Asynchronous, non-blocking, and highly resource-efficient (<30 MB RAM in active use, 0% CPU at idle).
+- **No Background Daemons:** Eliminates reliance on heavy desktop indexing services (`baloo`, `kiod6`).
+- **Hyprland Integration:** Spawned instantly in a floating centered window via global shortcut (`Super + E`).
+- **Native Previews:** Built-in high-performance previews for source code (`bat`), images and videos (`ffmpegthumbnailer` + `chafa`), documents (`pdftoppm`), and archives (`7z`).
 
 ---
 
-## Como Abrir e Controlar a Janela
+## Window Control & Spawning
 
-| Ação | Atalho / Comando | O que faz |
+| Action | Keybinding / Command | Description |
 |---|---|---|
-| **Abrir o Yazi** | `Super + E` | Abre o Yazi em janela flutuante centralizada |
-| **Fechar** | `q` | Fecha o Yazi imediatamente |
-| **Sair e abrir terminal no CWD** | `_` (underscore) | Abre um sub-shell na pasta onde você está |
-| **Fechar forçado** | `Super + Q` | Fecha a janela pelo atalho padrão do Hyprland |
+| **Launch Yazi** | `Super + E` | Spawns Yazi in a centered floating Kitty window |
+| **Quit** | `q` | Closes Yazi cleanly |
+| **Exit to Sub-shell** | `_` (underscore) | Spawns a sub-shell within the current active directory |
+| **Force Close** | `Super + Q` | Closes the window via standard Hyprland window manager kill |
 
 ---
 
-## Navegação Rápida (Jump / Bookmarks)
+## Quick Navigation (Jump Bookmarks)
 
-Para pular rapidamente para qualquer disco ou serviço do sistema, pressione **`g`** seguido da tecla correspondente:
+Press **`g`** followed by the target key to jump to system paths:
 
-### Discos Locais e Vault
-- **`g` `n`** $\rightarrow$ `/mnt/NVME_PCI` (Armazenamento NVMe de trabalho)
-- **`g` `a`** $\rightarrow$ `/mnt/NVME_PCI/agentic-ai` (Vault Obsidian / Projetos)
-- **`g` `l`** $\rightarrow$ `/mnt/NVME_PCI/homelab` (Repositórios e projetos Homelab)
-- **`g` `s`** $\rightarrow$ `/mnt/SSD_SATA` (SSD SATA secundário)
-- **`g` `H`** (Shift+H) $\rightarrow$ `/mnt/HDD_SATA` (HDD SATA local)
-- **`g` `b`** $\rightarrow$ `/mnt/BACKUP` (Disco de backup do NAS)
-- **`g` `G`** (Shift+G) $\rightarrow$ `~/Google_Drive` (Nuvem Google Drive montada via rclone)
+### Local Disks & Obsidian Vault
+- **`g` `n`** $\rightarrow$ `/mnt/NVME_PCI` (Primary NVMe work disk)
+- **`g` `a`** $\rightarrow$ `/mnt/NVME_PCI/agentic-ai` (Obsidian Vault / Core Projects)
+- **`g` `l`** $\rightarrow$ `/mnt/NVME_PCI/homelab` (Homelab repositories and Docker Compose trees)
+- **`g` `s`** $\rightarrow$ `/mnt/SSD_SATA` (Secondary SATA SSD)
+- **`g` `H`** (Shift+H) $\rightarrow$ `/mnt/HDD_SATA` (Local SATA HDD)
+- **`g` `b`** $\rightarrow$ `/mnt/BACKUP` (NAS backup mount)
+- **`g` `G`** (Shift+G) $\rightarrow$ `~/Google_Drive` (Rclone-mounted cloud storage)
 
-### Servidores Remotos (Tailnet)
-- **`g` `k`** $\rightarrow$ `~/Remote/kuaray` (Acesso/montagem ao Kuaray)
-- **`g` `v`** $\rightarrow$ `~/Remote/kavure` (Acesso/montagem ao Kavure)
+### Remote Cluster Nodes (Tailnet)
+- **`g` `k`** $\rightarrow$ `~/Remote/kuaray` (Kuaray SFTP/remote mount)
+- **`g` `v`** $\rightarrow$ `~/Remote/kavure` (Kavure SFTP/remote mount)
 
-### Pastas de Sistema Padrão
-- **`g` `h`** $\rightarrow$ `~` (Sua pasta Home)
+### Default User Directories
+- **`g` `h`** $\rightarrow$ `~` (Home directory)
 - **`g` `d`** $\rightarrow$ `~/Downloads` (Downloads)
-- **`g` `c`** $\rightarrow$ `~/.config` (Arquivos de configuração do sistema)
-- **`g` `t`** $\rightarrow$ Lixeira do sistema (Trash bin)
+- **`g` `c`** $\rightarrow$ `~/.config` (Configuration files)
+- **`g` `t`** $\rightarrow$ System Trash bin
 
 ---
 
-## Movimentação Básica (Estilo Vim & Setas)
+## Movement & Cursor Navigation (Vim-style)
 
-- **`k`** ou **`↑`**: Subir um item na lista.
-- **`j`** ou **`↓`**: Descer um item na lista.
-- **`h`** ou **`←`**: Voltar para o diretório pai.
-- **`l`** ou **`→`** ou **`Enter`**: Entrar na pasta selecionada ou abrir arquivo.
-- **`g` `g`**: Pular para o topo da lista.
-- **`G`**: Pular para o final da lista.
-
----
-
-## Seleção Múltipla de Arquivos
-
-Você tem 3 formas de selecionar itens:
-
-1. **Item por item (`Space`):**
-   - Aperte a barra de espaço (`Space`) sobre o arquivo/pasta. Ele fica marcado com um indicador visual e o cursor avança para o próximo.
-   - Pressionar `Space` novamente em um item marcado desfaz a seleção.
-2. **Modo Visual em Bloco (`v`):**
-   - Aperte **`v`** para ativar o modo visual.
-   - Mova o cursor com `j`/`k` ou setas: todos os arquivos no caminho serão selecionados em bloco (como o `Shift + Clique`).
-   - Pressione `v` novamente ou `Esc` para sair do modo visual.
-3. **Selecionar Tudo (`Ctrl + A`):**
-   - Seleciona todos os arquivos da pasta atual de uma vez.
-   - Pressione `Esc` para desselecionar tudo.
+- **`k`** or **`↑`**: Move cursor up.
+- **`j`** or **`↓`**: Move cursor down.
+- **`h`** or **`←`**: Navigate to parent directory.
+- **`l`** or **`→`** or **`Enter`**: Enter directory or open selected file.
+- **`g` `g`**: Jump to top of directory listing.
+- **`G`**: Jump to bottom of directory listing.
 
 ---
 
-## Como Mover Arquivos para Fora (Browser, Discord, etc.)
+## Multi-file Selection
 
-Como o Yazi roda dentro de um emulador de terminal Wayland (Kitty), você tem duas formas excelentes de enviar arquivos para navegadores ou outros aplicativos:
-
-### Método 1: Clipboard Nativo (Ctrl+C / Ctrl+V — Mais Rápido)
-A maioria dos navegadores modernos (Firefox, Chrome, Brave) e apps de chat (Discord, Telegram, Slack, WhatsApp Web) aceita colar o arquivo diretamente:
-1. No Yazi, selecione os arquivos desejados com `Space` (ou posicione o cursor sobre ele).
-2. Pressione **`Ctrl + c`** (ou `y` para colocar na área de transferência).
-3. Vá na janela do navegador (no campo de mensagem ou de upload) e dê **`Ctrl + v`**. O navegador carrega o arquivo imediatamente.
-
-### Método 2: Arrastar com Mouse (Drag and Drop 100% Nativo)
-O Yazi possui suporte nativo a eventos de mouse ativados (`mouse_events = [ "click", "scroll", "drag" ]`):
-- Você pode simplesmente clicar em um arquivo ou pasta no Yazi com o botão esquerdo do mouse e **arrastá-lo diretamente para a janela do seu navegador** (área de upload de arquivos, chat, etc.), soltando-o lá. Funciona de forma 100% nativa no Wayland sem necessidade de qualquer ferramenta adicional!
-
----
-
-## Operações com Arquivos
-
-- **Copiar:** `y` no(s) item(ns) selecionado(s).
-- **Cortar / Mover:** `x` no(s) item(ns) selecionado(s).
-- **Colar:** `p` no diretório de destino.
-- **Deletar (Mover para Lixeira):** `d` (pressionar `d` confirma o envio à lixeira).
-- **Deletar Permanentemente:** `D` (Shift+D).
-- **Criar novo arquivo:** `a` (digite o nome e finalize com Enter; termine com `/` para criar diretório).
-- **Renomear:** `r` (abre o prompt interativo para editar o nome).
+1. **Item Toggle (`Space`):**
+   - Press `Space` on a target file to select it and advance the cursor.
+   - Pressing `Space` again deselects the item.
+2. **Visual Block Selection (`v`):**
+   - Press **`v`** to toggle visual selection mode.
+   - Move the cursor (`j`/`k` or arrows) to highlight a contiguous block of items.
+   - Press `v` or `Esc` to exit visual selection.
+3. **Select All (`Ctrl + A`):**
+   - Selects every item in the current directory.
+   - Press `Esc` to deselect all items.
 
 ---
 
-## Busca e Filtragem Ultrarrápida
+## Interacting with External GUI Applications (Browser, Chat, Discord)
 
-- **Filtrar na pasta atual:** Digite **`/`** e comece a digitar o nome. A lista é filtrada instantaneamente em tempo real. Pressione `Esc` para limpar o filtro.
-- **Busca profunda via fzf (`Z`):** Digite **`Z`** (Shift+Z) para abrir o diálogo de busca rápida com o `fzf` e encontrar arquivos em qualquer subpasta recursivamente.
-- **Localizar no arquivo (grep):** Digite **`s`** para buscar pelo conteúdo textual dos arquivos com `ripgrep`.
+Because Yazi runs within Wayland terminal emulators (Kitty), files can be shared seamlessly with GUI windows:
 
----
+### Method 1: System Clipboard (Ctrl+C / Ctrl+V — Fastest)
+Modern browsers (Firefox, Chromium, Brave) and communication apps (Discord, Telegram, Slack, WhatsApp Web) accept direct file paste:
+1. In Yazi, highlight files and press **`Ctrl + c`** (or `y`).
+2. Focus the external application's message or upload dialog and press **`Ctrl + v`**.
 
-## Abas e Multitarefa
-
-O Yazi suporta múltiplas abas sem poluir o desktop:
-- **`t` `t`**: Cria uma nova aba na pasta atual.
-- **`1`**, **`2`**, **`3`**, etc.: Alterna diretamente entre as abas abertas.
-- **`w`**: Fecha a aba ativa.
+### Method 2: Native Mouse Drag-and-Drop
+Yazi supports native Wayland mouse drag events (`mouse_events = [ "click", "scroll", "drag" ]`):
+- Click and drag files with the primary mouse button directly into external browser upload zones or desktop targets.
 
 ---
 
-## Estrutura de Configuração
+## File Operations
 
-- **Keymaps:** [`~/.config/yazi/keymap.toml`](file:///home/edu/.config/yazi/keymap.toml)
-- **Configurações gerais:** `~/.config/yazi/yazi.toml`
-- **Atalho do Hyprland:** [`~/.config/hypr/config/variables.lua`](file:///home/edu/.config/hypr/config/variables.lua) (`FILE_MANAGER = "kitty --class yazi -e yazi"`)
-- **Regra de janela flutuante:** [`~/.config/hypr/config/windowrules.lua`](file:///home/edu/.config/hypr/config/windowrules.lua) (classe `yazi` abre centralizada com 45% largura e 55% altura — ajustado de 75%/80% para 60%/70% em 28/09/2026, reduzido para 45%/55% no mesmo dia a pedido do usuário).
+- **Copy:** `y` on selected items.
+- **Cut / Move:** `x` on selected items.
+- **Paste:** `p` into target directory.
+- **Delete (Send to Trash):** `d`.
+- **Permanent Delete:** `D` (Shift+D).
+- **New File / Directory:** `a` (type name and press Enter; append `/` to create a folder).
+- **Rename:** `r` (opens inline prompt).
+
+---
+
+## Search & Filtering
+
+- **Inline Filter:** Press **`/`** and type a search pattern. Directory contents filter dynamically. Press `Esc` to reset.
+- **Deep Recursive Search (`Z`):** Press **`Z`** (Shift+Z) to trigger recursive `fzf` file discovery across directory trees.
+- **Text Search (grep):** Press **`s`** to search file contents recursively using `ripgrep`.
+
+---
+
+## Tab Management
+
+- **`t` `t`**: Opens a new tab at current location.
+- **`1`**, **`2`**, **`3`**, etc.: Switches directly to the numbered tab.
+- **`w`**: Closes active tab.
+
+---
+
+## Configuration Paths
+
+- **Keybindings:** [`~/.config/yazi/keymap.toml`](file:///home/edu/.config/yazi/keymap.toml)
+- **General Settings:** `~/.config/yazi/yazi.toml`
+- **Hyprland Launcher:** [`~/.config/hypr/config/variables.lua`](file:///home/edu/.config/hypr/config/variables.lua) (`FILE_MANAGER = "kitty --class yazi -e yazi"`)
+- **Window Rules:** [`~/.config/hypr/config/windowrules.lua`](file:///home/edu/.config/hypr/config/windowrules.lua) (class `yazi` floats centered at 45% width / 55% height).

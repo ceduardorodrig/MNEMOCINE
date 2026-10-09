@@ -179,7 +179,7 @@ stateDiagram-v2
 [19:38:21] [SHUTDOWN] Psicopompo accepted shutdown request (HTTP 200).
 [19:38:40] [CONFIRM] Kavure confirmed offline (S5).
 [19:38:45] [CONFIRM] Psicopompo confirmed offline (S5).
-[19:38:45] [STATE] Both hosts offline. No-break battery preserved. Transitioning to WaitingForPower.
+[19:38:45] [STATE] Both hosts offline. UPS battery preserved. Transitioning to WaitingForPower.
 [19:44:02] [EVENT] AC power detected! Entering stabilization quarantine (target: 180s continuous).
 [19:47:02] [STABLE] 3-minute stabilization quarantine completed without fluctuations! Initiating recovery.
 [19:47:02] [ACTION: WAKE] Emitting simultaneous WoL magic packets via kururu-wake daemon...

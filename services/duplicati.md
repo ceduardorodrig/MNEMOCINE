@@ -4,31 +4,25 @@ tags: [homelab, service, duplicati, backup]
 
 # Duplicati
 
-> **🟥 REMOVIDO (06/08/2026)** — não cobria dados de valor; substituído pelo
-> [backup canônico de configs](../backups/config-backup.md) (espelho NAS + restic + git + snapper) e off-site (rclone → Drive).
+> **🟥 DECOMMISSIONED (2026-08-06)** — Succeeded by the [canonical configuration backup standard](../backups/config-backup.md) (NAS mirror + Restic + Git + Snapper) and off-site cloud sync (Rclone → Google Drive). Preserved for historical inventory tracking.
 
-Backup automatizado com interface web.
+Historical automated backup service with web UI.
 
-**Servidor:** ~~kuaray~~ (histórico)
-**Porta:** ~~`8200`~~
+**Host Node:** ~~kuaray~~ (Historical)  
+**Port:** ~~`8200`~~  
 
 ## Stack
 
-| Container | Imagem | Função |
+| Container | Base Image | Operational Role |
 |---|---|---|
-| duplicati | linuxserver/duplicati:latest | Backup |
+| `duplicati` | `linuxserver/duplicati:latest` | Legacy backup manager |
 
-## Acesso
+## Current State
 
-`http://kuaray.chimaera-heptatonic.ts.net:8200`
+**Purged** — container and local volume configurations removed.
 
-## Estado Atual
+## Successor Strategy
 
-**Removido** — não roda mais. Mantido como registro histórico.
-
-## Recomendações
-
-- Configurar backup off-site para a nuvem (B2, S3, etc.)
-- Backup dos bancos PostgreSQL do StênioBOT e Umami
-- Backup das configs do Tailscale (não essencial, mas útil)
-- Testar restore periodicamente
+- Native Restic snapshots targeting NAS and cloud remotes.
+- Regular database dumps of PostgreSQL and application state.
+- Automated systemd timers pushing encrypted datasets off-site.

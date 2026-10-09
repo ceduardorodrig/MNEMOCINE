@@ -4,28 +4,30 @@ tags: [homelab, service, kavita, media]
 
 # Kavita
 
-> **⚠️ REMOVIDO (10/08/2026):** leitor de mangás/quadrinhos desinstalado do kavure (container removido, dir `/srv/data/kavita` apagado). Referências removidas do homepage e das docs. Esta doc fica como histórico.
+> **⚠️ DECOMMISSIONED (2026-08-10):** Digital comic and manga reader uninstalled from kavure (container removed and local storage `/srv/data/kavita` purged). References decommissioned from dashboards and active operational guides. Preserved for historical inventory tracking.
 
-Servidor de leitura de mangás, quadrinhos e ebooks.
+Historical digital manga, comic book, and eBook library service.
 
-**Servidor:** kavure (migrado 09/08/2026)
-**Porta:** `5000`
-**URL:** `http://kuaray.chimaera-heptatonic.ts.net:5000`
+**Host Node:** kavure (migrated 2026-08-09, decommissioned 2026-08-10)  
+**Port:** `5000`  
+**Web Console:** `http://kuaray.chimaera-heptatonic.ts.net:5000`  
 
 ## Stack
 
-| Container | Imagem | Função |
+| Container | Base Image | Operational Role |
 |---|---|---|
-| kavita | jvmilazz0/kavita:latest | Leitor de manga/ebook |
+| `kavita` | `jvmilazz0/kavita:latest` | Manga and eBook reading platform |
 
-## Acesso
+## Access
 
-`http://kuaray.chimaera-heptatonic.ts.net:5000`
+```text
+http://kuaray.chimaera-heptatonic.ts.net:5000
+```
 
-## Funcionamento
+## Functionality
 
-Servidor de leitura otimizado para:
-- Mangás
-- Quadrinhos (HQ)
-- Ebooks
-- Leitura em navegador ou app mobile
+Specialized digital reading server optimized for:
+- Manga collections
+- Graphic novels and comics (CBZ, CBR)
+- EPUB/PDF formats
+- In-browser reading and mobile client synchronization

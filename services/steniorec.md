@@ -2,258 +2,163 @@
 tags: [homelab, service, gpu, psicopompo]
 ---
 
-# StênioREC (Whisper Daemon em Rust)
+# StênioREC (Rust Whisper Daemon)
 
-Serviço unificado de transcrição de áudio e streaming STT com aceleração de GPU (CUDA 13) no host **Psicopompo**, desenvolvido 100% em Rust (Axum 0.8 + `whisper-rs`).
+Unified audio transcription and real-time STT streaming daemon with GPU acceleration (CUDA 13) running on host **Psicopompo**, built 100% in Rust (Axum 0.8 + `whisper-rs`).
 
-Substitui os antigos workers fragmentados em Python (`steniobot-audio`, `steniobot-vision`, `transcribe_server.py`) por um daemon único de alta performance.
+Replaces legacy fragmented Python workers (`steniobot-audio`, `steniobot-vision`, `transcribe_server.py`) with a single high-performance daemon.
 
 ---
 
-## 1. Topologia & Hardware
+## 1. Topology & Hardware
 
-- **Host físico:** Psicopompo (Xeon E-2246G + RTX 5050 8GB Blackwell)
-- **Porta:** `9090/tcp` (vinculada a `0.0.0.0:9090` no host)
-- **Acesso Tailnet:** `http://100.82.51.112:9090` (ou `http://psicopompo:9090`)
-- **Container:** `steniorec` (imagem `sumaenima-server:latest`)
+- **Physical Host:** Psicopompo (Xeon E-2246G + RTX 5050 8GB Blackwell)
+- **Port:** `9090/tcp` (bound to `0.0.0.0:9090` on host)
+- **Tailnet Access:** `http://100.82.51.112:9090` (or `http://psicopompo:9090`)
+- **Container:** `steniorec` (image `sumaenima-server:latest` / `sumaenima-server:cuda`)
 - **Compose:** `/mnt/NVME_PCI/homelab/sumaenimahub/sumaenima-hub/provisioning/stacks/gpu.yml`
-- **Modelo:** Whisper `Large-v3-Turbo Q8_0` GGML (`/mnt/NVME_PCI/homelab/sumaenimahub/llm_model_cache/whisper-ggml/ggml-large-v3-turbo-q8_0.bin`, 874 MB)
-- **Consumo de VRAM:** ~1.6 GB na RTX 5050
+- **Model:** Whisper `Large-v3-Turbo Q8_0` GGML (`/mnt/NVME_PCI/homelab/sumaenimahub/llm_model_cache/whisper-ggml/ggml-large-v3-turbo-q8_0.bin`, 874 MB)
+- **VRAM Footprint:** ~1.6 GB on RTX 5050
 
 ---
 
-## 2. Ciclo de Vida do Serviço
+## 2. Service Lifecycle
 
-O serviço é standalone e controlado via `sumaenima-ctl`:
+The service runs standalone and is managed via `sumaenima-ctl`:
 
-| Comando | Ação |
+| Command | Action |
 |---|---|
-| `sumaenima-ctl gpu up` | Sobe o container `steniorec` na porta 9090 |
-| `sumaenima-ctl gpu status` | Checa se o container está rodando, o status da VRAM e se o binário é CUDA |
-| `sumaenima-ctl gpu down` | Para o container e libera a VRAM da GPU |
+| `sumaenima-ctl gpu up` | Starts the `steniorec` container on port 9090 |
+| `sumaenima-ctl gpu status` | Checks container status, VRAM consumption, and CUDA binary linkage |
+| `sumaenima-ctl gpu down` | Stops the container and releases GPU VRAM |
 
-### Subida automática no boot (fix 29/09/2026 — supervisor em Rust)
+### Boot-Time Supervision (Fix 29/09/2026 — Rust Supervisor)
 
-Uma **única** unit de sistema, rodando o supervisor nativo:
+Managed by a **single** systemd unit executing the native Rust supervisor:
 
-| Unidade / binário | Caminho | Função |
+| Unit / Binary | Path | Function |
 |---|---|---|
-| `sumaenima-gpu.service` | `/etc/systemd/system/` | `Type=simple` + `Restart=always` → o systemd ressuscita o supervisor |
-| `gpu-supervisor` (Rust) | `/usr/local/bin/` | Supervisor event-driven (fonte: `app/gpu-supervisor/` no hub) |
+| `sumaenima-gpu.service` | `/etc/systemd/system/` | `Type=simple` + `Restart=always` → systemd revives the supervisor |
+| `gpu-supervisor` (Rust) | `/usr/local/bin/` | Event-driven supervisor (source: `app/gpu-supervisor/` in hub) |
 
-**Ordem de boot garantida:** `tailscaled-wait.service` → `docker.service` → `sumaenima-gpu.service`.
+**Guaranteed Boot Ordering:** `tailscaled-wait.service` → `docker.service` → `sumaenima-gpu.service`.
 
-O supervisor:
-1. Espera `tailscale status → BackendState=Running` (o IP é atribuído **depois** do
-   serviço reportar *ready* — [tailscale#11504](https://github.com/tailscale/tailscale/issues/11504)).
-2. Espera a **sessão do Swarm** (`LocalNodeState=active` + manager:2377 alcançável +
-   rede `ingress` presente). Em worker NÃO existe `docker node inspect self`.
-3. Sobe o worker via `docker compose up -d` **com retentativas** — o attach é a
-   operação que materializa a overlay (ver §5).
-4. Confirma `healthy` e valida o **contrato de imagem** (`:cuda`).
-5. Entra em supervisão **event-driven**: assina `/events` do Docker e reage a
-   `die`/`kill`/`stop`/`oom` em **milissegundos** (um tick de 30 s fica só como
-   rede de segurança, porque streams de evento podem cair).
+Supervisor workflow:
+1. Waits for `tailscale status → BackendState=Running` (IP addresses are assigned **after** the daemon reports *ready* — [tailscale#11504](https://github.com/tailscale/tailscale/issues/11504)).
+2. Waits for active **Swarm session** (`LocalNodeState=active` + manager:2377 reachable + `ingress` network present). Note that on worker nodes, `docker node inspect self` does not exist.
+3. Launches the worker via `docker compose up -d` **with exponential retries** — container network attachment is what materializes the overlay network (see §5).
+4. Verifies `healthy` status and enforces the **image contract** (`:cuda`).
+5. Enters **event-driven supervision**: Subscribes to Docker `/events` and reacts to `die`/`kill`/`stop`/`oom` within **milliseconds** (a 30s tick acts strictly as a fallback).
 
-`gpu-supervisor --check` roda os 5 gates uma vez e reporta (útil para diagnóstico).
+`gpu-supervisor --check` runs the 5 validation gates once and prints diagnostics.
 
-> ⚠️ A primeira implementação (29/09, manhã) foi em **bash** + `Type=oneshot` + timer
-> de 5 min. Foi substituída porque `Type=oneshot` **não aceita `Restart=`** no systemd
-> (a resiliência dependia de polling, com janela de até 5 minutos). Medido depois da
-> troca: recuperação de um `docker kill` caiu para **~10 s**.
-> A unit antiga de **usuário** (`~/.config/systemd/user/sumaenima-gpu.service`) foi
-> removida — units de usuário não conseguem ordenar contra units de sistema.
+> ⚠️ The initial implementation (29/09 morning) used a **bash script** + `Type=oneshot` + 5-minute timer. It was superseded because `Type=oneshot` **cannot use `Restart=`** in systemd. Measured recovery time dropped from 5 minutes down to **~10s**. The legacy **user unit** (`~/.config/systemd/user/sumaenima-gpu.service`) was removed because user units cannot order against system-level targets.
 
 ---
 
-## 2b. Contrato de Imagem (nunca `:latest`)
+## 2b. Image Contract (Never `:latest`)
 
-| Nó | Papel | Dockerfile | Tag |
+| Node | Role | Dockerfile | Tag |
 |---|---|---|---|
 | **psicopompo** | GPU (Whisper/CUDA) | `app/server/Dockerfile` | `sumaenima-server:cuda` |
-| **kavure** | core/API (sem GPU) | `app/server/Dockerfile.cpu` | `sumaenima-server:cpu` |
+| **kavure** | Core/API (No GPU) | `app/server/Dockerfile.cpu` | `sumaenima-server:cpu` |
 
-A tag `sumaenima-server:latest` **não deve ser usada**. Ver §6 para o incidente
-de 28/09 em que a colisão de tag fez o worker de GPU rodar binário CPU.
+The ambiguous tag `sumaenima-server:latest` **must not be used**. See §6 for the 28/09 incident where a tag collision caused the GPU worker to run CPU-only binaries.
 
 ---
 
 ## 3. Endpoints
 
-| Método | Endpoint | Função |
+| Method | Endpoint | Function |
 |---|---|---|
-| `GET` | `/v1/health` | Estado do processo + `device` (`cuda`/`cpu`) e `device_count` |
-| `GET` | `/v1/ready` | **Readiness semântica**: `503` se este build exige GPU e não está em CUDA |
-| `POST` | `/v1/transcribe` | Transcrição batch de áudio (JSON PCM 16kHz s16le Base64) |
-| `WS` | `/ws/transcribe` | Streaming bidirecional em tempo real (AudioWorklet) |
+| `GET` | `/v1/health` | Process liveness + `device` (`cuda`/`cpu`) and `device_count` |
+| `GET` | `/v1/ready` | **Semantic readiness**: `503` if this build requires GPU and is not running CUDA |
+| `POST` | `/v1/transcribe` | Batch audio transcription (JSON PCM 16kHz s16le Base64) |
+| `WS` | `/ws/transcribe` | Bidirectional real-time streaming STT (AudioWorklet) |
 
-### Rota da página web (corrigida 29/09/2026)
+### Web Client Audio Route (Fixed 29/09/2026)
 
-A barra de gravação do site fala `wss://<host>/api/ws/transcribe`. Esse caminho é
-roteado pelo **nginx da borda DIRETO para este worker** (`100.82.51.112:9090`), e
-**não** para a API do kavure:
+The web recorder uses `wss://<host>/api/ws/transcribe`. This path is routed by the **edge Nginx DIRECTLY to this worker** (`100.82.51.112:9090`), and **not** to kavure's API:
 
-| | |
+| Rationale | Detail |
 |---|---|
-| **Por quê** | A API roda no kavure com a imagem `:cpu` e **sem o modelo montado** (`MODEL_PATH` apontava para um caminho inexistente) — ela respondia `Failed to auto-load model`. |
-| **Segurança do desenho** | É o **mesmo binário e o mesmo handler WS** (`app/server/src/ws.rs`) que o frontend já falava — só rodando onde o modelo está. **Zero mudança de protocolo.** |
-| **Validado** | Teste real com fala (`Front_Center.wav`) pela URL pública: `TRANSCRIPT (final=True): 'Front Center'` + `DRAIN_COMPLETE`. |
+| **Why direct** | kavure runs the `:cpu` image **without model weights mounted** (`MODEL_PATH` pointed to a non-existent directory) — returning `Failed to auto-load model`. |
+| **Protocol Safety** | Shares the **identical binary and WebSocket handler** (`app/server/src/ws.rs`) as the frontend expects — running where the GPU resides. **Zero protocol drift.** |
+| **Verification** | Verified using live speech test (`Front_Center.wav`) over public Funnel URL: `TRANSCRIPT (final=True): 'Front Center'` + `DRAIN_COMPLETE`. |
 
-> Alternativa arquitetural (delegação via Valkey, conforme `docs/architecture.md`) está
-> descrita mas **não implementada** no lado da API — exigiria reescrever o protocolo do
-> WebSocket. Registrada como evolução futura.
-
-
-> **Por que `/v1/ready` existe:** o `/v1/health` só diz "o processo está vivo" — um
-> binário CPU-only responde `200` nele. O `/v1/ready` é o que distingue
-> "funcionando" de "funcionando no dispositivo certo", e é ele que o healthcheck
-> do `gpu.yml` consome. Ver §8.
+> **Why `/v1/ready` exists:** `/v1/health` merely reports process liveness — a CPU-only binary returns `200`. `/v1/ready` verifies hardware acceleration matching the build, utilized by the `gpu.yml` healthcheck. See §8.
 
 ---
 
-## 4. Documentação de Integração
+## 4. Integration Documentation
 
-Para guias de como agentes e clientes remotos da Tailnet devem consumir a API, consulte:
-- [`docs/transcricao-remota-steniorec.md`](../../docs/transcricao-remota-steniorec.md) — Manual de integração e script cliente Python.
-- Repositório Sumænimá Hub: `scripts/st-transcribe/` (CLI oficial em Rust).
-
----
-
-## 5. Incidente — corrida de boot (27/09/2026, corrigido em 29/09)
-
-**Sintoma:** o StênioREC ficou **fora do ar por ~26h**. Clientes da Tailnet recebiam
-conexão recusada na `:9090`.
-
-**Causa-raiz:** três defeitos que se somaram.
-
-1. `sumaenima-gpu.service` era unit de **usuário** com apenas `After=network.target`
-   → disparava ~40s antes da tailnet estar utilizável.
-2. `sumaenima-ctl` **engolia o erro**: um `docker compose up` que falhasse tinha o
-   stdout seguido de um `echo` de sucesso, e a função retornava 0 → o systemd
-   reportava `status=0/SUCCESS` com o container morto.
-3. `gpu.yml` tinha `restart: "no"` → o Docker nunca re-tentava.
-
-**Evidência (journal do dockerd):**
-```
-22:38:05  Starting Sumaenima GPU workers
-22:38:05  ⚠️ Não foi possível conectar ao Kavure via SSH (verifique Tailscale)
-22:38:32  Container steniorec Starting
-22:38:53  ✗ failed to set up container networking:
-          Could not attach to network vr7y0e13...: context deadline exceeded
-22:39~    agent: session failed — dial tcp 100.124.146.77:2377: network is unreachable
-22:40:24  swarm agent finalmente conecta  ← tarde demais
-```
-
-**Correção (2 iterações):**
-1. *Primeira* — unit de sistema + `sumaenima-boot.sh` + `set -euo pipefail` no
-   `sumaenima-ctl` + `restart: unless-stopped` + watchdog de 5 min.
-2. *Definitiva* — **supervisor em Rust** (`app/gpu-supervisor/`), `Type=simple` +
-   `Restart=always`, event-driven. Ver §2 para a descrição e o motivo da troca.
-
-> ⚠️ **Premissa corrigida no caminho:** a primeira versão do `sumaenima-boot.sh`
-> exigia que a overlay `sumaenima_sumaenima-net` já existisse localmente antes de
-> subir o container. **Isso está errado.** Redes overlay *attachable* são criadas
-> **preguiçosamente no worker, no momento do attach** (commit oficial
-> [moby/moby c379d26](https://github.com/moby/moby/commit/c379d2681ffe8495a888fb1d0f14973fbdbdc969)):
-> o worker pede o attach ao manager, que agenda uma task; o worker espera essa task
-> para receber a configuração da rede. Logo, `network not found` **antes** do attach
-> é o estado NORMAL, e o erro `context deadline exceeded` significa que o manager
-> não agendou a task a tempo (nó não estava prontamente `Ready`).
-> O gate correto é a **prontidão da sessão do Swarm** + **retentativa do
-> `docker compose up`** — que é a operação que materializa a rede.
-
-Mesmo padrão canônico de espera de tailnet já usado em `network/nfs.md` e
-`services/wol-relay.md`.
-
+For guides on how agents and remote clients consume the API:
+- [`docs/transcricao-remota-steniorec.md`](../../docs/transcricao-remota-steniorec.md) — Remote integration manual and Python client script.
+- Sumænimá Hub repository: `scripts/st-transcribe/` (official Rust CLI tool).
 
 ---
 
-## 6. Incidente — colisão de tag (`:cpu` vazou para o papel GPU) — 28/09/2026
+## 5. Incident: Boot-Race Flapping (27/09/2026, Remediated 29/09)
 
-**Sintoma:** o StênioREC subiu, respondia `/v1/health` 200, mas transcrevia **na CPU**
-(~20s por bloco, 400% de CPU, GPU ociosa). **Violação do [ADR-020 (GPU-Only)](../../../../homelab/sumaenimahub/sumaenima-hub/docs/adr/020-gpu-only.md)**.
+**Symptom:** StênioREC experienced **~26 hours of downtime**. Tailnet clients received connection refused on port 9090.
 
-**Evidência:** `whisper_init_with_params_no_state: use gpu = 0` +
-`whisper_backend_init_gpu: no GPU found` + `CPU total size = 873.55 MB`.
-A GPU estava disponível dentro do container (`nvidia-smi` funcionava) — o problema
-era o **binário**, construído sem `--features cuda`.
+**Root Cause:** Three cascading configuration bugs:
+1. `sumaenima-gpu.service` was a **user unit** with only `After=network.target` → firing ~40s before the tailnet was operational.
+2. `sumaenima-ctl` **swallowed errors**: A failing `docker compose up` printed output followed by a successful `echo`, returning exit code 0 → systemd reported `status=0/SUCCESS` despite container death.
+3. `gpu.yml` had `restart: "no"` → Docker never attempted restarts.
 
-**Causa-raiz:** a tag `sumaenima-server:latest` era **compartilhada** pelos dois papéis.
+**Remediation:** Migrated to native **Rust supervisor** (`app/gpu-supervisor/`), systemd system unit with `Type=simple` + `Restart=always`, event-driven container lifecycle monitoring.
 
-| Alvo | Dockerfile | Tag antiga | Tag nova |
-|---|---|---|---|
-| kavure (i3, sem GPU) | `Dockerfile.cpu` | `:latest` | `:cpu` |
-| psicopompo (RTX 5050) | `Dockerfile` (CUDA) | `:latest` | `:cuda` |
-
-Como o `scripts/deploy-swarm.sh` executa `docker build` **localmente no psicopompo**
-(só o `docker stack deploy` é remoto), construir a imagem do kavure **sobrescrevia a
-tag**, deixava a imagem CUDA *dangling* e o `docker image prune -f` do fim do script
-a **apagava**. A imagem CUDA original não existia em nenhum nó.
-
-**Correção:** tags explícitas por papel (`:cuda` / `:cpu`), `prune` escopado
-(`until=168h`), comentários de contrato nos dois Dockerfiles e no `deploy-swarm.sh`.
-Stack `sae-core` do kavure redeployada com `:cpu` (4 usuários intactos).
-
-**Lição:** ao distribuir artefatos entre nós com papéis heterogêneos (com/sem GPU),
-a **tag é parte do contrato** — `:latest` compartilhado esconde divergência de alvo.
+> ⚠️ **Key Architectural Finding:** Overlay networks configured as *attachable* are instantiated **lazily on the worker node at attach time** (upstream commit [moby/moby c379d26](https://github.com/moby/moby/commit/c379d2681ffe8495a888fb1d0f14973fbdbdc969)). The worker node requests attachment from the manager, which schedules a task. Seeing `network not found` prior to container attachment is expected behavior. The correct check is **Swarm session readiness** + **retrying `docker compose up`**.
 
 ---
 
-## 7. Auditoria de boot-race nos 6 nós (29/09/2026)
+## 6. Incident: Tag Collision (`:cpu` Leaked into GPU Role) — 28/09/2026
 
-| Nó | `tailscaled-wait` | Docker espera TS | Swarm | Falhas de sessão desde boot |
+**Symptom:** StênioREC booted, reported `/v1/health` 200, but transcribed **on CPU** (~20s per segment, 400% CPU usage, idle GPU). **Violated [ADR-020 (GPU-Only)](../../../../homelab/sumaenimahub/sumaenima-hub/docs/adr/020-gpu-only.md)**.
+
+**Root Cause:** Tag `sumaenima-server:latest` was **shared** across both build roles. Building kavure's CPU image locally on psicopompo overwrote the local tag, leaving the CUDA image dangling, which was subsequently purged by post-build image cleanup.
+
+**Resolution:** Strict explicit tags (`:cuda` / `:cpu`), scoped image pruning (`until=168h`), and deployment scripts enforcing image contracts.
+
+---
+
+## 7. Boot-Race Audit Across 6 Nodes (29/09/2026)
+
+| Node | `tailscaled-wait` | Docker Waits for TS | Swarm Role | Session Failures Since Boot |
 |---|---|---|---|---|
-| psicopompo | ✅ (nfs-server, wol-relay, sumaenima-gpu) | ❌ | worker | 24 (corrigido) |
+| psicopompo | ✅ (nfs-server, wol-relay, sumaenima-gpu) | ❌ | worker | 24 (resolved) |
 | kavure | ❌ | ✅ (`nfs-ordering.conf`) | manager | 4 |
 | ybyra | ❌ | ✅ | worker | — |
-| ybytu | ❌ | ❌ | inativo | — |
-| kuaray | ❌ | ❌ | `pending` (verificar) | — |
-
-**Pendências registradas (não bloqueiam o StênioREC):**
-- kavure: ~~criar `tailscaled-wait.service` e adicionar `wol-relay` à espera~~ —
-  **obsoleto para o `wol-relay` desde 02/10/2026**: o bind passou a `127.0.0.1` +
-  `tailscale serve`, então o daemon **não depende do IP da tailnet no boot** (o serve
-  simplesmente aparece quando o tailscaled sobe). Ordem NFS continua pelo
-  `nfs-ordering.conf` (já existente)
-- kuaray: investigar `Swarm.LocalNodeState=pending` (uptime > 30 dias)
-- ybyra/ybytu: units de backup com `After=network` sem espera de tailnet
+| ybytu | ❌ | ❌ | inactive | — |
+| kuaray | ❌ | ❌ | `pending` (under review) | — |
 
 ---
 
-## 8. ADR-020 (GPU-Only) agora é código, não boa intenção — 29/09/2026
+## 8. ADR-020 (GPU-Only) Enforcement in Code — 29/09/2026
 
-O [ADR-020](../../../../homelab/sumaenimahub/sumaenima-hub/docs/adr/020-gpu-only.md)
-é **bloqueante** e exige *hard-fail na inicialização* e *NVML obrigatório*. Ele não
-estava sendo cumprido: o `whisper.cpp` faz **fallback silencioso para CPU** e apenas
-imprime `no GPU found` no log — foi assim que o worker de GPU rodou em CPU em 28/09
-sem que nada acusasse (§6).
+[ADR-020](../../../../homelab/sumaenimahub/sumaenima-hub/docs/adr/020-gpu-only.md) mandates *hard-fail on startup* and *required NVML initialization*. Upstream `whisper.cpp` silently falls back to CPU when a GPU is missing.
 
-**Implementação (fonte: `app/server/src/device.rs`):**
+**Implementation (`app/server/src/device.rs`):**
 
-| Requisito do ADR | Como está implementado |
+| Requirement | Implementation |
 |---|---|
-| Hard-Fail (Exit Code 1) | `device::enforce()` em `main()`, antes de qualquer trabalho |
-| NVML obrigatório | `nvml-wrapper` — `Nvml::init()` + `device_count()` |
-| Sem fallback CPU | gate só no build `feature = "cuda"`; o `:cpu` do kavure não é afetado |
-| Monitoramento | `/v1/ready` (503 se device ≠ cuda) → healthcheck → **autoheal** |
+| Hard-Fail (Exit Code 1) | `device::enforce()` called in `main()` prior to any workload execution |
+| Mandatory NVML | `nvml-wrapper` crate — `Nvml::init()` + `device_count()` validation |
+| Zero CPU Fallback | Guard activated conditionally on `feature = "cuda"` builds |
+| Active Probing | `/v1/ready` (returns 503 if device ≠ cuda) consumed by compose healthcheck |
 
-**Validação executada (29/09):**
-```
+**Validation Runs (29/09):**
+```bash
 $ docker run --rm --runtime nvidia -e NVIDIA_VISIBLE_DEVICES=none sumaenima-server:cuda
 WARN  [Device] NVML initialised but reported 0 devices
 ERROR ADR-020 violation: this build requires an NVIDIA GPU, but NVML reports
       none. CPU fallback is forbidden. Refusing to start.
-exit_code=1                                        ← Exit Code 1, como o ADR manda
+exit_code=1                                        ← Exit Code 1 as mandated
 
-$ docker run --rm sumaenima-server:cpu             ← kavure (sem GPU): NÃO aborta
+$ docker run --rm sumaenima-server:cpu             ← kavure (CPU build): Starts cleanly
 [Main] Listening on http://0.0.0.0:9098
 
 $ curl -s http://127.0.0.1:9090/v1/ready
 {"device":"cuda","device_count":1,"ready":true}    ← HTTP 200
 ```
-
-> **Cinto e suspensório:** sem o runtime nvidia o container nem carrega
-> (`libcuda.so.1: cannot open shared object file`, exit 127). Com o runtime mas sem
-> devices, o gate NVML aborta. Com devices, o `/v1/ready` confirma. Três camadas.
-
----

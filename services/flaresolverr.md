@@ -4,24 +4,24 @@ tags: [homelab, service, flaresolverr, download]
 
 # Flaresolverr
 
-Proxy que resolve desafios Cloudflare para scrapers e indexers.
+Proxy service for bypassing Cloudflare and DDoS-Guard bot verification challenges on automated indexer scrapers.
 
-**Servidor:** kuaray
-**Porta:** `8191`
-**URL:** `http://kuaray.chimaera-heptatonic.ts.net:8191`
+**Host Node:** kuaray  
+**Port:** `8191`  
+**Internal Endpoint:** `http://kuaray.chimaera-heptatonic.ts.net:8191`  
 
 ## Stack
 
-| Container | Imagem | Função |
+| Container | Base Image | Operational Role |
 |---|---|---|
-| flaresolverr | flaresolverr/flaresolverr:latest | Proxy Cloudflare |
+| `flaresolverr` | `flaresolverr/flaresolverr:latest` | Headless browser Cloudflare solver proxy |
 
-## Integração
+## Integration
 
-Usado pelo **Prowlarr** para acessar indexers de torrent que usam proteção Cloudflare.
+Utilized by **Prowlarr** to fetch search results from torrent indexers protected by Cloudflare bot management.
 
-## Funcionamento
+## Operational Workflow
 
-1. Prowlarr envia requisição via Flaresolverr
-2. Flaresolverr resolve o desafio JavaScript/Cloudflare
-3. Retorna o conteúdo resolvido para o Prowlarr
+1. Prowlarr sends incoming HTTP requests to Flaresolverr.
+2. Flaresolverr spawns a headless browser session to solve the JavaScript verification challenge.
+3. Returns resolved session cookies and HTML payloads back to Prowlarr.

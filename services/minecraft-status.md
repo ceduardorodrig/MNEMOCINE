@@ -4,53 +4,42 @@ tags: [homelab, service, crafty, gaming]
 
 # minecraft-status
 
-**Endpoint HTTP nativo** que reporta se o servidor Minecraft responde ao Server List Ping
-(SLP). É o que dá ao chip do **Homepage** (e a monitores HTTP) o estado *real do jogo* —
-não o do container.
+**Native HTTP endpoint** reporting whether the Minecraft server process responds to Server List Ping (SLP). Provides the **Homepage** dashboard status chip (and HTTP monitors) with the *true state of the game server* — rather than container engine lifecycle state.
 
-**Servidor:** kavure
-**Porta:** `9095` (HTTP, `0.0.0.0`)
-**Serviço:** `minecraft-status.service` (systemd, nativo) · binário `/usr/local/bin/minecraft-status`
-**Fonte:** `SUMAENIMA-HUB/provisioning/minecraft-status/` (Rust, sem dependências)
+**Server:** kavure  
+**Port:** `9095` (HTTP, `0.0.0.0`)  
+**Service:** `minecraft-status.service` (systemd, native) · binary `/usr/local/bin/minecraft-status`  
+**Source:** `SUMAENIMA-HUB/provisioning/minecraft-status/` (Rust, zero dependencies)  
 
-## Contrato
+## API Contract
 
-| Método | Servidor no ar | Servidor parado |
+| Method | Server Running | Server Stopped |
 |---|---|---|
 | `GET /` | **200** `up` | **503** `down` |
-| `HEAD /` | **200**, cabeçalhos idênticos ao GET, **sem corpo** | **503**, idem |
+| `HEAD /` | **200**, identical headers to GET, **no body** | **503**, identical headers, no body |
 
-- O SLP (handshake com protocol `-1` + status request) confirma `version`/`players`/`description`
-  no JSON de resposta — **porta aberta que não é Minecraft não passa** como "up".
-- Corpo em texto puro com `Content-Length`; `Connection: close` (sem keep-alive).
+- SLP handshake (protocol `-1` + status request) validates `version`/`players`/`description` in JSON responses — **an arbitrary open port will not pass** as "up".
+- Plaintext payload with `Content-Length`; `Connection: close` (no persistent keep-alive).
 
-## Por que existe
+## Operational Motivation
 
-O container `crafty-controller` fica **sempre up** (é o gerenciador) — um badge Docker
-enganaria. O widget `minecraft` do Homepage renderiza painel de 3 campos, fora do padrão.
-Solução: mini endpoint HTTP + `siteMonitor` → chip pequeno com o status real do jogo.
+The `crafty-controller` container remains **always up** (acting as the management daemon) — displaying its container state on a dashboard badge would provide false uptime signals. The Homepage `minecraft` widget renders an oversized 3-field card outside standard UI styling.  
+Solution: A minimal HTTP status endpoint + `siteMonitor` → compact status chip reflecting actual in-game state.
 
-## Bug e correção (08/10/2026 — HEAD respondia com corpo)
+## Bug & Fix (08/10/2026 — HEAD Response Body Violation)
 
-**Sintoma:** o Homepage logava `<httpProxy> Error calling http://kavure:9095/` a cada ~30 s,
-independentemente de o jogo estar ligado ou não.
+**Symptom:** Homepage logged `<httpProxy> Error calling http://kavure:9095/` every ~30s, regardless of server running state.
 
-**Causa (reproduzida):** o Homepage consulta `siteMonitor` com **HEAD**; o porte Python→Rust
-(29/09) tratava `HEAD` como `GET` e respondia **com corpo** — violação da RFC 7231 §4.3.2. O
-parser do Node abortava com `Parse Error: Data after \`Connection: close\`` → 500 no proxy. O
-`GET` sempre funcionou (200/503) — por isso o sintoma **não** batia com o estado do jogo.
+**Root Cause (Reproduced):** Homepage probes `siteMonitor` using **HEAD** requests. The Python→Rust rewrite (29/09) treated `HEAD` identically to `GET` and returned **a response body** — violating RFC 7231 §4.3.2. Node.js HTTP parsers aborted with `Parse Error: Data after \`Connection: close\`` → 500 proxy error. `GET` requests functioned properly (returning 200/503), explaining why symptom logs diverged from reported server state.
 
-**Correção:** `main.rs` separa `GET` de `HEAD`; resposta de HEAD = **só cabeçalhos**
-(`headers_only`), mantendo `Content-Length`. **9 testes** (2 novos para HEAD 200/503) verdes.
-Binário anterior preservado: `/usr/local/bin/minecraft-status.bak-20261008-head`.
+**Resolution:** `main.rs` differentiates `GET` from `HEAD`; HEAD responses return **headers only** (`headers_only`), maintaining accurate `Content-Length`. **9 unit tests** pass. Previous binary preserved at `/usr/local/bin/minecraft-status.bak-20261008-head`.
 
-**Provas:**
-- raw: HEAD agora termina em `\r\n\r\n` (sem `up`/`down`); antes mandava o corpo.
-- Node (dentro do container do Homepage): `HEAD ×3` → `200`, corpo vazio, **0 erros** (antes:
-  `Parse Error` em todas).
-- log do Homepage: **0 `<httpProxy>`** em 100 s (≈3 ciclos de siteMonitor).
+**Verification:**
+- Raw socket: HEAD terminates in `\r\n\r\n` without trailing payload.
+- Node.js (inside Homepage container): `HEAD ×3` → `200`, empty body, **0 errors**.
+- Homepage logs: **0 `<httpProxy>` errors** across 100s observation window.
 
-## Operação
+## Operation
 
 ```bash
 systemctl status minecraft-status
@@ -58,10 +47,9 @@ curl -s -w " [%{http_code}]" http://127.0.0.1:9095/    # up|down + 200|503
 journalctl -u minecraft-status -n 30 --no-pager
 ```
 
-Rebuild/deploy: `cargo build --release` em `SUMAENIMA-HUB/provisioning/minecraft-status/` →
-`install -m 755 target/release/minecraft-status /usr/local/bin/` (kavure) → restart da unit.
+Rebuild & deploy: `cargo build --release` in `SUMAENIMA-HUB/provisioning/minecraft-status/` → `install -m 755 target/release/minecraft-status /usr/local/bin/` (kavure) → restart systemd unit.
 
-## Referências
+## References
 
-- Servidor/painel: [`crafty.md`](crafty.md) · Dashboard: [`homepage.md`](homepage.md)
-- Unit no HUB: `provisioning/systemd/minecraft-status.service`
+- Server & Management: [`crafty.md`](crafty.md) · Dashboard: [`homepage.md`](homepage.md)
+- Systemd unit definition in HUB: `provisioning/systemd/minecraft-status.service`

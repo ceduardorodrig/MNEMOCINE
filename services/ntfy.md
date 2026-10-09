@@ -4,13 +4,13 @@ tags: [homelab, service, ntfy, monitoring, ybytu]
 
 # Ntfy
 
-Servidor de notificações push. Roda no ybytu (Docker).
+Push notification server. Runs on ybytu (Docker).
 
-**Servidor:** ybytu
+**Server:** ybytu
 
-## Deploy
+## Deployment
 
-Config-as-code (Docker Compose) no ybytu: `/home/ubuntu/homelab/ntfy/compose.yml`.
+Config-as-code (Docker Compose) on ybytu: `/home/ubuntu/homelab/ntfy/compose.yml`.
 
 ```yaml
 services:
@@ -22,42 +22,39 @@ services:
     healthcheck: wget -q -O /dev/null http://127.0.0.1:80/v1/health
 ```
 
-> ⚠️ **Não há `server.yml`** — o ntfy roda no **padrão** (sem auth/ACL). `./data` está vazio.
+> ⚠️ **No custom `server.yml`** — ntfy operates using **defaults** (without auth/ACL). `./data` is currently empty.
 
-## Acesso
+## Access
 
 - URL: `http://ybytu:8083` (MagicDNS) · `http://100.115.253.109:8083` · `http://ybytu.chimaera-heptatonic.ts.net:8083`
-- Publicar: `curl -d "msg" -H "Title: ..." http://ybytu:8083/<topico>`
+- Publish: `curl -d "msg" -H "Title: ..." http://ybytu:8083/<topic>`
 
-## Tópicos (09/10/2026)
+## Topics (09/10/2026)
 
-| Tópico | Origem | Uso |
+| Topic | Origin | Usage |
 |---|---|---|
-| **`backup`** | scripts de backup (config, restic, agentic-ai, docs-sync, n8n, monitoring, zomboid, valheim, sumaenima, miracena, rclone, scryfall, arandu) | **OK/FALHOU** de cada backup |
-| **`alerts`** | **Uptime Kuma** (todos os ~40 monitores Down/Up) **+ `alertmanager-ntfy`** (Prometheus/Alertmanager) **+ `arm-hunt`** | downtime de serviços + alertas do homelab + captura da ARM |
-| `chimaera-heptatonic` | Changedetection.io | mudanças em páginas |
-| ~~`uptimekuma`~~ | **não usado** — o Uptime Kuma publica em **`/alerts`** (opção A, 08/10/2026) | — |
+| **`backup`** | Backup automation scripts (config, restic, agentic-ai, docs-sync, n8n, monitoring, zomboid, valheim, sumaenima, miracena, rclone, scryfall, arandu) | **OK/FAILED** status reports for all scheduled backups |
+| **`alerts`** | **Uptime Kuma** (~40 Down/Up monitors) **+ `alertmanager-ntfy`** (Prometheus/Alertmanager) **+ `arm-hunt`** | Service downtime + homelab alerts + ARM instance acquisition |
+| `chimaera-heptatonic` | Changedetection.io | Webpage change notifications |
+| ~~`uptimekuma`~~ | **Deprecated / unused** — Uptime Kuma publishes directly to **`/alerts`** (Option A, 08/10/2026) | — |
 
-> **Assinaturas no celular (estado atual):** **`backup`** e **`alerts`** (o `/alerts` cobre uptime + ARM).
+> **Active Mobile Subscriptions:** **`backup`** and **`alerts`** (`/alerts` consolidates uptime monitors and ARM notifications).
 
-> **Tópicos sem auth** — qualquer nó da tailnet pode publicar/assinar. O ntfy **é privado à tailnet** (bind `0.0.0.0` mas o host só é acessível via tailnet). Considerar um `server.yml` com `auth` se quiser restringir.
+> **Unauthenticated Topics:** Any node on the tailnet can publish/subscribe. ntfy is **private to the tailnet** (bound to `0.0.0.0` but the host firewall/routing only exposes it across the tailnet). Consider provisioning a `server.yml` with authentication if further isolation is required.
 
-## Integrações
+## Integrations
 
-- **App ntfy no celular** — assinar os tópicos **`backup`** (singular!) e **`alerts`**.
-  No app: *Settings → Manage users → Add* → URL do servidor `http://ybytu.chimaera-heptatonic.ts.net:8083` (ou via tailnet), depois **Subscribe** em cada tópico.
-- Uptime Kuma → ntfy **em `/alerts`** (config `ntfy (alerts)`), não `/uptimekuma`.
-- **Prometheus/Alertmanager → ntfy via bridge `alertmanager-ntfy`** (09/10/2026): o
-  Alertmanager **não aceita template** no `webhook_configs` — apontar direto pro tópico
-  publicava o **JSON cru** como mensagem (sem título), poluindo o `/alerts` com "código".
-  O bridge (container `monitoring-alertmanager-ntfy` no kavure) formata: título
-  `🚨 Disparou`/`✅ Resolvido` + summary, prioridade `urgent`/`default`, clique → gráfico.
-  Detalhes em [`monitoring.md`](monitoring.md).
+- **ntfy mobile app** — Subscribe to **`backup`** (singular!) and **`alerts`**.
+  In app: *Settings → Manage users → Add* → Server URL `http://ybytu.chimaera-heptatonic.ts.net:8083` (or via tailnet IP), then **Subscribe** to each topic.
+- Uptime Kuma → ntfy **to `/alerts`** (configured as `ntfy (alerts)`), not `/uptimekuma`.
+- **Prometheus/Alertmanager → ntfy via bridge `alertmanager-ntfy`** (09/10/2026):
+  Alertmanager **does not support message templating** inside standard `webhook_configs` — pointing it directly to the topic posted **raw JSON payloads** without clean headers, polluting `/alerts`.
+  The bridge container (`monitoring-alertmanager-ntfy` on kavure) formats alerts cleanly: title `🚨 Fired` / `✅ Resolved` + summary, priority `urgent` / `default`, click action linking to graphs.
+  Details in [`monitoring.md`](monitoring.md).
 - Changedetection.io → `ntfy://100.115.253.109:8083/chimaera-heptatonic`
 
-> **Backup da config:** o `config-backup` do ybytu espelha `/home/ubuntu/homelab` (inclui o `compose.yml`). O `./data` (vazio hoje) **não** é espelhado — se um `server.yml` for criado, adicionar ao `SRC_DIRS`.
+> **Configuration Backup:** ybytu's `config-backup` mirrors `/home/ubuntu/homelab` (which includes `compose.yml`). The empty `./data` directory is **not** mirrored — if a `server.yml` is created, add its directory to `SRC_DIRS`.
 
-
-## RAM
+## RAM Usage
 
 ~15 MB.

@@ -2,21 +2,21 @@
 tags: [homelab, network, storage]
 ---
 
-# Acesso Remoto aos Servidores via File Managers (SFTP)
+# Remote Server Access via File Managers (SFTP)
 
-Metodologia canônica e unificada para acessar os sistemas de arquivos remotos dos servidores do homelab (`kuaray`, `kavure`) a partir do **Psicopompo**, compatível simultaneamente com o **Dolphin** (KDE) e o **Cosmic Files** (COSMIC Desktop).
+Canonical and unified methodology for accessing remote filesystems on homelab servers (`kuaray`, `kavure`) from **Psicopompo**, simultaneously compatible with both **Dolphin** (KDE Plasma) and **Cosmic Files** (COSMIC Desktop).
 
-## Princípios
+## Architectural Principles
 
-1. **Protocolo Padrão SFTP:** Não usar `sshfs` montado manualmente nem abstrações proprietárias (`remote:/`). O protocolo `sftp://` é nativo, assíncrono, suporta reconexão automática e respeita as credenciais de `~/.ssh/config`.
-2. **Autenticação Transparente via Chaves SSH:**
-   - O `~/.ssh/config` define os aliases `Host kuaray` e `Host kavure` com chave Ed25519 (`~/.ssh/id_ed25519`).
-   - O `ssh-agent` fornece a chave sem necessidade de digitar senha a cada acesso.
-3. **Padrão Multi-Desktop:**
-   - **Cosmic Files (GIO/GVFS):** Lê bookmarks de `~/.config/gtk-3.0/bookmarks` e monta em `/run/user/1000/gvfs/sftp:host={host}` via `gio mount sftp://{host}/`.
-   - **Dolphin (KIO):** Lê bookmarks de `~/.local/share/user-places.xbel` com a tag `<bookmark href="sftp://{host}/">`.
+1. **Native SFTP Protocol Standard:** Do not use manually mounted `sshfs` or proprietary protocol abstractions (`remote:/`). The `sftp://` scheme is native, asynchronous, supports automatic reconnection, and respects connection directives in `~/.ssh/config`.
+2. **Transparent Public-Key Authentication:**
+   - `~/.ssh/config` defines explicit aliases `Host kuaray` and `Host kavure` backed by an Ed25519 identity key (`~/.ssh/id_ed25519`).
+   - The user `ssh-agent` transparently negotiates sessions without manual passphrase entry.
+3. **Multi-Desktop Compatibility Standard:**
+   - **Cosmic Files (GIO/GVFS):** Parses bookmarks from `~/.config/gtk-3.0/bookmarks` and mounts endpoints at `/run/user/1000/gvfs/sftp:host={host}` via `gio mount sftp://{host}/`.
+   - **Dolphin (KIO):** Parses bookmark definitions from `~/.local/share/user-places.xbel` using the XML structure `<bookmark href="sftp://{host}/">`.
 
-## Configuração nos File Managers
+## File Manager Configuration
 
 ### 1. Cosmic Files (`~/.config/gtk-3.0/bookmarks`)
 
@@ -25,7 +25,7 @@ sftp://kuaray/ Kuaray (Root)
 sftp://kavure/ Kavure (Root)
 ```
 
-Montagem sob demanda em linha de comando (se necessário para scripts):
+Manual on-demand mounting via CLI (for scripting or automated workflows):
 ```bash
 gio mount sftp://kuaray/
 gio mount sftp://kavure/
@@ -33,7 +33,7 @@ gio mount sftp://kavure/
 
 ### 2. Dolphin (`~/.local/share/user-places.xbel`)
 
-As entradas são cadastradas com esquema `sftp://`:
+Entries are registered using the canonical `sftp://` scheme:
 ```xml
 <bookmark href="sftp://kuaray/">
   <title>Kuaray (Root)</title>
@@ -53,21 +53,20 @@ As entradas são cadastradas com esquema `sftp://`:
 </bookmark>
 ```
 
-## Sanitização Realizada (04/10/2026)
+## Maintenance & Sanitization Performed (2026-10-04)
 
-- Removida a entrada legada `remote:/kuaray-root` no Dolphin.
-- Removidos registros órfãos de montagem `fuse.sshfs` em `/home/edu/kuaray` no `user-places.xbel`.
-- Cadastradas as URIs canônicas `sftp://kuaray/` e `sftp://kavure/` em ambos os navegadores.
+- Deprecated and removed legacy `remote:/kuaray-root` entries from Dolphin.
+- Purged stale `fuse.sshfs` mount bookmarks referencing `/home/edu/kuaray` from `user-places.xbel`.
+- Enrolled canonical `sftp://kuaray/` and `sftp://kavure/` bookmarks across all desktop managers.
 
-## Automação Contínua no Login e Recuperação (06/10/2026)
+## Automated Session Login Mounting & Recovery (2026-10-06)
 
-Para garantir que os compartilhamentos apareçam imediatamente como **Drives de Rede** montados no Cosmic Files e no Dolphin sem intervenção manual:
+To guarantee that remote shares appear automatically as mounted **Network Drives** inside Cosmic Files and Dolphin immediately upon graphical login:
 
-1. **Script de montagem:** `~/.local/bin/homelab-sftp-mount.sh`
-   - Checa se o host já está montado (`gio mount -l`).
-   - Se não estiver, monta via `gio mount sftp://{host}/` com timeout defensivo de 5s caso o nó esteja offline.
-2. **Serviço de Usuário:** `~/.config/systemd/user/homelab-sftp-mount.service` (`Type=oneshot`).
-3. **Timer de Verificação Periódica:** `~/.config/systemd/user/homelab-sftp-mount.timer`
-   - Dispara 30s após o login da sessão gráfica e repete a cada 5 minutos.
-   - Garante que, se um servidor (como o `kuaray`) for ligado após o boot do Psicopompo, ele seja automaticamente detectado e montado assim que responder na rede.
-
+1. **Mount Automation Script:** `~/.local/bin/homelab-sftp-mount.sh`
+   - Checks whether the target endpoint is already mounted (`gio mount -l`).
+   - If missing, mounts via `gio mount sftp://{host}/` with a 5-second defensive timeout in case the host is currently powered down.
+2. **User Systemd Service:** `~/.config/systemd/user/homelab-sftp-mount.service` (`Type=oneshot`).
+3. **Periodic Health Check Timer:** `~/.config/systemd/user/homelab-sftp-mount.timer`
+   - Triggers 30 seconds following graphical session initialization and repeats every 5 minutes.
+   - Ensures that if an offline server (such as `kuaray`) boots after Psicopompo has already initialized, it is discovered and mounted automatically the moment it becomes reachable.

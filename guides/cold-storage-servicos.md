@@ -2,105 +2,94 @@
 tags: [homelab, cold-storage, docker, tutorial]
 ---
 
-# Cold Storage de Serviços (homelab)
+# Service Cold Storage (Homelab)
 
-**Metodologia** para **congelar** um serviço do homelab: ele deixa de rodar, mas continua
-existindo como artefato recuperável — **não sobe sem querer**, **fica nos backups** e tem
-**rollback testado**. Diferente do cold storage de *projetos* do vault
-(`governance/cold-storage.md`, que compacta em `.tar.gz`), aqui o artefato é um
-**serviço Docker nativo** que precisa ser reativável em minutos.
+**Methodology** for **freezing** a homelab service: the service stops running, but remains preserved as a fully recoverable artifact — **prevented from accidental startup**, **included in automated backups**, and with a **verified rollback procedure**. Distinct from vault project cold storage (which archives directories into `.tar.gz`), service cold storage targets **native Docker services** requiring revival in minutes.
 
-> Criado em **08/10/2026** com o caso do `dnscrypt-proxy` (kavure), substituído pelo
-> [`unbound`](../services/unbound.md) recursivo nativo.
+> Established on **2026-10-08** with `dnscrypt-proxy` on kavure, superseded by native recursive [`unbound`](../services/unbound.md).
 
-## Definição de "congelado"
+## Definition of "Frozen" State
 
-Um serviço está em cold storage quando **todas** as condições valem:
+A service qualifies for cold storage only when **all six conditions** are satisfied:
 
-1. **Perfil `cold` no compose** — o `docker compose up -d` (rotina, watchtower, humano
-   no automático) **ignora** serviços sem perfil ativo;
-2. **`restart: "no"`** no compose **e** `docker update --restart=no` no container
-   existente (a policy é gravada no container, não só no YAML);
-3. **Container parado** (`exited`);
-4. **Fail-closed provado** — se subir por engano, ele **não consegue operar** (ver abaixo);
-5. **Backup verificado** — o diretório do serviço está no espelho do NAS;
-6. **Doc marcada ⛔** — a página do serviço diz que está congelado + como reativar.
+1. **`cold` profile in Compose** — routine invocations (`docker compose up -d`, Watchtower, human operators) **ignore** services without active profiles;
+2. **`restart: "no"`** in Compose **and** `docker update --restart=no <container>` applied to the running/stopped container (restart policies are written to container state, not just YAML);
+3. **Container stopped** (`exited`);
+4. **Proven Fail-Closed Design** — if started accidentally, the container **fails to bind or execute** (see below);
+5. **Verified Backup** — service directory is included in NAS config synchronization;
+6. **Documentation Tagged ⛔** — the service documentation page specifies cold-storage status and explicit reactivation commands.
 
-## Checklist de congelamento
+## Freezing Checklist
 
 ```bash
-# 1. Backup do compose ANTES de mexer
-cp compose.yml compose.yml.bak-AAAAMMDD-cold
+# 1. Back up Compose manifest before modifications
+cp compose.yml compose.yml.bak-YYYYMMDD-cold
 
-# 2. Editar compose: adicionar no serviço:
+# 2. Edit Compose: append to service definition:
 #      profiles: ["cold"]
 #      restart: "no"
-#    Validar que a rotina nem enxerga o serviço:
-docker compose config --services                # NÃO deve listar o serviço
-docker compose --profile cold config --services # DEVE listar
+#    Verify default operations exclude the service:
+docker compose config --services                # MUST NOT list the service
+docker compose --profile cold config --services # MUST list the service
 
-# 3. Congelar o container existente (policy mora no container, não só no YAML)
+# 3. Update existing container state
 docker update --restart=no <container>
 docker stop <container>
 docker inspect -f '{{.HostConfig.RestartPolicy.Name}} {{.State.Status}}' <container>
-# esperado: no exited
+# Expected output: no exited
 
-# 4. PROVAR o fail-closed (não presumir!):
-docker start <container>                         # provocar de propósito
-#  → verificar que o serviço alvo continua de pé (ex.: ss -ulnp | grep 5053 = unbound)
-#  → verificar log do container com erro de bind/autenticação
-#  → verificar estado exited e SEM crash-loop (restart=no)
-docker stop <container>                          # volta ao estado congelado
+# 4. PROVE fail-closed behavior (do not assume!):
+docker start <container>                         # Intentionally attempt restart
+#  → Verify primary service remains healthy (e.g. ss -ulnp | grep 5053 = unbound)
+#  → Verify container logs report bind failure / port conflict
+#  → Verify container enters exited state with NO restart crash-loop (restart=no)
+docker stop <container>                          # Return to cold state
 
-# 5. PROVAR o backup:
-systemctl start hl-config-backup.service         # roda a rotina na hora
-ls /mnt/BACKUP/configs-homelab/<host>/data/<serviço>/
+# 5. VERIFY backup coverage:
+systemctl start hl-config-backup.service         # Trigger immediate sync
+ls /mnt/BACKUP/configs-homelab/<host>/data/<service>/
 
-# 6. Documentar (a própria página do serviço + catálogo abaixo)
+# 6. Document service status in the service catalog
 ```
 
-**Fail-closed** = a segunda camada de defesa: mesmo que as camadas 1–3 falhem, o serviço
-congelado não pode operar. No caso do `dnscrypt-proxy` a prova é forte: ele precisa da
-porta `5053` e o **unbound a segura** (loopback + tailnet) → `[FATAL] ... bind: address
-already in use`, exit 255, sem loop. Para outros serviços, definir explicitamente qual é
-a trava (porta ocupada, credencial removida, rede inexistente).
+**Fail-Closed Architecture** serves as the second line of defense: even if steps 1–3 are bypassed, the frozen service cannot operate. In the case of `dnscrypt-proxy`, native `unbound` binds to `0.0.0.0:5053` and `127.0.0.1:5053`. If dnscrypt-proxy starts, it logs `[FATAL] ... bind: address already in use`, exits with code 255, and remains stopped without looping.
 
-## Rollback (reativação)
+## Rollback (Reactivation)
 
 ```bash
-# 1. Parar o que assumiu o lugar (se aplicável) — ex.: unbound:
+# 1. Stop replacement service if conflicting (e.g. unbound):
 systemctl stop unbound
 
-# 2. Reverter watchdog/units que apontam para o sucessor (se aplicável)
-#    ex.: hl-dns-watchdog.service → --container <container> em vez de --service unbound
+# 2. Revert watchdog probes pointing to successor service:
+#    e.g. hl-dns-watchdog.service → --container <container> instead of --service unbound
 
-# 3. Reativar com perfil explícito (o guard é o próprio perfil)
-cd /srv/data/<serviço> && docker compose --profile cold up -d
+# 3. Reactivate with explicit cold profile
+cd /srv/data/<service> && docker compose --profile cold up -d
 
-# 4. Reverter a policy de restart se quiser o comportamento antigo
+# 4. Re-enable persistent restart policy if desired
 docker update --restart=unless-stopped <container>
 ```
 
-Após testar, **re-congelar** seguindo o checklist (volta ao `profiles: ["cold"]`).
+After testing, re-freeze following the checklist to restore `profiles: ["cold"]`.
 
-## Rotinas que cobrem serviços congelados
+## Backup & Maintenance Routines
 
-| Rotina | Cobre como |
+| Routine | Coverage Details |
 |---|---|
-| `hl-config-backup.timer` (05:00) | `SRC_DIRS` espelha o **diretório inteiro** do serviço (compose, `.bak`s e config) para `/mnt/BACKUP/configs-homelab/` — ver [`../backups/config-backup.md`](../backups/config-backup.md) |
-| restic + snapper | o espelho NAS é versionado (anti-ransomware/anti-deleção) |
-| Watchtower | **não toca**: padrão não inclui containers parados + perfil esconde o serviço do `compose up` |
-| Autoheal | **não toca**: monitora apenas containers em execução |
+| `hl-config-backup.timer` (05:00) | `SRC_DIRS` synchronizes the **entire service directory** (compose files, `.bak` copies, configurations) to `/mnt/BACKUP/configs-homelab/` — see [`../backups/config-backup.md`](../backups/config-backup.md) |
+| Restic + Snapper | NAS mirror is snapshotted and versioned (protection against deletion/corruption) |
+| Watchtower | **Bypasses container**: default filters exclude stopped containers, and profiles hide the service |
+| Autoheal | **Bypasses container**: monitors running containers only |
 
-## Catálogo de serviços em cold storage
+## Cold Storage Service Catalog
 
-| Serviço | Host | Desde | Sucessor | Rollback | Doc |
+| Service | Host | Date Frozen | Successor | Reactivation | Documentation |
 |---|---|---|---|---|---|
-| `dnscrypt-proxy` | kavure | 08/10/2026 | `unbound` nativo (`:5053`) | `docker compose --profile cold up -d` (ver doc do serviço) | [`../services/dnscrypt-proxy.md`](../services/dnscrypt-proxy.md) |
+| `dnscrypt-proxy` | kavure | 2026-10-08 | Native `unbound` (`:5053`) | `docker compose --profile cold up -d` | [`../services/dnscrypt-proxy.md`](../services/dnscrypt-proxy.md) |
 
-## Ver também
+## See Also
 
-- [`../services/dnscrypt-proxy.md`](../services/dnscrypt-proxy.md) — caso de referência
-- [`../services/unbound.md`](../services/unbound.md) — sucessor
-- [`docker-healthchecks.md`](docker-healthchecks.md) — watchdog Rust e cobertura de health
-- [`../backups/config-backup.md`](../backups/config-backup.md) — espelho de configs
+- [`../services/dnscrypt-proxy.md`](../services/dnscrypt-proxy.md) — Reference implementation
+- [`../services/unbound.md`](../services/unbound.md) — Recursive DNS resolver
+- [`docker-healthchecks.md`](docker-healthchecks.md) — Rust watchdog and healthcheck standards
+- [`../backups/config-backup.md`](../backups/config-backup.md) — Configuration backup strategy

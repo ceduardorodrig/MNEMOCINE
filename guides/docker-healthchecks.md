@@ -2,112 +2,77 @@
 tags: [homelab, docker, monitoring, tutorial]
 ---
 
-# Healthchecks dos containers (padrão do homelab)
+# Container Healthchecks (Homelab Standard)
 
-**Regra:** todo serviço Docker deve ter **healthcheck** — é o que permite o `autoheal`
-reiniciar um container doente. Exceção única e documentada: imagens **distroless** (sem
-shell), cobertas por **watchdog externo**.
+**Rule:** Every Docker service must have an explicit **healthcheck** — enabling `autoheal` to restart unhealthy containers. The only documented exception is **distroless** images (which lack an internal shell), covered instead by an **external watchdog**.
 
-## Padrão
+## Standard Specification
 
 ```yaml
 healthcheck:
   test:
     - CMD-SHELL
-    - <comando>
+    - <command>
   interval: 60s
   timeout: 10s
   retries: 3
-  start_period: 30s   # 40s em apps lentos
+  start_period: 30s   # 40s for slower applications
 ```
 
-Regras de aplicação:
+Application rules:
 
-- **Testar o comando DENTRO do container antes de aplicar** — porta, bind e ferramentas variam
-  por imagem (ex.: `glances`/`node-exporter` escutam no IP da tailnet, não no loopback;
-  `wordpress`/`flaresolverr`/`npm` só têm `curl`; `crafty` só tem `bash`).
-- Preferir `wget -q -O /dev/null <url>`; `curl -fsS -o /dev/null <url>` quando não houver wget;
-  `nc -z 127.0.0.1 <porta>` para TCP sem HTTP; `bash -c 'exec 3<>/dev/tcp/127.0.0.1/<porta>'`
-  como último recurso; `valkey-cli ping` / `redis-cli ping` para caches.
-- Inserir o bloco **logo após a linha `image:`** do serviço (método seguro, evita quebrar
-  blocos multi-linha) e **validar o YAML** (`docker compose config -q`) antes de recriar.
-- Backup do compose antes de editar (`*.bak-YYYYMMDD-healthcheck`).
+- **Always test the check command INSIDE the container before applying** — listening ports, interface binds, and installed binaries vary by image (e.g., `glances` and `node-exporter` listen on the Tailnet IP rather than localhost; `wordpress`, `flaresolverr`, and `npm` only bundle `curl`; `crafty` only includes `bash`).
+- Prefer `wget -q -O /dev/null <url>`; fall back to `curl -fsS -o /dev/null <url>` when wget is missing; use `nc -z 127.0.0.1 <port>` for TCP services without HTTP; `bash -c 'exec 3<>/dev/tcp/127.0.0.1/<port>'` as a last resort; and `valkey-cli ping` / `redis-cli ping` for key-value stores.
+- Place the block **immediately after the `image:` key** in the service definition (a safe convention preventing multi-line indentation errors) and **validate the YAML syntax** (`docker compose config -q`) prior to redeploying.
+- Create a backup copy of the compose file before editing (`*.bak-YYYYMMDD-healthcheck`).
 
-## Exceção: distroless → watchdog externo *(caso histórico)*
+## Exception: Distroless Containers → External Watchdog *(Historical Context)*
 
-`dnscrypt-proxy` (kavure) usava imagem **sem shell** → não aceitava healthcheck interno.
-Coberto por [`scripts/dns-watchdog`](../../scripts/dns-watchdog/) (Rust) + `hl-dns-watchdog.timer`
-(2 min) no kavure — cobre até o caso "processo travado". **Desde 08/10/2026** o proxy está
-desativado e o mesmo watchdog cobre o **`unbound` nativo** via `--service unbound` (systemd
-não detecta "processo vivo mas mudo" sozinho — a sonda com label único também pega upstream
-quebrado).
+`dnscrypt-proxy` (kavure) ran on an image **without a shell** → it could not execute an in-container healthcheck. It was monitored by [`scripts/dns-watchdog`](../../scripts/dns-watchdog/) (Rust) via `hl-dns-watchdog.timer` (2 min) on kavure — covering frozen process states. **Since 2026-10-08**, dnscrypt-proxy is disabled, and the same watchdog monitors **native `unbound`** via `--service unbound` (systemd alone cannot detect a "running but unresponsive" daemon; the probe with a unique test label also catches broken upstream links).
 
-## Cobertura (07/10/2026)
+## Coverage Status (2026-10-07)
 
-| Host | Com healthcheck | Pendente |
+| Host | With Healthcheck | Pending |
 |---|---|---|
-| **kavure** | 14 (monitoring, searxng, HA, navidrome, node-exporter, glances, dockerproxy, crafty, pihole…) + `unbound` via watchdog (08/10) + `sae-core_backup` (Swarm) | — (ver órfão abaixo) |
+| **kavure** | 14 (monitoring, searxng, HA, navidrome, node-exporter, glances, dockerproxy, crafty, pihole…) + `unbound` via watchdog (10/08) + `sae-core_backup` (Swarm) | — (see orphaned task below) |
 | **kuaray** | 16 (miracena-*, *arr, transmission, syncthing, glances, promtail, node-exporter, dockerproxy) | — |
 | **ybytu** | 8 (adguardhome, changedetection, glances, promtail, node-exporter, ntfy, dockerproxy, homepage, uptime-kuma) | — |
 | **ybyra** | 6 (glances, promtail, node-exporter, dockerproxy, edge proxy/tunnel, **umami** via Swarm) | — |
 | **psicopompo** | 5 (registry, glances, promtail, node-exporter, dockerproxy) | — |
 
-> **Serviços Swarm:** `sae-core_backup` e `sae-edge_umami` receberam healthcheck **no stack file**
-> (`provisioning/stacks/{core,edge}.yml`) **e** via `docker service update` (cirúrgico).
+> **Swarm Services:** `sae-core_backup` and `sae-edge_umami` received healthchecks **inside the stack file** (`provisioning/stacks/{core,edge}.yml`) **and** via surgical `docker service update`.
 
-> **`autoheal` padronizado (07/10/2026):** o ybyra usava `AUTOHEAL_CONTAINER_LABEL=autoheal`
-> (só containers com esse label) — os healthchecks novos **não** disparariam restart. Agora usa
-> `all`, como os outros 4 hosts, e ganhou `compose.yml` (`/home/ubuntu/homelab/autoheal/`).
+> **Standardized `autoheal` (2026-10-07):** ybyra previously used `AUTOHEAL_CONTAINER_LABEL=autoheal` (only restarting containers with this label), meaning new healthchecks did **not** trigger restarts. It now uses `all`, matching the other 4 hosts, and received a managed `compose.yml` (`/home/ubuntu/homelab/autoheal/`).
 
-### ⚠️ Órfão encontrado: `sae-core_asciline`
+### ⚠️ Identified Orphan: `sae-core_asciline`
 
-O serviço Swarm `sae-core_asciline` (imagem `sumaenima-asciline-launch:latest`, porta 8766,
-criado **29/09**) **não existe no `core.yml` atual** — é resquício de uma versão anterior do
-stack (a doc o chama de `n`/`sae-core_n`). Fica **sem healthcheck** até se decidir o destino
-(remover, como foi feito com o `datavis`). Não foi tocado nesta passada.
+The Swarm service `sae-core_asciline` (image `sumaenima-asciline-launch:latest`, port 8766, provisioned **2026-09-29**) **does not exist in the current `core.yml`** — it is a remnant of an earlier stack iteration (referred to in legacy docs as `n`/`sae-core_n`). It remains **without a healthcheck** until its final state is determined (removal, similar to `datavis`). It was left untouched during this pass.
 
-> **Composes criados nesta passada** (containers que eram `docker run`): `dockerproxy` (ybytu,
-> ybyra, psicopompo), `glances` (ybyra, psicopompo), `node-exporter` (psicopompo),
-> `adguardhome` (ybytu). Todos agora seguem o padrão config-as-code.
+> **Compose files created during this pass** (migrating former `docker run` commands): `dockerproxy` (ybytu, ybyra, psicopompo), `glances` (ybyra, psicopompo), `node-exporter` (psicopompo), and `adguardhome` (ybytu). All now adhere to config-as-code standards.
 
-## Enforcement no Stênio (regra `INFRA-COMPOSE-HEALTHCHECK` — 07/10/2026)
+## Stenio Governance Enforcement (`INFRA-COMPOSE-HEALTHCHECK` Rule — 2026-10-07)
 
-O motor ganhou uma regra nativa **irmã** da `INFRA-COMPOSE-RESTART` (em `infra.rs`, via
-`serde_yaml`): percorre `services:` e exige, **por serviço**, `healthcheck` **ou** a exceção
-explícita para imagens *distroless*:
+The governance engine contains a native sibling rule to `INFRA-COMPOSE-RESTART` (in `infra.rs` via `serde_yaml`): it iterates through `services:` and requires, **per service**, either a `healthcheck` **or** an explicit label exception for *distroless* images:
 
 ```yaml
     labels:
       homelab.healthcheck: watchdog
 ```
 
-**Cobertura:** o escopo `homelab` audita a árvore do vault **e** o **espelho do NAS**
-(`/mnt/BACKUP/configs-homelab`, mantido pelo `config-backup`) — sem isso a regra não veria
-nenhum compose real (o vault tem 0). Só as checagens **estruturais de compose** rodam no
-espelho (as regras `SEC-*` não se aplicam a conteúdo capturado), e `golden/` é ignorado para
-não duplicar achados. A varredura do espelho só ocorre quando o alvo é o vault real (um
-`--path` externo não arrasta o NAS).
+**Coverage:** The `homelab` scope audits the vault tree **and** the **NAS mirror** (`/mnt/BACKUP/configs-homelab`, maintained by `config-backup`) — without this, the rule would find no live compose files (the vault contains 0). Only **structural compose checks** run against the mirror (rules matching `SEC-*` are excluded on captured runtime configs), and `golden/` directories are ignored to prevent duplicate alerts. Mirror scanning triggers only when targeting the live vault (external `--path` checks do not sweep the NAS).
 
-- **Severidade:** `Warning` — não bloqueia o gate. Pode ser promovida a `Error` quando o
-  espelho estiver atualizado e o número de avisos for zero.
-- **Estado (07/10, atualizado):** caiu de ~60 → **30 avisos**. A causa raiz dos do psicopompo
-  foi encontrada e corrigida: o `config-backup` espelhava `/mnt/NVME_PCI/homelab` (cópias velhas
-  de setembro, sem healthcheck) e **não** `/home/edu/homelab`, onde os composes vivos estão — ver
-  [`../backups/config-backup.md`](../backups/config-backup.md). Os avisos restantes são composes
-  **legados/duplicados** (`psicopompo/homelab/{autoheal,watchtower,winboat}` — serviços que não
-  rodam mais ali), o compose do repo (`sumaenimahub/.../docker-compose.yml`) e imagens que **já
-  trazem** `HEALTHCHECK` (ex.: `valheim`).
-- **Validação:** teste sintético (`--path` externo) confirma que a regra acusa **só** o serviço
-  sem `healthcheck`/label. `cargo test` 20/20, `--self-test` 60/60, `--guardian` zero adulteração.
+- **Severity:** `Warning` — non-blocking quality gate. Can be promoted to `Error` once all mirror copies are aligned and warning counts reach zero.
+- **Status (2026-10-07, updated):** Dropped from ~60 → **30 warnings**. The root cause on psicopompo was identified and resolved: `config-backup` was previously mirroring `/mnt/NVME_PCI/homelab` (stale September copies lacking healthchecks) instead of `/home/edu/homelab` where live composes reside — see [`../backups/config-backup.md`](../backups/config-backup.md). Remaining warnings stem from **legacy/duplicate** stacks (`psicopompo/homelab/{autoheal,watchtower,winboat}` — services no longer hosted there), repo templates (`sumaenimahub/.../docker-compose.yml`), and images **natively embedding** `HEALTHCHECK` (e.g., `valheim`).
+- **Validation:** Synthetic tests (`--path` external target) confirm the rule triggers **only** on services missing both `healthcheck` and the exemption label. `cargo test` 20/20, `--self-test` 60/60, `--guardian` zero integrity violations.
 
-## Comandos úteis
+## Useful Commands
 
 ```bash
-# quem está sem healthcheck
+# Identify containers lacking a healthcheck
 for c in $(docker ps --format '{{.Names}}'); do
-  docker inspect --format '{{.Name}} {{if .State.Health}}{{.State.Health.Status}}{{else}}SEM{{end}}' "$c"
+  docker inspect --format '{{.Name}} {{if .State.Health}}{{.State.Health.Status}}{{else}}NONE{{end}}' "$c"
 done
 
-# ferramentas disponíveis na imagem (para escolher o check)
+# Check available probing binaries inside a container
 docker exec <c> sh -c 'for b in wget curl nc bash; do command -v $b; done'
 ```

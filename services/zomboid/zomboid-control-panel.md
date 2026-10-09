@@ -4,61 +4,63 @@ tags: [homelab, service, zomboid-panel, gaming]
 
 # Zomboid Control Panel
 
-Painel web de administração para o servidor de **Project Zomboid** — o "Crafty" do Zomboid.
+Web administration interface for the **Project Zomboid** dedicated server.
 
-**Projeto:** [fpsacha/zomboid-control-panel](https://github.com/fpsacha/zomboid-control-panel) (MIT, ativo, testado até B42.18)
-**Versão:** v1.1.36 (atualizado 07/08/2026 — imagem `ghcr.io/fpsacha/zomboid-panel:latest`; o watchtower também atualiza às 03:00)
-**Servidor:** kavure (ativo desde 06/08/2026)
-**Acesso:** via Tailscale
+**Project Repository:** [fpsacha/zomboid-control-panel](https://github.com/fpsacha/zomboid-control-panel) (MIT License, actively maintained for Build 42)  
+**Image Version:** `ghcr.io/fpsacha/zomboid-panel:latest` (Auto-updated daily via Watchtower at 03:00 BRT)  
+**Host Node:** kavure  
+**Access Channel:** Tailscale mesh exclusive  
 
-## Recursos
+## Core Capabilities
 
-- **Controle do servidor** — start/stop/restart/save, status, uptime
-- **Console + RCON** — terminal com histórico (elimina SSH/sudo para administrar)
-- **Mod manager** — detecta updates do Workshop, resolve `Mods=`/`WorkshopItems=` automaticamente
-- **Backups** com restore pela UI
-- **Agendador** — restarts/saves/broadcast (substitui timers systemd)
-- Extras: mapa do mundo ao vivo, Discord bot, editor INI, eventos/clima
+- **Server Telemetry** — Displays real-time uptime, connected players, and memory consumption.
+- **Console & Source RCON** — Interactive terminal emulator with command history.
+- **Workshop Mod Manager** — Automated discovery of pending Steam Workshop updates, mapping `Mods=` and `WorkshopItems=` entries.
+- **Backup Management** — Generates local world archives with web-based point-in-time restore actions.
+- **In-Game World Features** — Live interactive map tracking, weather manipulation, and automated announcement schedules.
 
-## Requisitos
+## Prerequisites & Environment Integration
 
-- Servidor PZ com **RCON habilitado**: `RCONPort=27015` + `RCONPassword=...` no `pzserver.ini`
-- Acesso de rede do painel ao servidor (mesma máquina, LAN ou Tailscale)
-- Para PanelBridge (features avançadas): `DoLuaChecksum=false` no server `.ini`
+- Dedicated Project Zomboid instance with **RCON enabled**: `RCONPort=27015` and matching `RCONPassword` configured in `pzserver.ini`.
+- Network connectivity between the panel container and the game daemon container over the Docker bridge network.
+- Advanced administrative commands require the **PanelBridge** Lua mod (`DoLuaChecksum=false` in `pzserver.ini`).
 
-## Instalação (kavure)
+## Deployment on kavure
 
-Opções: **Docker** (`ghcr.io/fpsacha/zomboid-panel:latest`) ou binário Linux (`./start.sh`).
+Deployed via Docker Compose within the kavure gaming stack:
 
-```bash
-mkdir -p ~/zomboid-panel && cd ~/zomboid-panel
-curl -O https://raw.githubusercontent.com/fpsacha/zomboid-control-panel/main/docker-compose.yml
-curl -O https://raw.githubusercontent.com/fpsacha/zomboid-control-panel/main/.env.example
-mv .env.example .env
-docker compose up -d
+```yaml
+services:
+  zomboid-panel:
+    image: ghcr.io/fpsacha/zomboid-panel:latest
+    container_name: zomboid-panel
+    restart: unless-stopped
+    ports:
+      - "100.124.146.77:3001:3001"
+    environment:
+      - PUID=1000
+      - PGID=1000
+    volumes:
+      - /srv/data/zomboid/data:/pz-server/Zomboid
+      - /srv/data/zomboid/workshop-mods:/pz-server/steamapps/workshop
+      - /srv/data/zomboid/pz-dedicated:/pz-dedicated
 ```
 
-- Acessa em `http://localhost:3001` (ou via Tailscale)
-- Configurar: caminho do server PZ, dados, RCON (host/port/senha)
-- No Docker, usar `PUID`/`PGID` dos donos das pastas do PZ
+- Accessible via `http://100.124.146.77:3001` or `http://kavure.chimaera-heptatonic.ts.net:3001`.
+- Bound exclusively to Tailscale to prevent unauthenticated public exposure.
 
-## Segurança
+## Workshop Path Architecture
 
-- JWT em todas as rotas + rate limiting
-- Não expor a porta 3001 diretamente à internet — usar Tailscale ou reverse proxy com HTTPS
+- The control panel inspects installed mods via `/pz-server/steamapps/workshop`, mapped directly to `/srv/data/zomboid/workshop-mods/` on the host.
+- The manager checks local directory timestamps against the Steam Workshop API. When pending updates are detected, triggering a server restart via `zomboid-restart` pulls down new assets.
 
-## Mods e caminho do Workshop
+## PanelBridge Lua Extension
 
-- O painel lê os mods em `/pz-server/steamapps/workshop` — o compose do painel faz bind de `/srv/data/zomboid/workshop-mods` nesse path (mesmo overlay do container do jogo).
-- A cópia antiga em `pz-dedicated/steamapps/workshop/` foi **removida** (07/08/2026) — causava "Mod update available" eterno (local desatualizado vs Steam).
-- O Mod manager compara o `timeUpdated` local (da pasta) com a Steam API. Se aparecer "update available", reinicie o jogo (`zomboid-restart`) para baixar a atualização; o auto-scan do painel (5 min) então mostra tudo em dia.
+- Server-side Lua extension providing administrative capabilities beyond standard RCON boundaries (teleportation, healing, dynamic item spawning).
+- Installed in `/srv/data/zomboid/pz-dedicated/media/lua/server/PanelBridge.lua`.
+- File ownership is maintained under `kavure:kavure` (UID 1000) to allow the panel process to automatically upgrade the bridge component as new releases are published.
 
-## PanelBridge
-
-- Mod Lua server-side que dá ao painel ações fora do RCON (teleport, heal, clima, inventário...). Vive em `pz-dedicated/media/lua/server/PanelBridge.lua`.
-- **Fix 07/08/2026:** a pasta `media/lua/server/` era `root:root` → o painel (uid 1000) não conseguia **auto-atualizar** o bridge (EACCES). `sudo chown -R kavure:kavure /srv/data/zomboid/pz-dedicated/media/lua/server` resolveu — auto-update `1.7.21 → 1.7.23 → 1.7.24` confirmado no log do painel (após update do painel para v1.1.36).
-
-## See also
-- [[project-zomboid]] — Servidor Project Zomboid
-- [[kavure]] — Servidor de destino
-- [[kavure-migration-plan]] — Plano de migração
+## See Also
+- [`project-zomboid.md`](project-zomboid.md) — Dedicated server specification
+- [`ssh-runbook.md`](ssh-runbook.md) — SSH maintenance scripts
+- [`../../servers/kavure.md`](../../servers/kavure.md) — Kavure node specification

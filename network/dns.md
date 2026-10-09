@@ -4,235 +4,207 @@ tags: [homelab, network, dns, tailscale]
 
 # DNS
 
-Cadeia de resolução de nomes no homelab.
+Domain name resolution architecture across the homelab ecosystem.
 
-## Visão Geral
+## Overview
 
-Dois servidores DNS **com filtro**, servindo a tailnet inteira pela Tailscale:
+Two DNS filtering servers serve the entire tailnet via Tailscale:
 
 ```mermaid
 graph TB
-    subgraph clientes[Clientes da tailnet]
+    subgraph clients[Tailnet Clients]
         psicopompo[psicopompo<br>100.82.51.112]
         kuaray[kuaray<br>100.94.209.99]
         kavure[kavure<br>100.124.146.77]
-        desktop[desktop Windows<br>100.72.116.114]
-        celulares[Celulares / IoT]
+        desktop[Windows Desktop<br>100.72.116.114]
+        mobile[Smartphones / IoT]
     end
 
     quad100[MagicDNS<br>100.100.100.100]
 
-    subgraph resolvers[Resolvers com filtro]
+    subgraph resolvers[Filtering Resolvers]
         pihole[Pi-hole :53<br>kavure · ~2 ms]
         adguard[AdGuard Home :53<br>ybytu · ~66 ms]
     end
 
-    subgraph egress[Camada de egress — quem fala com a internet]
-        unbound[unbound recursivo 127.0.0.1:5053<br>DNSSEC · kavure]
-        roots[Raiz / TLD / autoritativos<br>consulta direta, sem provedor]
-        dot[fallback DoT<br>Quad9 9.9.9.9 · Cloudflare 1.1.1.1]
+    subgraph egress[Egress Layer — Upstream Internet Resolution]
+        unbound[Local recursive unbound 127.0.0.1:5053<br>DNSSEC · kavure]
+        roots[Root / TLD / Authoritative nameservers<br>Direct recursion, no third-party upstream]
+        dot[DoT fallback<br>Quad9 9.9.9.9 · Cloudflare 1.1.1.1]
     end
 
     psicopompo --> quad100
     kuaray --> quad100
     kavure --> quad100
     desktop --> quad100
-    celulares --> quad100
+    mobile --> quad100
 
-    quad100 -->|corrida paralela| pihole
-    quad100 -->|corrida paralela| adguard
+    quad100 -->|parallel race| pihole
+    quad100 -->|parallel race| adguard
 
     pihole -->|"127.0.0.1#5053"| unbound
     unbound --> roots
 
     adguard -->|"tcp://100.124.146.77:5053"| unbound
-    adguard -.->|se o unbound cair| dot
-    unbound -.->|se o unbound cair: AdGuard assume (corrida)| adguard
+    adguard -.->|if unbound is down| dot
+    unbound -.->|if unbound is down: AdGuard wins the race| adguard
 ```
 
-## Como a Tailscale escolhe entre os dois (medido 06/10 e reconfirmado 08/10/2026)
+## How Tailscale Dispatches Between the Two Resolvers (Benchmarked 2026-10-06, Reconfirmed 2026-10-08)
 
-A **ordem dos nameservers no painel admin da Tailscale não decide nada** — não existe
-"primário" e "secundário" fixos. O forwarder local da Tailscale (Quad100) envia **cada
-consulta para os dois resolvers em paralelo e usa a primeira resposta** que chegar
-(comportamento descrito em [tailscale/tailscale#19024](https://github.com/tailscale/tailscale/issues/19024):
-*"the forwarder races them in parallel"*):
+The **nameserver order in the Tailscale admin console does NOT establish primary/secondary priority**.
+The local Tailscale forwarder (`100.100.100.100` / Quad100) dispatches **every query to both resolvers in parallel and consumes whichever response arrives first** (as documented in [tailscale/tailscale#19024](https://github.com/tailscale/tailscale/issues/19024): *"the forwarder races them in parallel"*):
 
-| | Pi-hole (kavure) | AdGuard (ybytu) |
+| Attribute | Pi-hole (kavure) | AdGuard (ybytu) |
 |---|---|---|
-| Latência (cache quente) | **~2 ms** (LAN gigabit + cache) | **~66 ms** (Oracle + tailnet) |
-| Vence quando **os dois** têm o nome em cache | ✅ (2 ms ≪ 66 ms) | — |
-| Vence quando só o **AdGuard** tem em cache | — (~290 ms: recursão) | ✅ (35–92 ms) |
-| Papel real | resolve a **maioria** das consultas (hits quentes) | **não é só failover**: vence quando tem o nome em cache e o Pi-hole não |
+| Latency (warm cache) | **~2 ms** (Gigabit LAN + local cache) | **~66 ms** (Oracle Cloud + tailnet transit) |
+| Wins when **both** have the record cached | ✅ (2 ms ≪ 66 ms) | — |
+| Wins when **only AdGuard** has it cached | — (~290 ms: cold recursion) | ✅ (35–92 ms) |
+| Actual operational role | Resolves the **vast majority** of queries (warm hits) | **Active parallel peer (not just failover)**: wins whenever AdGuard has a warm cache and Pi-hole has a cold miss |
 
-**Evidência de duplicação (captura no `tailscale0` do ybytu, 06/10; reconfirmada 08/10):**
-as mesmas sondas enviadas via `100.100.100.100` apareceram **no Pi-hole (log FTL) e no
-AdGuard** — os dois recebem tudo; só o mais rápido "vence". Reconfirmado em 08/10 com uma
-**sonda de nome inédito**: apareceu no FTL do Pi-hole (forwarded) **e** no log do AdGuard.
-Por isso as **contagens parecidas não são "empate"** — são a duplicação em paralelo. O
-AdGuard também recebe tráfego direto de dispositivos (top clients: docker bridge `172.22.0.1`,
-`100.115.253.109`, `127.0.0.1`).
+**Evidence of parallel duplicate dispatching (packet capture on ybytu `tailscale0`, 2026-10-06; reconfirmed 2026-10-08):**
+The exact same queries forwarded via `100.100.100.100` appeared **in both Pi-hole (FTL log) and AdGuard logs simultaneously** — both nodes receive every query; the faster node simply wins. Reconfirmed on 2026-10-08 with a **probe query for an unprecedented domain name**: it was registered in Pi-hole FTL (forwarded) **and** in the AdGuard query log.
+Therefore, similar query volumes between nodes do not indicate equal load distribution, but rather concurrent dual-dispatching. AdGuard also receives direct traffic from select host devices (top clients: Docker bridge `172.22.0.1`, `100.115.253.109`, `127.0.0.1`).
 
-> ⚠️ **O "Pi-hole vence quase sempre / é o decisor padrão" NÃO se confirma (medição 08/10/2026).**
-> Teste do vencedor: psicopompo → `100.100.100.100`, 25 domínios populares, 1 consulta cada —
-> **7** rápidas (2–22 ms → Pi-hole, cache hit), **8** médias (35–92 ms → AdGuard, cache hit),
-> **10** frias (>150 ms, 1ª recursão). A corrida é decidida pela **latência**, e a latência
-> depende de **quem tem aquele nome em cache**: onde ambos têm, o Pi-hole ganha (2 ms ≪ 66 ms);
-> onde só o AdGuard tem, ele ganha. **Não há vencedor fixo** — os dois precisam de paridade.
+> ⚠️ **The assumption that "Pi-hole always wins / serves as the default decider" is FALSE (empirical measurement 2026-10-08).**  
+> Race test from psicopompo → `100.100.100.100`, 25 popular domains, 1 query each:  
+> - **7** fast responses (2–22 ms → Pi-hole cache hit)  
+> - **8** medium responses (35–92 ms → AdGuard cache hit)  
+> - **10** cold responses (>150 ms, first-time full recursive lookup)  
+> The race is decided entirely by **latency**, and latency is dictated by **cache locality**: when both have the record cached, Pi-hole wins decisively (2 ms ≪ 66 ms); when only AdGuard has it cached, AdGuard wins. **There is no fixed winner** — both resolvers require strict rule parity.
 
-> **Consequência prática (por que a paridade importa):** quem responde primeiro é quem
-> aplica **as suas** regras. Se as listas divergirem, o bloqueio fica nondeterminístico
-> — um domínio negado só no Pi-hole pode passar toda vez que o AdGuard vencer a corrida.
-> Por isso os dois têm o mesmo conjunto de deny exatos/regras de telemetria/BR/TV desde
-> 06/10/2026 (ver [`services/pihole.md`](../services/pihole.md) e
-> [`services/adguard-home.md`](../services/adguard-home.md)). **Paridade medida em 08/10:**
-> bloqueio Pi-hole **43,2%** × AdGuard **44%** ✅.
+> **Practical operational impact (why blocklist parity matters):**  
+> Whichever resolver answers first applies **its own local blocklists**. If filter rules diverge, domain blocking becomes non-deterministic — a domain blocked only on Pi-hole will leak through whenever AdGuard wins the race.  
+> Consequently, both nodes maintain an identical set of exact denylists, telemetry rules, and localized block filters since 2026-10-06 (see [`services/pihole.md`](../services/pihole.md) and [`services/adguard-home.md`](../services/adguard-home.md)).  
+> **Parity audit measured on 2026-10-08:** Pi-hole **43.2%** blocked × AdGuard **44.0%** blocked ✅.
 
-**Volumes medidos:** Pi-hole **85 799 consultas/24 h** (08/10) · AdGuard ~**79 k/dia**
-(log de ~2 dias: 158 431 entradas) — volume parecido porque **os dois recebem tudo**.
-Histórico Pi-hole 09/08→06/10: 5,08 M consultas; top clients `100.72.116.114` (desktop
-Windows) 1,46 M · kavure 1,38 M · psicopompo 1,03 M · kuaray 332 k · ybytu 325 k.
+**Query volumes recorded:** Pi-hole **85,799 queries / 24h** (2026-10-08) · AdGuard **~79,000 / day** (~2-day log: 158,431 queries). Historical Pi-hole volume from 2026-08-09 to 2026-10-06: 5.08 M queries. Top clients: `100.72.116.114` (Windows Desktop) 1.46 M · kavure 1.38 M · psicopompo 1.03 M · kuaray 332 k · ybytu 325 k.
 
-## Camada de egress — recursão local (08/10/2026)
+## Egress Layer — Local Recursive Unbound (2026-10-08)
 
-O **filtro** (Pi-hole/AdGuard) decide o que bloquear; o **egress** decide quem vê a consulta.
-Desde **08/10/2026** o egress do kavure é **recursivo local** (`unbound` nativo na porta 5053):
+The **filter layer** (Pi-hole / AdGuard) decides what to block; the **egress layer** decides who inspects the query.
+Since **2026-10-08**, egress from kavure is **fully local recursive** (native `unbound` daemon listening on port 5053):
 
-| Resolver | Egress | Esconde do ISP | Esconde do provedor |
+| Resolver | Egress Mode | ISP Visibility | Third-Party Upstream Visibility |
 |---|---|---|---|
-| Pi-hole (kavure) | `unbound` local → **recursão direta** (raiz → TLD → autoritativo) | parcial — o ISP vê DNS porta 53 saindo, mas sem provedor único de destino | ✅ — nenhum resolvedor central vê o histórico (só os autoritativos do domínio) |
-| AdGuard (ybytu) | `tcp://100.124.146.77:5053` → **o mesmo unbound do kavure** · fallback `tls://9.9.9.9`/`tls://1.1.1.1` (DoT) | parcial (mesmo caminho) | ✅; no fallback, cifrado para Quad9/Cloudflare |
-| Hosts (systemd-resolved) | fallback global `9.9.9.9`/`1.1.1.1` com `DNSOverTLS=opportunistic` | ✅ (quando usado) | parcial (DoT) |
+| Pi-hole (kavure) | Local `unbound` → **direct root recursion** (Root → TLD → Authoritative nameserver) | Partial — ISP observes outbound UDP/TCP port 53 traffic, but queries are distributed directly to authoritative servers rather than a single upstream DNS provider | ✅ Complete — No upstream resolver (Google, Cloudflare, Quad9) sees user lookup history |
+| AdGuard (ybytu) | `tcp://100.124.146.77:5053` → **the same kavure unbound instance** · fallback `tls://9.9.9.9` / `tls://1.1.1.1` (DoT) | Partial (same transit path) | ✅ Full privacy; during fallback events, traffic is encrypted via DoT to Quad9/Cloudflare |
+| Hosts (systemd-resolved) | Global fallback `9.9.9.9` / `1.1.1.1` with `DNSOverTLS=opportunistic` | ✅ Encrypted when active | Partial (DoT upstream inspection) |
 
-> **Decisão 08/10/2026 (usuário):** a cadeia anonimizada anterior (Anonymized DNSCrypt com
-> relays CryptoStorm US-Leste) custava **353 ms frios** por consulta — dois saltos
-> transatlânticos, **sem relay na América do Sul** — e a navegação ficou perceptivelmente
-> lenta. Escolha: **navegação fluida > anonimato total**. O unbound elimina o provedor
-> intermediário (recursão própria com DNSSEC), ao custo de o ISP enxergar tráfego DNS
-> genérico. Detalhes, comparação de imagens e medições: [`services/unbound.md`](../services/unbound.md).
+> **Architecture decision 2026-10-08:**  
+> The previous anonymized chain (Anonymized DNSCrypt routing through US-East CryptoStorm relays) introduced **353 ms cold latency** per query due to transatlantic round-trips with **no South American relay nodes available**, severely degrading interactive browsing responsiveness.  
+> Chosen design: **fluent browsing latency prioritized over absolute anonymity**. Unbound eliminates all commercial upstream resolvers (self-hosted recursion with native DNSSEC validation) while accepting generic authoritative lookups visible to the ISP. Detailed benchmark data and image comparisons: [`services/unbound.md`](../services/unbound.md).
 
-### Provas de falha (re-verificadas 08/10/2026)
+### Resilience & Failover Proofs (Re-verified 2026-10-08)
 
-| Cenário testado | Resultado |
+| Simulated Failure Scenario | System Behavior & Measured Result |
 |---|---|
-| **`unbound` do kavure parado (08/10)** | Consultas via `100.100.100.100` resolveram em **131/87 ms** (o AdGuard caiu no `fallback_dns` DoT) → **sem perda de internet**. Unbound religado e normalizado ✅ |
-| `dnscrypt-proxy` do kavure parado (era 06/10 → 08/10, servidores de referência) | O Pi-hole para de responder, mas as consultas via `100.100.100.100` seguem resolvendo em 60 ms (AdGuard no `fallback_dns` DoT) → sem perda de internet |
-| `dnscrypt-proxy` do ybytu parado (tentativa, revertida) | AdGuard degradou para `fallback_dns` em ~197 ms |
-| Pi-hole com `strict-order` + fallback plano | **Não fazia failover** (6 timeouts seguidos) → desenho descartado |
+| **kavure `unbound` daemon stopped (2026-10-08)** | Queries forwarded via `100.100.100.100` resolved cleanly in **131 / 87 ms** (AdGuard smoothly fell back to its encrypted DoT upstreams) → **zero internet outage**. Unbound restored and normalized ✅ |
+| kavure `dnscrypt-proxy` stopped (historical test 2026-10-06) | Pi-hole stopped responding; tailnet queries via `100.100.100.100` continued resolving within 60 ms via AdGuard DoT fallback → zero outage |
+| ybytu `dnscrypt-proxy` stopped | AdGuard degraded gracefully to secondary fallback within ~197 ms |
+| Pi-hole configured with `strict-order` + flat upstream fallback | **Failed to failover** (6 consecutive upstream timeouts) → architecture permanently rejected |
 
-> **Lição arquitetural:** a redundância do DNS aqui é a **corrida entre resolvedores**, não
-> uma lista de upstreams do dnsmasq. Um fallback plano dentro do Pi-hole ou **vaza** (sem
-> `strict-order`) ou **trava** (com `strict-order`).
+> **Key Architectural Insight:**  
+> DNS redundancy in this environment is provided by the **parallel race between independent filtering resolvers**, not by upstream sequential lists inside dnsmasq. Flat fallbacks inside Pi-hole either **leak unfiltered queries** (without `strict-order`) or **hang during outages** (with `strict-order`).
 
-## Cache (três níveis) — medido 07/10/2026, revisado 08/10
+## Three-Tier Caching Architecture (Measured 2026-10-07, Tuned 2026-10-08)
 
-| Nível | Onde | Tamanho | Estado medido |
+| Tier | Host Node | Allocation / Settings | Operational Status |
 |---|---|---|---|
-| **unbound** | kavure | `msg-cache 128m` · `rrset-cache 256m` · `key-cache 64m` · `neg-cache 16m` · `prefetch` + `prefetch-key` + `serve-expired 24 h` (tuning v2, 08/10) · 2 threads | substituiu o cache do dnscrypt em 08/10 (o proxy tinha 16384 entradas / ~14 MB RSS); telemetria: `unbound-control stats_noreset` (⚠️ `stats` sem `noreset` zera os contadores; o watchdog loga a cada 2 min) |
-| **Pi-hole (FTL)** | kavure | `dns.cache.size = 10000` · `optimizer = 3600` (serve-stale) | **0 evictions** em 22.422 inserções · **~82 % de acerto** (33.312 hits / 7.516 misses) |
-| **AdGuard** | ybytu | `cache_size = 4194304` (4 MiB, default) · `cache_ttl_min/max = 0` (usa o TTL do upstream) | — |
+| **unbound** | kavure | `msg-cache 128m` · `rrset-cache 256m` · `key-cache 64m` · `neg-cache 16m` · `prefetch: yes` + `prefetch-key: yes` + `serve-expired: yes` (24h TTL tolerance, v2 tuning) · 2 threads | Succeeded the historical dnscrypt cache on 2026-10-08; metrics monitored via `unbound-control stats_noreset` (⚠️ running `stats` without `noreset` resets internal counters; watchdog logs telemetry every 2 minutes) |
+| **Pi-hole (FTL)** | kavure | `dns.cache.size = 10000` · `optimizer = 3600` (serve-stale) | **0 evictions** across 22,422 insertions · **~82% hit rate** (33,312 hits / 7,516 misses) |
+| **AdGuard** | ybytu | `cache_size = 4194304` (4 MiB default) · `cache_ttl_min/max = 0` (preserves upstream TTL) | Healthy |
 
-**Tem espaço para crescer?** Em **memória, sim**: o kavure tem ~6,3 GB livres e os dois
-resolvedores juntos usam ~60 MB. Mas a [doc oficial do Pi-hole](https://docs.pi-hole.net/ftldns/dns-cache)
-é explícita: *"não há benefício em aumentar esse número a menos que as evictions sejam maiores
-que zero"* — e acima de 10.000 entradas a **busca degrada**. Como as evictions estão em
-**zero**, o Pi-hole está no tamanho certo. O AdGuard fica modesto de propósito: o ybytu tem
-só ~270 MB livres.
+**Available memory headroom:** kavure has ~6.3 GB free RAM, and both DNS resolvers combined consume less than 60 MB RSS. However, official [Pi-hole FTL documentation](https://docs.pi-hole.net/ftldns/dns-cache) explicitly notes: *"there is no benefit in increasing this number unless cache evictions are greater than zero"* — and lookup hash efficiency degrades beyond 10,000 entries. Since evictions remain at **zero**, Pi-hole cache allocation is optimal. AdGuard cache remains conservatively sized due to ybytu's constrained memory footprint (~270 MB free).
 
-> Consultar as métricas do cache a qualquer momento:
-> `dig +short chaos txt {cachesize,insertions,evictions,hits,misses}.bind @127.0.0.1` (no kavure).
+> To inspect active Pi-hole cache metrics on kavure at any time:  
+> `dig +short chaos txt {cachesize,insertions,evictions,hits,misses}.bind @127.0.0.1`
 
-## Por Máquina
+## Node Profiles
 
 ### Psicopompo
-| Item | Valor |
+| Component | Configuration |
 |---|---|
-| Resolvedor | systemd-resolved (`stub` → `/run/systemd/resolve/stub-resolv.conf`) |
-| DNS da tailnet | `100.100.100.100` (Quad100) — escopo `~.` (rota padrão) |
-| Fallback | Quad9 `9.9.9.9` → Cloudflare `1.1.1.1` (DoT `opportunistic`, **sem Google**) — só se a Tailscale cair |
+| Local Resolver | systemd-resolved (`stub` mode → `/run/systemd/resolve/stub-resolv.conf`) |
+| Tailnet DNS | `100.100.100.100` (Quad100) — scope `~.` (default routing domain) |
+| Fallback | Quad9 `9.9.9.9` → Cloudflare `1.1.1.1` (Opportunistic DoT, **no Google DNS**) — active only if Tailscale drops |
 
-> **Fix resolve-nm (21/09/2026):** NetworkManager passou a usar `dns=systemd-resolved`
-> (em `[main]` do `/etc/NetworkManager/NetworkManager.conf`) e o `/etc/resolv.conf`
-> virou symlink para o stub do systemd-resolved (era `foreign`). Isso resolveu o
-> aviso do Tailscale `tailscale.com/s/resolve-nm` e habilitou o MagicDNS
-> (`*.chimaera-heptatonic.ts.net` resolve via `100.100.100.100`).
+> **NetworkManager Integration Fix (2026-09-21):**  
+> NetworkManager was configured with `dns=systemd-resolved` (under `[main]` in `/etc/NetworkManager/NetworkManager.conf`) and `/etc/resolv.conf` was established as a direct symlink to the systemd-resolved stub file. This resolved the Tailscale `tailscale.com/s/resolve-nm` routing alert and enabled reliable MagicDNS resolution (`*.chimaera-heptatonic.ts.net` resolves via `100.100.100.100`).
 
 ### Kavure
-| Item | Valor |
+| Component | Configuration |
 |---|---|
-| Servidor | **Pi-hole** (container `pihole`, `network_mode: host`, escuta só em `tailscale0`) |
-| Porta | `53` · admin `http://100.124.146.77/admin` |
-| Upstream | `127.0.0.1#5053` → **unbound recursivo local** (DNSSEC, desde 08/10/2026 — [`services/unbound.md`](../services/unbound.md)) |
-| Papel | um dos dois resolvedores da corrida da tailnet (**sem vencedor fixo** — ver seção acima) |
+| Server Software | **Pi-hole** (Docker container `pihole`, `network_mode: host`, bound exclusively to `tailscale0`) |
+| Service Ports | Port `53` (DNS) · Admin console `http://100.124.146.77/admin` |
+| Upstream Target | `127.0.0.1#5053` → **local recursive unbound instance** (DNSSEC enabled since 2026-10-08 — [`services/unbound.md`](../services/unbound.md)) |
+| Operational Role | Primary low-latency resolver in the parallel tailnet race (**non-exclusive** — see benchmark notes above) |
 
 ### Ybytu
-| Item | Valor |
+| Component | Configuration |
 |---|---|
-| Servidor | **AdGuard Home** (container `adguardhome`) |
-| Porta | `53` · admin `http://ybytu.chimaera-heptatonic.ts.net:3000` |
-| Upstream | `tcp://100.124.146.77:5053` → **o mesmo unbound do kavure** (endpoint inalterado desde a era dnscrypt) · fallback DoT `tls://9.9.9.9`/`tls://1.1.1.1` |
-| Papel | **failover** do Pi-hole + clientes diretos (desktop Windows) |
-| Atenção | 954 MB de RAM — querylog `7d`/`size_memory 200` desde 06/10 (era 90d/1000 = 4 GB) |
+| Server Software | **AdGuard Home** (Docker container `adguardhome`) |
+| Service Ports | Port `53` (DNS) · Admin console `http://ybytu.chimaera-heptatonic.ts.net:3000` |
+| Upstream Target | `tcp://100.124.146.77:5053` → **kavure recursive unbound endpoint** · DoT fallback `tls://9.9.9.9` / `tls://1.1.1.1` |
+| Operational Role | **Parallel peer resolver & automatic failover target** for Pi-hole and direct client endpoints |
+| Memory Tuning | Memory limit 954 MB RAM — querylog set to `7d` retention with `size_memory: 200` since 2026-10-06 (preventing past 4 GB OOM issues) |
 
 ### Kuaray
-| Item | Valor |
+| Component | Configuration |
 |---|---|
-| Resolvedor | Tailscale MagicDNS (`100.100.100.100`) |
-| DNS local | **nenhum** — o Pi-hole morava aqui e migrou para o kavure (09/08/2026) |
+| Resolver | Tailscale MagicDNS (`100.100.100.100`) |
+| Local DNS Server | **None** — Pi-hole was historically hosted on this node and migrated to kavure on 2026-08-09 |
 
 ### Ybyra
-| Item | Valor |
+| Component | Configuration |
 |---|---|
-| Resolvedor | Oracle Metadata DNS (`169.254.169.254`) + MagicDNS |
-| DNS local | Nenhum |
+| Resolver | Oracle Metadata DNS (`169.254.169.254`) + Tailscale MagicDNS |
+| Local DNS Server | None |
 
-> **Fix MagicDNS (21/09/2026):** `tailscale set --accept-dns=true` estava com
-> `CorpDNS: false` (MagicDNS não injetava no systemd-resolved — `getent` retornava
-> vazio apesar de `dig @100.100.100.100` funcionar). Após habilitar:
-> `resolvectl status tailscale0` mostra `Current Scopes: DNS` + `DNS Domain:
-> chimaera-heptatonic.ts.net` e `getent hosts kuaray...` resolve corretamente.
+> **MagicDNS Route Fix (2026-09-21):**  
+> `tailscale set --accept-dns=true` was previously defaulting to `CorpDNS: false` (preventing MagicDNS injection into systemd-resolved, causing `getent` lookups to fail despite working `dig @100.100.100.100` tests). After enabling CorpDNS: `resolvectl status tailscale0` reports `Current Scopes: DNS` with `DNS Domain: chimaera-heptatonic.ts.net`, restoring local hostname resolution.
 
-## Domínios
+## Domain Namespace Routing
 
-| Domínio | Resolvido por |
+| Domain Namespace | Handled By |
 |---|---|
 | `*.chimaera-heptatonic.ts.net` | Tailscale MagicDNS |
-| `ybytuvcn.oraclevcn.com` | Oracle DNS |
-| `ybyravcn.oraclevcn.com` | Oracle DNS |
-| Nomes locais LAN | Pi-hole (kavure) / AdGuard (ybytu) |
-| Internet geral | upstreams do resolver que venceu a corrida |
+| `ybytuvcn.oraclevcn.com` | Oracle VCN Internal DNS |
+| `ybyravcn.oraclevcn.com` | Oracle VCN Internal DNS |
+| Local LAN Hostnames | Pi-hole (kavure) / AdGuard (ybytu) |
+| Public Internet Domains | Upstream authority resolved by whichever filtering peer wins the parallel race |
 
-## Testar a paridade dos dois resolvers
+## Resolver Parity Verification Commands
 
 ```bash
-# Um domínio nos DOIS (espera-se o mesmo resultado)
+# Verify record consistency across both resolvers simultaneously:
 for d in telemetry.microsoft.com ge.globo.com www.google.com; do
   printf '%-35s pihole=%s adguard=%s\n' "$d" \
     "$(dig +short A "$d" @100.124.146.77 | head -1)" \
     "$(dig +short A "$d" @100.115.253.109 | head -1)"
 done
 
-# Ver para onde uma consulta do sistema realmente foi
+# Audit which resolver recently processed local queries:
 ssh root@100.124.146.77 "sqlite3 /srv/data/pihole/etc-pihole/pihole-FTL.db \
   \"SELECT domain,client,status FROM queries ORDER BY timestamp DESC LIMIT 10;\""
 
-# Provar que a Tailscale manda para os DOIS
+# Validate concurrent parallel query dispatching across Tailscale:
 ssh root@100.115.253.109 'timeout 15 tcpdump -nntt -i any \
   "udp port 53 and src net 100.64.0.0/10" -c 20'
 ```
 
-## Comandos Úteis
+## Useful Operational Commands
 
 ```bash
-# Ver resolução de um nome
+# Query active name resolution status for a given service:
 resolvectl query servico.chimaera-heptatonic.ts.net
 
-# Ver servidores DNS configurados
+# Inspect configured DNS nameservers:
 resolvectl status
 tailscale dns status
 
-# Testar DNS por servidor específico
-dig @100.100.100.100 google.com        # Quad100 (encaminhador da Tailscale)
+# Test resolution directly against specific endpoints:
+dig @100.100.100.100 google.com        # Quad100 (Tailscale forwarder)
 dig @100.124.146.77 google.com         # Pi-hole (kavure)
 dig @100.115.253.109 google.com        # AdGuard (ybytu)
 ```

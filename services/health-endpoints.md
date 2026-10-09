@@ -2,104 +2,97 @@
 tags: [homelab, service, steniobot, monitoring, docker, server, psicopompo, ybyra]
 ---
 
-# Relatório: Auditoria de Topologia e Monitoria (Sumænimá INFRA)
+# Topology & Monitoring Audit Report (Sumænimá INFRA)
 
-> Status: **CONCLUÍDO** — 2026-06-28
+> Status: **COMPLETED** — 2026-06-28
 >
-> ⚠️ **Pós-migração (07/08/2026):** o core (`sae-core`) migrou do psicopompo para o **kavure** (100.124.146.77). O monitor #50 no Uptime-Kuma passou a apontar para `http://100.124.146.77:9090/api/health` (Kavure - Sumænimá API). O monitor #49 (backup health) aponta para `http://100.124.146.77:9092/health`. Ver `services/steniobot.md` e `network/topology.md`.
+> ⚠️ **Post-Migration (07/08/2026):** The core stack (`sae-core`) migrated from psicopompo to **kavure** (100.124.146.77). Monitor #50 in Uptime-Kuma was updated to point to `http://100.124.146.77:9090/api/health` (Kavure - Sumænimá API). Monitor #49 (backup health) targets `http://100.124.146.77:9092/health`. See `services/steniobot.md` and `network/topology.md`.
 >
-> 🛑 **Monitor #50 QUEBRADO (apurado 02/10/2026) — a porta 9090 não existe no host.**
-> `docker service inspect sae-core_api` → `Endpoint.Ports: null`; `ss -ltn` no kavure sem
-> 9090; `curl http://100.124.146.77:9090/api/health` → **sem conexão**. Só a borda
-> responde: `http://ybyra.chimaera-heptatonic.ts.net/api/health` → **200** (monitor #4 ✓).
+> 🛑 **Monitor #50 BROKEN (verified 02/10/2026) — Port 9090 does not exist on host.**
+> `docker service inspect sae-core_api` → `Endpoint.Ports: null`; `ss -ltn` on kavure reveals no 9090 binding; `curl http://100.124.146.77:9090/api/health` → **Connection refused**. Only edge proxy responds: `http://ybyra.chimaera-heptatonic.ts.net/api/health` → **200** (monitor #4 ✓).
 >
-> **Causa raiz (histórico git do `sumaenima-hub`):** **nenhum commit do
-> `provisioning/stacks/core.yml` jamais teve `9090:9090`** — só o healthcheck interno
-> (`curl 127.0.0.1:9090`). A publicação "de 07/08" (§`Porta 9090 publicada`, logo abaixo)
-> foi feita **fora do config-as-code** (`docker service update --publish-add`) e foi
-> **zerada** por um `docker stack deploy` posterior, que reconcilia a spec com o arquivo.
-> Hoje o `core.yml` publica **apenas `9092` (backup) e `8766` (asciline)**.
+> **Root Cause (git history of `sumaenima-hub`):** **No commit in `provisioning/stacks/core.yml` ever contained `9090:9090`** — only internal container healthchecks (`curl 127.0.0.1:9090`). The 07/08 binding (§`Port 9090 Published` below) was applied **out-of-band** via `docker service update --publish-add` and was subsequently **reverted** by a regular `docker stack deploy`, which reconciles running services to the compose file. Currently, `core.yml` publishes **only `9092` (backup) and `8766` (asciline)**.
 >
-> **Opções de correção (pendente de decisão):**
-> | Opção | Como | Trade-off |
+> **Remediation Options (Pending Decision):**
+> | Option | Method | Trade-off |
 > |---|---|---|
-> | **A** — corrigir o monitor | Apontar #50 para `…/api/health` da borda (ou para `:9092/health` já coberto) | Zero risco, mas perde-se a checagem "física" do kavure |
-> | **B** — restaurar a porta | Adicionar `ports: ["9090:9090"]` ao `core.yml` + `docker stack deploy` | Devolve o monitor #50 **e** o acesso direto por Tailscale, mas expõe a API fora da overlay (regra de exposição mínima: hoje só a borda fala com ela) |
+> | **A** — Update monitor target | Point #50 to edge `…/api/health` (or rely on `:9092/health`) | Zero operational risk, but loses physical host-level probing on kavure |
+> | **B** — Restore published port | Add `ports: ["9090:9090"]` to `core.yml` + execute `docker stack deploy` | Restores monitor #50 **and** direct Tailscale reachability, but exposes API outside overlay (violates minimal exposure policy: currently only edge reaches it) |
 >
-> ✅ **29/08/2026 — widget "Sumænimá Backup" corrigido:** o health server do backup (`backup_health_server.py`, BaseHTTPRequestHandler) não implementava `do_HEAD` — probes **HEAD** do Homepage/Uptime Kuma recebiam **501**, exibido como erro no dashboard. Adicionado `do_HEAD` (GET e HEAD → 200). Endpoint monitorado: `http://100.124.146.77:9092/health` (kavure).
+> ✅ **29/08/2026 — "Sumænimá Backup" Widget Fixed:** The backup health server (`backup_health_server.py`, BaseHTTPRequestHandler) did not implement `do_HEAD` — causing **HEAD** probes from Homepage/Uptime Kuma to receive **501**, flagged as an error on dashboards. Added `do_HEAD` support (GET and HEAD return 200). Monitored endpoint: `http://100.124.146.77:9092/health` (kavure).
 
 ---
 
-## 1. Problema Resolvido: Nomenclatura Precária (Ybyra vs Psicopompo)
+## 1. Problem Resolved: Ambiguous Target Naming (Ybyra vs Psicopompo)
 
-O monitor `Ybyra - Sumænimá API` foi renomeado para `Ybyra - Proxy API (Externo)` porque o container da API (`sae-core_api`) e o banco (`sae-core_db`) rodam fisicamente no Psicopompo, não no Ybyra.
+The monitor originally labeled `Ybyra - Sumænimá API` was renamed to `Ybyra - Proxy API (External)` because the API container (`sae-core_api`) and database (`sae-core_db`) run physically on the internal node, not on Ybyra.
 
-### O que foi feito:
+### Actions Executed:
 
-1. **Monitor #4 renomeado**: `Ybyra - Sumænimá API` → `Ybyra - Proxy API (Externo)` — monitora a entrega da API via proxy Nginx no Ybyra (`http://100.66.224.34/api/health`)
-2. **Monitor #50 criado**: `Kavure - Sumænimá API (Interno)` — monitora a saúde física da API no kavure via Tailscale (`http://100.124.146.77:9090/api/health`)
-3. **Porta 9090 publicada** no `sae-core_api` via `provisioning/stacks/core.yml` + `docker stack deploy` (estava apenas na overlay network)
-4. **Notificação ntfy** associada ao novo monitor #50
+1. **Renamed Monitor #4**: `Ybyra - Sumænimá API` → `Ybyra - Proxy API (External)` — monitors API delivery through Nginx reverse proxy on Ybyra (`http://100.66.224.34/api/health`).
+2. **Created Monitor #50**: `Kavure - Sumænimá API (Internal)` — monitors physical API health on kavure via Tailscale (`http://100.124.146.77:9090/api/health`).
+3. **Published Port 9090** on `sae-core_api` via `provisioning/stacks/core.yml` + `docker stack deploy` (previously restricted strictly to overlay network).
+4. **ntfy Notification Binding** attached to new monitor #50.
 
 ---
 
-## 2. Achados da Auditoria nos 4 Nós
+## 2. Four-Node Topology Audit Findings
 
 ### A. Psicopompo (Manager / Core)
-| Item | Documentado | Real |
-|------|-------------|------|
-| Container da API | `steniobot_app` (standalone) | `sae-core_api` (Swarm service) |
-| Porta 9090 | Publicada | **Estava apenas overlay, foi publicada** ✅ |
-| Portainer | Rodando | **Exited** (removido) |
-| RustDesk (hbbs/hbbr) | Rodando | **Não existe mais** |
-| backup-sentinel | **Não documentado** | Novo serviço Swarm (porta 9092) |
-| steniobot_vision/audio | **Não documentados** | 2 containers avulsos na overlay |
+| Item | Documented | Actual State |
+|------|-------------|--------------|
+| API Container | `steniobot_app` (standalone) | `sae-core_api` (Swarm service) |
+| Port 9090 | Published | **Overlay-only, published manually** ✅ |
+| Portainer | Running | **Exited** (decommissioned) |
+| RustDesk (hbbs/hbbr) | Running | **Purged from node** |
+| backup-sentinel | **Undocumented** | New Swarm service (port 9092) |
+| steniobot_vision/audio | **Undocumented** | 2 standalone containers on overlay |
 
 ### B. Ybyra (Edge / VPS)
-- **Swarm role:** `primary` — nó worker do Swarm
-- Nginx roteia `/api/ → 100.124.146.77:9090` (kavure via Tailscale)
-- API health via proxy: `HTTP 200` ✅
-- Datavis, Umami, Tailscale roda como Swarm services
+- **Swarm role:** `primary` — Swarm worker node
+- Nginx routes `/api/ → 100.124.146.77:9090` (kavure over Tailscale)
+- API health via reverse proxy: `HTTP 200` ✅
+- Datavis, Umami, and Tailscale execute as Swarm services
 
 ### C. Ybytu (Home Utility)
-- Uptime Kuma: 41 monitores (não 37 como documentado)
-- Ntfy notificação associada a TODOS os monitores ✅
-- Sem divergências críticas
+- Uptime Kuma: 41 monitors configured
+- ntfy notifications attached to ALL monitors ✅
+- Zero critical deviations detected
 
 ### D. Kuaray (Standby / DR)
-- 21 containers rodando conforme documentado
-- Nó Swarm com label `standby` (role não utilizada ativamente)
+- 21 containers active as documented
+- Swarm node with `standby` label (role dormant)
 
 ---
 
-## 3. Documentação Atualizada
+## 3. Updated Documentation
 
-| Arquivo | O que foi alterado |
-|---------|-------------------|
-| `servers/psicopompo.md` | Swarm services, backup-sentinel, vision/audio adicionados; Portainer/RustDesk removidos |
-| `servers/ybyra.md` | Adicionado Swarm role `primary` |
-| `services/steniobot.md` | Stack Swarm, visão/audio, recovery via stack deploy |
-| `services/uptime-kuma.md` | 41 monitores, monitores #4 e #50 documentados, divisão borda/física |
-| `services/health-endpoints.md` | Este relatório |
+| File | Changes Made |
+|---|---|
+| `servers/psicopompo.md` | Added Swarm services, backup-sentinel, vision/audio; removed Portainer/RustDesk |
+| `servers/ybyra.md` | Added Swarm `primary` role |
+| `services/steniobot.md` | Documented Swarm stack, vision/audio workers, recovery via stack deploy |
+| `services/uptime-kuma.md` | Documented 41 monitors, monitors #4 and #50, edge/physical segmentation |
+| `services/health-endpoints.md` | This audit report |
 
-## 4. Comandos Executados
+## 4. Commands Executed
 
 ```bash
-# 1. Publicar porta 9090
+# 1. Publish port 9090
 docker stack deploy -c provisioning/stacks/core.yml sae-core
 
-# 2. Renomear monitor #4 no Uptime Kuma
-sqlite3 kuma.db "UPDATE monitor SET name='Ybyra - Proxy API (Externo)' WHERE id=4;"
+# 2. Rename monitor #4 in Uptime Kuma
+sqlite3 kuma.db "UPDATE monitor SET name='Ybyra - Proxy API (External)' WHERE id=4;"
 
-# 3. Criar monitor #50
-sqlite3 kuma.db "INSERT INTO monitor (...) VALUES ('Psicopompo - Sumænimá API (Interno)', ...);"
+# 3. Create monitor #50
+sqlite3 kuma.db "INSERT INTO monitor (...) VALUES ('Psicopompo - Sumænimá API (Internal)', ...);"
 
-# 4. Associar notificação
+# 4. Bind notification channel
 sqlite3 kuma.db "INSERT INTO monitor_notification (monitor_id, notification_id) VALUES (50, 1);"
 ```
 
-## 5. Validação
+## 5. Validation
 
-- API health local: `HTTP 200` ✅
-- API health via Tailscale (100.124.146.77:9090): `HTTP 200` ✅
-- API health via Ybyra proxy: `HTTP 200` ✅
+- Local API health check: `HTTP 200` ✅
+- Direct API health via Tailscale (`100.124.146.77:9090`): `HTTP 200` ✅
+- External API health via Ybyra proxy: `HTTP 200` ✅

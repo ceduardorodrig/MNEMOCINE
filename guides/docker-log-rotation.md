@@ -2,46 +2,37 @@
 tags: [homelab, tutorial, docker, storage, kavure, psicopompo]
 ---
 
-# Rotação de Logs do Docker (evitar esgotar disco)
+# Docker Log Rotation (Preventing Disk Exhaustion)
 
-Guia canônico da política de logs de containers do homelab — **por que**, **onde** e
-**como diagnosticar**. Criado em 29/09/2026 depois de encontrar **1,9 GB** de logs sem
-rotação no kavure.
+Canonical guide on container logging policy across the homelab — **why**, **where**, and **how to diagnose**. Created on 2026-09-29 after discovering **1.9 GB** of unrotated logs on kavure.
 
-## O problema
+## The Problem
 
-O Docker usa por padrão o driver `json-file` **sem rotação**. A documentação oficial é
-explícita ([Configure logging drivers](https://docs.docker.com/engine/logging/configure/)):
+Docker defaults to the `json-file` logging driver **with no rotation enabled**. Official Docker documentation states ([Configure logging drivers](https://docs.docker.com/engine/logging/configure/)):
 
-> *"Use the `local` logging driver to prevent disk-exhaustion. By default, **no
-> log-rotation is performed**. As a result, log-files stored by the default `json-file`
-> logging driver can cause a significant amount of disk space to be used for containers
-> that generate much output, which can lead to **disk space exhaustion**."*
+> *"Use the `local` logging driver to prevent disk-exhaustion. By default, **no log-rotation is performed**. As a result, log-files stored by the default `json-file` logging driver can cause a significant amount of disk space to be used for containers that generate much output, which can lead to **disk space exhaustion**."*
 
-**Medição real (29/09/2026) no kavure:** 1,9 GB, sendo:
+**Actual measurement on kavure (2026-09-29):** 1.9 GB unrotated logs, including:
 
-| Container | Log |
+| Container | Log Volume |
 |---|---|
 | `monitoring-cadvisor` | **870 MB** |
 | `node-exporter` | **519 MB** |
 | `monitoring-loki` | **380 MB** |
 
-O psicopompo tinha apenas 6 MB no total.
+psicopompo had only 6 MB total.
 
-## ⚠️ A decisão específica deste homelab: **NÃO** usar o driver `local`
+## ⚠️ Infrastructure Invariant: Do NOT Use the `local` Driver
 
-A doc **recomenda** o driver `local` (rotação automática). **Mas aqui isso quebraria a
-observabilidade:** o **promtail** lê diretamente os arquivos
-`/var/lib/docker/containers/*/*-json.log`. O driver `local` usa outro formato e outro
-nome de arquivo → a coleta de log de container pararia.
+Docker docs recommend the `local` driver for automatic rotation. **However, doing so breaks homelab observability:** **Promtail** directly scrapes `/var/lib/docker/containers/*/*-json.log`. The `local` driver stores logs in an incompatible binary/protobuf format under different filenames, terminating container log ingestion.
 
-**Portanto: mantemos `json-file` + rotação explícita.**
+**Therefore: We strictly maintain `json-file` + explicit rotation bounds.**
 
-## A política aplicada
+## Enforced Policy
 
-### Camada 1 — padrão do daemon (novos containers)
+### Layer 1 — Daemon Defaults (New Containers)
 
-`/etc/docker/daemon.json` nos **3 hosts** (psicopompo, kavure, ybyra):
+`/etc/docker/daemon.json` across **all 3 primary nodes** (psicopompo, kavure, ybyra):
 
 ```json
 {
@@ -50,31 +41,24 @@ nome de arquivo → a coleta de log de container pararia.
 }
 ```
 
-> No psicopompo o arquivo já existia (data-root, runtimes, builder) e foi **mesclado**
-> via `jq` — nunca sobrescrever. Validar com `dockerd --validate
-> --config-file=/etc/docker/daemon.json`.
+> On psicopompo, existing keys (`data-root`, `runtimes`, `builder`) were merged via `jq` — never overwrite this file wholesale. Validate syntax with `dockerd --validate --config-file=/etc/docker/daemon.json`.
 >
-> ⚠️ A doc avisa: *"Existing containers **don't** use the new logging configuration
-> automatically"* — só containers **novos** herdam. Por isso a camada 2.
+> ⚠️ Docker docs note: *"Existing containers **don't** use the new logging configuration automatically"* — only newly spawned containers inherit daemon changes. Hence Layer 2 is required.
 >
-> 🛑 **Regra de ouro (02/10/2026):** ao editar este `daemon.json`, **nunca adicionar
-> `"live-restore": true`** — os 3 hosts são **nós Swarm** e a chave faz o `dockerd`
-> **recusar a subir** no próximo boot (`failed to start cluster component … incompatible
-> with swarm mode`). Isso deixou o psicopompo 2 dias sem daemon (30/09) e o kavure sem
-> core (02/10). Ver [`AGENTS.md`](../AGENTS.md) §`live-restore` PROIBIDO em host Swarm.
+> 🛑 **Golden Rule (2026-10-02):** When editing `daemon.json`, **never add `"live-restore": true`**. All 3 hosts are **Docker Swarm nodes**, and `live-restore` prevents `dockerd` from booting on system restarts (`failed to start cluster component … incompatible with swarm mode`). See [`AGENTS.md`](../AGENTS.md) § `live-restore` FORBIDDEN on Swarm hosts.
 
-### Camada 2 — por serviço (aplicação imediata, sem restart de daemon)
+### Layer 2 — Per-Service Definitions (Immediate Effect)
 
-`logging:` no compose de cada serviço. Aplicado em:
+Configured via the `logging:` stanza in Compose files:
 
-| Onde | Arquivo | Como aplica |
+| Target | File Path | Deployment Method |
 |---|---|---|
-| Stack de monitoramento (kavure) | `/srv/data/monitoring/compose.yml` | `docker compose up -d` |
+| Monitoring stack (kavure) | `/srv/data/monitoring/compose.yml` | `docker compose up -d` |
 | Node exporter (kavure) | `/srv/data/node-exporter/compose.yml` | `docker compose up -d` |
 | Promtail (psicopompo) | `~/homelab/promtail/compose.yml` | `docker compose up -d` |
-| Serviços do Swarm | `provisioning/stacks/{core,edge,gpu}.yml` | `docker stack deploy` |
+| Swarm services | `provisioning/stacks/{core,edge,gpu}.yml` | `docker stack deploy` |
 
-Exemplo do bloco:
+Example Compose stanza:
 
 ```yaml
     logging:
@@ -84,54 +68,40 @@ Exemplo do bloco:
         max-file: "3"
 ```
 
-## Diagnóstico
+## Diagnostics
 
 ```console
-# Quanto cada log ocupa (o glob precisa expandir como ROOT — use sudo bash -c)
+# Measure disk space consumed per log file (must run with root privileges)
 $ sudo bash -c 'du -b /var/lib/docker/containers/*/*-json.log | sort -nr | head'
 
-# Total
+# Total directory size
 $ sudo du -sh /var/lib/docker/containers
 
-# A rotação está ativa neste container?
+# Check rotation settings on a running container
 $ docker inspect <container> --format '{{.HostConfig.LogConfig.Type}} {{.HostConfig.LogConfig.Config}}'
-# esperado: json-file map[max-file:3 max-size:10m]
+# Expected output: json-file map[max-file:3 max-size:10m]
 ```
 
-**Alívio imediato** (sem parar nada — seguro, o Docker continua escrevendo no mesmo
-inode):
+**Immediate Non-Disruptive Log Truncation** (safe; Docker maintains the active file descriptor):
 
 ```console
 $ sudo truncate -s 0 /var/lib/docker/containers/<id>/<id>-json.log
 ```
 
-## 🐛 Bônus: o promtail NÃO estava coletando log de container (corrigido)
+## 🐛 Promtail Ingestion Fix
 
-Dois defeitos somados, ambos silenciosos (nenhum erro visível):
+Two silent bugs previously prevented Promtail from ingesting container logs:
 
-| Defeito | Estava | Correto |
+| Issue | Previous Incorrect Value | Remediation |
 |---|---|---|
-| **Glob** do `__path__` | `*-log.json` | **`*-json.log`** (é o que o driver `json-file` grava) |
-| **Mount** no psicopompo | `/var/lib/docker/containers` | `/mnt/NVME_PCI/docker-data/containers` (o `data-root` daquele host não é o padrão) |
+| **Path Glob** | `*-log.json` | **`*-json.log`** (the actual naming convention of `json-file`) |
+| **Mount Path** on psicopompo | `/var/lib/docker/containers` | `/mnt/NVME_PCI/docker-data/containers` (custom `data-root` location) |
 
-Corrigidos em `~/homelab/promtail/promtail-config.yml` (psicopompo e kavure) e no
-compose. **Sinal de que funcionou:** o log do promtail mostra
-`msg="tail routine: started"` para vários arquivos.
+Fixed in `~/homelab/promtail/promtail-config.yml` (psicopompo and kavure) and Compose manifests. Promtail logs now show `msg="tail routine: started"` across targets.
 
-> Adicionado também um **volume persistente de `positions`** (`/var/lib/promtail`).
-> Sem ele, **todo recreate do container faz o promtail reler TODO o histórico** dos
-> arquivos — um *replay* enorme, e o Loki rejeita entradas antigas com
-> `400 entry too far behind`.
+> A **persistent positions volume** (`/var/lib/promtail`) was also mounted. Without it, container restarts cause Promtail to re-read all log history from beginning-of-file, triggering Loki rejections with `400 entry too far behind`.
 
-> ⚠️ O compose do promtail no psicopompo era **órfão** (o container existia sem arquivo
-> no repositório, violando a regra `mnemocine/AGENTS.md` #3). Foi reconstruído.
+## See Also
 
-## Ver também
-
-- [`guides/docker-disk-cleanup.md`](docker-disk-cleanup.md) — limpeza de cache/imagens
+- [`guides/docker-disk-cleanup.md`](docker-disk-cleanup.md) — Cache and image pruning
 - [`guides/docker-containerd-cleanup-kavure.md`](docker-containerd-cleanup-kavure.md)
-- Runbook de Swarm/Tailscale (MTU, drift, bind mount) no repo do hub:
-  `docs/swarm-tailscale-troubleshooting.md`
-
----
-Última revisão: **2026-09-29**.

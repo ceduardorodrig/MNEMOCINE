@@ -2,26 +2,25 @@
 tags: [homelab, service, crafty, gaming, kavure]
 ---
 
-# Dominium — Lista de Mods
+# Dominium — Mod Catalog & Parity Matrix
 
-**Servidor:** Fabric 1.21.1 (Fabric Loader **0.19.5**) | **Gerenciado por:** Crafty Controller no kavure
-**Cliente:** Prism Launcher — instância `Dominium` (psicopompo)
-**Atualizado:** 06/10/2026 (sync completo cliente → servidor)
+**Server Platform:** Fabric 1.21.1 (Fabric Loader **0.19.5**) | **Managed via:** Crafty Controller 4 on kavure  
+**Client Platform:** Prism Launcher — `Dominium` instance (psicopompo)  
+**Last Verified:** 2026-10-06 (Complete client-to-server sync)  
 
-- **Total no cliente:** 111 jars
-- **Total no servidor:** 102 jars
-- **Compartilhados:** 77 — todos em **versões idênticas** (paridade cliente ↔ servidor)
-- **Apenas cliente:** 33 (`environment: client` ou client-only na prática)
-- **Apenas servidor:** 23 (server-only)
+- **Total Client JARs:** 111 JARs  
+- **Total Server JARs:** 102 JARs  
+- **Shared Mods:** 77 — all matching identical release versions (client ↔ server parity)  
+- **Client-Only Mods:** 33 (`environment: client` or practical client-only dependencies)  
+- **Server-Only Mods:** 23 (`environment: server` or server utilities)  
 
-> O pareamento é feito por **`id` do `fabric.mod.json`** (estável entre versões), nunca por nome de arquivo.
-> Fluxo de atualização e scripts: ver [[dominium-permissions]]. Canal packwiz/GitHub Pages está **morto (404)** — ver [[crafty]].
+> Parity is maintained by mapping the **`id` field in `fabric.mod.json`** (stable across releases), rather than matching arbitrary file naming schemes.
 
 ---
 
-## Compartilhados (cliente + servidor) — 77
+## Shared Mods (Client + Server) — 77
 
-| Mod (id) | Versão | Arquivo |
+| Mod (ID) | Version | Filename |
 |---|---|---|
 | `animal_feeding_trough` | 1.1.2+1.21.1 | animal_feeding_trough-1.1.2+1.21.1.jar |
 | `another_furniture` | 4.0.2 | another_furniture-fabric-4.0.2.jar |
@@ -103,9 +102,9 @@ tags: [homelab, service, crafty, gaming, kavure]
 
 ---
 
-## Apenas cliente — 33
+## Client-Only Mods — 33
 
-| Mod (id) | environment | Versão | Arquivo |
+| Mod (ID) | Environment | Version | Filename |
 |---|---|---|---|
 | `appleskin` | * | 3.0.6+mc1.21 | appleskin-fabric-mc1.21-3.0.6.jar |
 | `atmosfera` | client | 2.7.2+mc1.21.1 | atmosfera-2.7.2+mc1.21.1.jar |
@@ -143,9 +142,9 @@ tags: [homelab, service, crafty, gaming, kavure]
 
 ---
 
-## Apenas servidor — 23
+## Server-Only Mods — 23
 
-| Mod (id) | environment | Versão | Arquivo |
+| Mod (ID) | Environment | Version | Filename |
 |---|---|---|---|
 | `additionalstructures` | * | 5.1.0-fabric | AdditionalStructures-1.21.x-(v.5.1.0-fabric).jar |
 | `almanac` | * | 1.5.2 | Almanac-1.21.1-2-fabric-1.5.2.jar |
@@ -170,13 +169,3 @@ tags: [homelab, service, crafty, gaming, kavure]
 | `styledchat` | * | 2.6.1+1.21 | styled-chat-2.6.1+1.21.jar |
 | `t_and_t` | * | 1.13.7 | t_and_t-neoforge-fabric-1.13.7+1.21.1.jar |
 | `vanilla-permissions` | * | 0.3.3+1.21.1 | vanilla-permissions-0.3.3+1.21.1.jar |
-
----
-
-## Notas
-
-- `armor_model_api` foi **adicionado ao servidor** em 06/10/2026: passou a ser requisito obrigatório de `archers`/`paladins`/`rogues`/`wizards` 3.1.3 (RPG Series, `server=required`). Ele depende de `fabric-rendering-v1` (módulo `client` do fabric-api) — o Fabric aceita a dependência e simplesmente não inicializa esse módulo no servidor.
-- `DistantHorizons` aparece como compartilhado; no servidor o id de wrapper era `dh-api` (por isso a troca 3.2.0 → 3.3.3 foi tratada à parte).
-- Mods `environment: client` presentes no servidor foram removidos no sync (`libIPN`, `reflex`) e os 118 `.pw.toml` soltos da pasta `mods/` também.
-- Versões server-only (ex.: `collective`, `cristellib`, `Geophilic`, `servercore`) podem estar atrás do pack antigo — não têm contraparte no cliente e não foram tocadas.
-- `chunky` foi **removido** em 06/10/2026 (server-only, sem dependentes, sem uso — o DH 3.3.3 tem pregen próprio com `/dh pregen`). Era ele que gerava o erro benigno `Chunky is not loaded` na integração com o DH. Backup em `pre-update/20261006/server/mods/`; aplicado no restart de 06/10 18:10 (102 jars, 256 mods, zero erro de Chunky).

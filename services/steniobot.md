@@ -4,160 +4,156 @@ tags: [homelab, service, steniobot, docker, env, ssl]
 
 # StênioBOT
 
-Bot de relatoria com IA para reuniões institucionais.
+AI-powered minute-taking, transcription, and meeting summarization bot for institutional governance.
 
-**Servidor:** kavure (Swarm manager, role: core) — migrado do psicopompo em 07/08/2026
-**Stack:** `sae-core` (Docker Swarm) no kavure; GPU workers no psicopompo (role: gpu)
-**Porta:** `9090` — **somente na overlay `sae-net`** (VIP `10.0.2.20:9090`). **Não é publicada no host**: verificado em 02/10/2026 (`docker service inspect sae-core_api` → `Endpoint.Ports: null`; `ss -ltn` no kavure sem 9090; `curl 100.124.146.77:9090` → sem conexão)
-**URL interna (caminho real):** `http://api:9090` (overlay `sae-net`)
-~~**URL Tailscale:** `http://100.124.146.77:9090`~~ — **não existe mais**; alcançar pela borda: `http://ybyra.chimaera-heptatonic.ts.net/api/health` (**200** verificado 02/10/2026)
-**Funnel:** `{{TAILSCALE_FUNNEL_DOMAIN}}` → `https` (via tunnel no ybyra)
+**Server:** kavure (Swarm manager, role: core) — migrated from psicopompo on 07/08/2026  
+**Stack:** `sae-core` (Docker Swarm) on kavure; GPU workers on psicopompo (role: gpu)  
+**Port:** `9090` — **Overlay `sae-net` only** (VIP `10.0.2.20:9090`). **Not published on host**: verified 02/10/2026 (`docker service inspect sae-core_api` → `Endpoint.Ports: null`; `ss -ltn` on kavure lacks 9090; `curl 100.124.146.77:9090` → connection refused)  
+**Internal URL:** `http://api:9090` (inside `sae-net` overlay)  
+~~**Tailscale Direct URL:** `http://100.124.146.77:9090`~~ — **Deprecated/decommissioned**; reached via edge reverse proxy: `http://ybyra.chimaera-heptatonic.ts.net/api/health` (**200** verified 02/10/2026)  
+**Funnel:** `{{TAILSCALE_FUNNEL_DOMAIN}}` → `https` (via edge tunnel on ybyra)  
 
 ## Stack (Docker Swarm)
 
-| Service | Imagem | Portas | Função |
+| Service | Image | Ports | Function |
 |---|---|---|---|
-| sae-core_api | sumaenima-server:latest | **`—`** (só overlay; VIP `10.0.2.20:9090` — *não* publicado no host) | Aplicação Rust Axum 0.8 + React 19 WASM Client |
-| sae-core_db | postgres:16-alpine | — | Banco de dados principal |
-| sae-core_valkey | valkey/valkey:8-alpine | — | Cache distribuído + sessão |
-| sae-core_backup | sumaenimahub-backup-sentinel:latest | `0.0.0.0:9092` | Backup automático (Borg + pg_dump) |
+| sae-core_api | sumaenima-server:latest | **`—`** (overlay only; VIP `10.0.2.20:9090` — *not* published on host) | Rust Axum 0.8 backend + React 19 WASM Client |
+| sae-core_db | postgres:16-alpine | — | Primary relational database |
+| sae-core_valkey | valkey/valkey:8-alpine | — | Distributed cache + session store |
+| sae-core_backup | sumaenimahub-backup-sentinel:latest | `0.0.0.0:9092` | Automated backup daemon (Borg + pg_dump) |
 
-### Containers Avulsos (fora do Swarm, na rede overlay)
+### Standalone Containers (Outside Swarm, attached to overlay network)
 
-| Container | Função |
+| Container | Function |
 |---|---|
-| steniobot_vision | Serviço de visão computacional (overlay) |
-| steniobot_audio | Serviço de áudio/transcrição (overlay) |
+| steniobot_vision | Computer vision service (overlay attached) |
+| steniobot_audio | Audio processing and transcription bridge (overlay attached) |
 
-## Volumes
+## Storage & Volumes
 
-### Volumes (kavure — bind mounts em /srv/data/sumaenimahub/)
+### Kavure Volumes (Bind Mounts under /srv/data/sumaenimahub/)
 
-| Volume/Dir | Container | Persiste |
+| Volume / Path | Container | Stored Data |
 |---|---|---|
-| `/srv/data/sumaenimahub/volumes/sumaenimahub_postgres_data/_data` | sae-core_db | Dados PostgreSQL |
-| `/srv/data/sumaenimahub/volumes/sumaenimahub_umami_data/_data` | sae-core_umami-db | Dados Umami |
-| `/srv/data/sumaenimahub/volumes/sumaenimahub_valkey_data/_data` | sae-core_valkey | Cache Valkey |
-| `/srv/data/sumaenimahub/backup` | sae-core_backup | Backup NFS → psicopompo `/mnt/BACKUP/sumaenima-server-kavure/` |
+| `/srv/data/sumaenimahub/volumes/sumaenimahub_postgres_data/_data` | sae-core_db | PostgreSQL storage |
+| `/srv/data/sumaenimahub/volumes/sumaenimahub_umami_data/_data` | sae-core_umami-db | Umami analytics storage |
+| `/srv/data/sumaenimahub/volumes/sumaenimahub_valkey_data/_data` | sae-core_valkey | Valkey cache persistence |
+| `/srv/data/sumaenimahub/backup` | sae-core_backup | NFS backup target → psicopompo `/mnt/BACKUP/sumaenima-server-kavure/` |
 
-### Bind mounts (kavure)
+### Bind Mounts (kavure)
 
-| Host (kavure) | Container | Finalidade |
+| Host (kavure) | Container | Target |
 |---|---|---|
-| `/srv/data/sumaenimahub/SUMAENIMA-HUB/app` | `/app` | Código |
-| `/srv/data/sumaenimahub/SUMAENIMA-HUB/logs` | `/app/logs` | Logs da aplicação |
-| `/srv/data/sumaenimahub/SUMAENIMA-HUB/migrations` | `/app/migrations:ro` | Scripts Alembic |
+| `/srv/data/sumaenimahub/SUMAENIMA-HUB/app` | `/app` | Application code |
+| `/srv/data/sumaenimahub/SUMAENIMA-HUB/logs` | `/app/logs` | Application logs |
+| `/srv/data/sumaenimahub/SUMAENIMA-HUB/migrations` | `/app/migrations:ro` | Database migration scripts |
 
-> O cache de modelos LLM (`llm_model_cache`, ~36G) vive **no psicopompo** (GPU workers montam local) — o kavure NÃO o monta. A API usa embeddings ONNX baixados sob demanda.
+> LLM model cache (`llm_model_cache`, ~36GB) lives **on psicopompo** (mounted locally by GPU workers) — kavure does NOT mount it. The API utilizes lightweight ONNX embeddings downloaded on demand.
 
-## Variáveis de Ambiente Essenciais
+## Core Environment Variables
 
-| Variável | Descrição |
+| Variable | Description |
 |---|---|
 | `DATABASE_URL` | `postgresql://stenio_user:{{DB_PASSWORD}}@db:5432/stenio_db` |
-| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | OAuth Google |
-| `GOOGLE_REDIRECT_URI` | Callback OAuth (ex: `https://{{TAILSCALE_FUNNEL_DOMAIN}}/api/auth/callback`) |
-| `STENIOBOT_OWNER_EMAIL` | Conta admin (bypass de tokens — configurar via .env) |
-| `SECRET_KEY` | Chave mestra Fernet |
-| `SECURE_COOKIES` | `true` em produção (HTTPS) |
-| `ALLOWED_WS_ORIGINS` | Origens permitidas para WebSocket/CSRF |
+| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | Google OAuth credentials |
+| `GOOGLE_REDIRECT_URI` | OAuth callback endpoint (e.g. `https://{{TAILSCALE_FUNNEL_DOMAIN}}/api/auth/callback`) |
+| `STENIOBOT_OWNER_EMAIL` | Admin account bypass token |
+| `SECRET_KEY` | Master Fernet encryption key |
+| `SECURE_COOKIES` | `true` in production (HTTPS) |
+| `ALLOWED_WS_ORIGINS` | Permitted origins for WebSocket & CSRF verification |
 | `VALKEY_URL` | `redis://valkey:6379/0` |
-| `HF_TOKEN` | Token Hugging Face (download Gemma 3) |
+| `HF_TOKEN` | Hugging Face token (Gemma 3 retrieval) |
 | `PURIFIER_TYPE` | `gemma` (default), `rtx`, `mock` |
-| `USE_LLM` | Habilita purificação LLM |
+| `USE_LLM` | Enables LLM transcript purification |
 
-> Template completo: `docs/environment.md` no repo original.
+> Comprehensive template: `docs/environment.md` in upstream repository.
 
-## Controle local (sumaenima-ctl)
+## Local Control (sumaenima-ctl)
 
-Os GPU workers e Swarm services do SUMAENIMA **não iniciam automaticamente** com o sistema.
-Para controlar manualmente (o `sumaenima-ctl` roda no psicopompo e acessa o Swarm do kavure via SSH):
+SUMAENIMA GPU workers and Swarm services do **not start automatically** at boot.
+To manage services manually (`sumaenima-ctl` runs on psicopompo and manages kavure Swarm via SSH):
 
 ```bash
-sumaenima-ctl status   # Ver estado atual (Swarm no kavure + GPU local)
-sumaenima-ctl start    # Ligar Swarm services (kavure) + GPU workers (psicopompo)
-sumaenima-ctl stop     # Desligar tudo (scale Swarm to 0, down GPU workers)
+sumaenima-ctl status   # View current state (kavure Swarm + local GPU)
+sumaenima-ctl start    # Spin up Swarm services (kavure) + GPU workers (psicopompo)
+sumaenima-ctl stop     # Tear down everything (scale Swarm to 0, down GPU workers)
 ```
 
-O script está em `~/.local/bin/sumaenima-ctl` (já no PATH).
+Script path: `~/.local/bin/sumaenima-ctl` (in PATH).
 
-### O que não inicia automaticamente
+### Auto-start Exceptions
 
-- Swarm services `sae-core_*` / `sae-edge_*` → `replicas: 0` até `sumaenima-ctl start`
-- GPU workers (steniobot-vision, steniobot-audio, ollama) → `restart: no` (auto-exit por idle 180s p/ liberar VRAM)
+- Swarm services `sae-core_*` / `sae-edge_*` → `replicas: 0` until `sumaenima-ctl start`
+- GPU workers (steniobot-vision, steniobot-audio, ollama) → `restart: no` (auto-exit after 180s idle to release VRAM)
 
-### Para religar quando necessário
+## GPU Acceleration
 
-Peça no chat para um agente executar `sumaenima-ctl start`.
+- **Runtime:** NVIDIA Container Toolkit (on psicopompo)
+- **CUDA:** 12.2.2 (base container image)
+- **Minimum VRAM:** 6 GB (12 GB+ recommended)
+- **Models:** faster-whisper (transcription) + Gemma 3 1B (LLM purification) — model cache persisted on psicopompo
 
-## GPU
+## Access Routes
 
-- **Runtime:** NVIDIA Container Toolkit (no psicopompo)
-- **CUDA:** 12.2.2 (imagem base)
-- **VRAM mínima:** 6 GB (recomendado 12 GB+)
-- **Modelos:** faster-whisper (transcrição) + Gemma 3 1B (purificação LLM) — cache vive no psicopompo
-
-## Acesso
-
-| Tipo | URL |
+| Route | URL |
 |---|---|
-| Overlay Swarm (outros serviços) | `http://api:9090` ✅ |
-| ~~Tailscale (interno, kavure)~~ | ~~`http://100.124.146.77:9090`~~ **não publicado no host** (02/10/2026) |
-| Proxy Ybyra (borda externa) | `http://{{SUMAENIMA_DOMAIN}}/api/` ✅ |
-| Funnel (público) | `https://{{TAILSCALE_FUNNEL_DOMAIN}}` |
-| **Health check (canônico)** | `http://ybyra.chimaera-heptatonic.ts.net/api/health` → **200** (backup: `:9092/health` do sentinel) |
-| ~~Health check antigo~~ | ~~`http://100.124.146.77:9090/api/health`~~ — **probe quebrado** (monitor #50 do Uptime Kuma; ver [`network/topology.md`](../network/topology.md)) |
-| API docs (Swagger) | via borda: `…/api/docs` (não há `:9090/docs` direto) |
+| Swarm Overlay (Internal) | `http://api:9090` ✅ |
+| ~~Tailscale Direct (kavure)~~ | ~~`http://100.124.146.77:9090`~~ **Not published on host** (02/10/2026) |
+| Ybyra Proxy (External Edge) | `http://{{SUMAENIMA_DOMAIN}}/api/` ✅ |
+| Tailscale Funnel (Public) | `https://{{TAILSCALE_FUNNEL_DOMAIN}}` |
+| **Canonical Health Check** | `http://ybyra.chimaera-heptatonic.ts.net/api/health` → **200** (backup: `:9092/health` via sentinel) |
+| API Documentation (Swagger) | Via edge route: `…/api/docs` (direct `:9090/docs` unexposed) |
 
-## Backup
+## Backup Strategy
 
-| Dado | Método |
+| Asset | Backup Method |
 |---|---|
-| Código + git | Repo principal em `/mnt/NVME_PCI/homelab/sumaenimahub/sumaenima-hub/` (GitHub) + cópia de deploy em `/srv/data/sumaenimahub/SUMAENIMA-HUB/` (kavure) |
-| Banco PostgreSQL | Backup automático diário 03:00 via sentinel (Borg + pg_dump → NFS psicopompo) |
+| Codebase + Git | Primary repository at `/mnt/NVME_PCI/homelab/sumaenimahub/sumaenima-hub/` (GitHub) + deploy clone at `/srv/data/sumaenimahub/SUMAENIMA-HUB/` (kavure) |
+| PostgreSQL Database | Daily automated backup at 03:00 via sentinel daemon (Borg + pg_dump → psicopompo NFS) |
 
-> **Como roda (29/08/2026):** systemd timer `hl-sumaenima-backup.timer` (kavure) → `/usr/local/bin/sumaenima-backup` (failsafe/retry/ntfy `/backup`) → `docker exec sae-core_backup python3 /app/scripts/backup/sentinel.py`. Marcador `/app/logs/.backup_last_run` tocado pelo host (root); health file `/srv/health/sumaenima-backup-last-ok` (coberto pelo alerta `BackupNotRun` do Grafana via textfile collector). O crond interno do container foi **removido em 29/08** (a imagem roda como `appuser` desde v2.22.0 e não lia `/etc/crontabs/root`).
-| Logs | Bind mount em `./logs/` — backup manual |
-| .env | No repo (kavure `/srv/data/sumaenimahub/SUMAENIMA-HUB/.env` + psicopompo) |
-| Modelos cache | No psicopompo (`llm_model_cache`) — pode ser baixado novamente (`{{HF_TOKEN}}`) |
+> **Execution Workflow (29/08/2026):** Systemd timer `hl-sumaenima-backup.timer` (kavure) → `/usr/local/bin/sumaenima-backup` (failsafe/retry/ntfy `/backup`) → `docker exec sae-core_backup python3 /app/scripts/backup/sentinel.py`. Marker `/app/logs/.backup_last_run` updated by host root; health stamp written to `/srv/health/sumaenima-backup-last-ok` (tracked by Grafana `BackupNotRun` alert). Container-internal crond was **removed on 29/08** (image runs as non-root `appuser` since v2.22.0).
 
-## Recovery
-
-1. Clonar repo: `git clone https://github.com/ceduardorodrig/SUMAENIMA-HUB.git`
-2. Copiar `.env` do backup (ou usar `.env.template` como base)
-3. Exportar env vars: `export $(grep -v '^#' .env | xargs)`
-4. Deploy stack (no kavure): `docker stack deploy -c provisioning/stacks/core.yml sae-core`
-5. Migrations: `docker exec $(docker ps --filter name=sae-core_api -q) python3 -m alembic upgrade head`
-6. Verificar health: `curl http://100.124.146.77:9090/api/health`
-7. GPU workers (psicopompo): `sumaenima-ctl start`
-
-> Recovery detalhado: `docs/deployment.md` no repo original (seções "Proteção de dados em renomeação de pasta" e "Recovery de volume órfão").
-
-## Documentação Canônica
-
-A documentação detalhada da stack de relatoria e transcrição reside no repositório **Sumænimá Hub** (`docs/`):
-
-| Módulo / Guia | Conteúdo |
+| Asset | Storage |
 |---|---|
-| `deployment.md` | Deploy, migrações, recovery, checklist |
-| `environment.md` | Variáveis de ambiente e segredos SOPS |
-| `connectivity.md` | Conectividade Tailscale, Funnel e balanceamento |
-| `observability.md` | Métricas Prometheus, Loki/Grafana, logs JSON |
-| `security.md` | Matriz de segurança e isolamento de dados |
-| `ci-github.md` | Workflows CI/CD GitHub Actions |
-| `alembic-workflow.md` | Migrações e versionamento de banco |
-| `architecture.md` | Arquitetura v3.0 (100% Rust backend Axum) |
+| Application Logs | Bind mount in `./logs/` |
+| `.env` Configuration | In repository root (kavure `/srv/data/sumaenimahub/SUMAENIMA-HUB/.env` + psicopompo) |
+| Model Cache | Persisted on psicopompo (`llm_model_cache`) — can be re-fetched via Hugging Face token |
 
-## Dependências
+## Recovery Runbook
 
-- Docker Swarm (manager: kavure) + Docker Compose v2 (GPU workers no psicopompo)
+1. Clone repository: `git clone https://github.com/ceduardorodrig/SUMAENIMA-HUB.git`
+2. Decrypt environment: Extract `.env` from sops store
+3. Load variables: `export $(grep -v '^#' .env | xargs)`
+4. Deploy Swarm stack (on kavure): `docker stack deploy -c provisioning/stacks/core.yml sae-core`
+5. Run migrations: `docker exec $(docker ps --filter name=sae-core_api -q) python3 -m alembic upgrade head`
+6. Verify service health: `curl http://ybyra.chimaera-heptatonic.ts.net/api/health`
+7. Spin up GPU workers (psicopompo): `sumaenima-ctl start`
+
+## Canonical Architecture Documentation
+
+Upstream documentation for transcription and minute-taking resides in **Sumænimá Hub** repository (`docs/`):
+
+| Guide | Scope |
+|---|---|
+| `deployment.md` | Deployment, migrations, recovery runbook, checklists |
+| `environment.md` | Environment configuration & SOPS secret handling |
+| `connectivity.md` | Tailscale routing, Funnel, and load balancing |
+| `observability.md` | Prometheus metrics, Loki/Grafana, JSON structured logging |
+| `security.md` | Security boundary matrix and tenant data isolation |
+| `ci-github.md` | GitHub Actions CI/CD pipeline automation |
+| `alembic-workflow.md` | Database migrations and schema versioning |
+| `architecture.md` | v3.0 Architecture (100% Rust Axum backend) |
+
+## Dependencies
+
+- Docker Swarm (manager: kavure) + Docker Compose v2 (GPU workers on psicopompo)
 - NVIDIA Container Toolkit (psicopompo)
-- Tailscale (Funnel para acesso público — tunnel no ybyra)
-- PostgreSQL 16 (app) + PostgreSQL 15 (Umami) — no kavure
-- Valkey 8 (cache) — no kavure
+- Tailscale (Funnel for public ingress — tunnel termination on ybyra)
+- PostgreSQL 16 (core app) + PostgreSQL 15 (Umami analytics) — kavure
+- Valkey 8 (cache) — kavure
 
 ## See also
-- [[kavure]] — Core do Swarm onde a stack roda
-- [[kavure-disaster-recovery]] — Recovery do servidor core
-- [[psicopompo]] — GPU workers + build-node
-- [[adguard-home]] — DNS
+- [[kavure]] — Swarm core manager hosting the application stack
+- [[kavure-disaster-recovery]] — Core node disaster recovery runbook
+- [[psicopompo]] — GPU inference worker and build host
+- [[adguard-home]] — Local DNS resolution

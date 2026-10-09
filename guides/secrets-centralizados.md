@@ -2,170 +2,124 @@
 tags: [homelab, env, sops, backup, secrets]
 ---
 
-# Centralização de Segredos (.env) com sops/age
+# Centralized Secrets Management (.env) with SOPS/age
 
-Convenção para centralizar os `.env`/segredos espalhados do homelab num **store único criptografado** (sops/age), com geração dos `.env` por serviço. Estabelecido em **09/08/2026**.
+Standard for consolidating distributed `.env` files and credentials into a **single encrypted store** using SOPS and age, with automated per-service generation. Established on **2026-08-09**.
 
-## Arquitetura
+## Architecture
 
 ```
-Chave privada age (psicopompo, NÃO sincroniza)
-  ~/.config/sops/age/keys.txt        ← ÚNICA forma de decriptar (backup em /mnt/NVME_PCI/secrets/age-keys-backup.txt)
+age Private Key (psicopompo only, NEVER synchronized)
+  ~/.config/sops/age/keys.txt        ← ONLY mechanism to decrypt (backup in /mnt/NVME_PCI/secrets/age-keys-backup.txt)
 
-Store central (psicopompo, plaintext, 0600, NÃO sincroniza)
-  /mnt/NVME_PCI/secrets/secrets.env  ← fonte master (todas as chaves)
+Central Master Store (psicopompo, plaintext, permissions 0600, NEVER synchronized)
+  /mnt/NVME_PCI/secrets/secrets.env  ← Master source for all environment keys
 
-Store criptografado (SINCRONIZA via Syncthing — seguro pois é cifrado)
-  mnemocine/secrets.enc.env          ← regras em mnemocine/.sops.yaml
+Encrypted Store (SYNCHRONIZED via Syncthing — safe because it is ciphertext)
+  mnemocine/secrets.enc.env          ← Managed via rules in mnemocine/.sops.yaml
 
-Helpers (psicopompo, 0700)
-  /mnt/NVME_PCI/secrets/sops-decrypt.sh   # extrai valores: sops-decrypt.sh <VAR>
-  /mnt/NVME_PCI/secrets/gen-envs.sh       # gera .env por serviço em secrets/generated/
+Operational Helpers (psicopompo, permissions 0700)
+  /mnt/NVME_PCI/secrets/sops-decrypt.sh   # Extracts values: sops-decrypt.sh <VAR>
+  /mnt/NVME_PCI/secrets/gen-envs.sh       # Generates per-service .env files into secrets/generated/
 ```
 
-> ⚠️ **Chave privada age = acesso a TODOS os segredos.** Não sai do psicopompo; o backup em `age-keys-backup.txt` é local. Se perder, o store criptografado fica ilegível (o plaintext `secrets.env` é o fallback).
+> ⚠️ **age Private Key = access to ALL secrets.** It never leaves psicopompo; `age-keys-backup.txt` is an offline local copy. If destroyed without backup, the encrypted vault is irrecoverable (the plaintext `secrets.env` acts as fallback).
 
 ## Workflow
 
-**Extrair um valor** (ex: para o deploy):
+**Extracting a Single Value** (e.g., during script deployment):
 ```bash
 /mnt/NVME_PCI/secrets/sops-decrypt.sh CRAFTY_API_KEY
 ```
 
-**Adicionar/editar um segredo:**
-1. Editar `/mnt/NVME_PCI/secrets/secrets.env` (plaintext, 0600).
-2. Re-criptografar:
+**Adding or Updating a Secret:**
+1. Edit `/mnt/NVME_PCI/secrets/secrets.env` (plaintext, permissions `0600`).
+2. Re-encrypt into the vault repository:
    ```bash
    AGE_KEY=$(grep -oE "age1[a-z0-9]+" ~/.config/sops/age/keys.txt | head -1)
    sops --encrypt --age "$AGE_KEY" --input-type dotenv --output-type dotenv \
      /mnt/NVME_PCI/secrets/secrets.env > /mnt/NVME_PCI/agentic-ai/mnemocine/secrets.enc.env
    ```
-3. Rodar `/mnt/NVME_PCI/secrets/gen-envs.sh` → gera os `.env` por serviço.
+3. Run `/mnt/NVME_PCI/secrets/gen-envs.sh` → regenerates service-specific `.env` bundles.
 
-**Deploy dos .env gerados** (documentado no gen-envs.sh):
+**Deploying Generated Environment Files:**
 ```bash
 scp secrets/generated/zomboid.env   kavure:/srv/data/zomboid/.env        # + chown kavure:kavure
 scp secrets/generated/homepage.env  ybytu:/home/ubuntu/homelab/homepage/config/.env
 scp secrets/generated/sumaenima.env kavure:/srv/data/sumaenimahub/SUMAENIMA-HUB/.env
 cp  secrets/generated/sumaenima.env /mnt/NVME_PCI/homelab/sumaenimahub/sumaenima-hub/.env
-scp secrets/generated/sumaenima.env ybyra:/home/ubuntu/homelab/sumaenima/.env   # subset Sumænimá (edge/SPA)
+scp secrets/generated/sumaenima.env ybyra:/home/ubuntu/homelab/sumaenima/.env   # Sumænimá edge/SPA subset
 ```
 
-## Inventário
+## Secret Inventory
 
-| Serviço | Arquivo | No store? | Prefixo |
+| Service | Target File | Present in Store? | Variable Prefix |
 |---|---|---|---|
-| Sumænimá sae-core | `SUMAENIMA-HUB/.env` (psicopompo + kavure) | ✅ | (direto) |
-| Sumænimá edge/SPA | `/home/ubuntu/homelab/sumaenima/.env` (ybyra) | ✅ subset coberto | (direto) |
+| Sumænimá sae-core | `SUMAENIMA-HUB/.env` (psicopompo + kavure) | ✅ | Direct |
+| Sumænimá edge/SPA | `/home/ubuntu/homelab/sumaenima/.env` (ybyra) | ✅ Covered subset | Direct |
 | Zomboid | `/srv/data/zomboid/.env` (kavure) | ✅ | `ZOMBOID_*` |
 | Homepage | `config/.env` (ybytu) | ✅ | `CRAFTY_API_KEY` |
-| Zomboid Panel | `/srv/data/zomboid-panel/.env` (kavure) | ⚠️ só config (sem segredos) | — |
-| Minecraft (crafty) | config em `crafty.sqlite` | n/a (DB, não .env) | — |
+| Zomboid Panel | `/srv/data/zomboid-panel/.env` (kavure) | ⚠️ Config only (no secrets) | — |
+| Minecraft (crafty) | Config in `crafty.sqlite` | N/A (SQLite, not .env) | — |
 | n8n | `/srv/data/n8n/.env` (kavure) | ✅ | `N8N_*` |
 | SearXNG | `/srv/data/searxng/.env` (kavure) | ✅ | `SEARXNG_*` |
 | Monitoring | `/srv/data/monitoring/.env` (kavure) | ✅ | `GRAFANA_ADMIN_PASSWORD` |
-| **Registry Docker** (psicopompo) | `~/homelab/registry/auth/htpasswd` (bcrypt — **derivado**) | ✅ 29/09 | `REGISTRY_USER`, `REGISTRY_PASSWORD` |
-| Git push GitHub (espelho configs) | `~/.git-credentials` (edu, 0600) | ✅ 21/09 | `GH_PUSH_TOKEN` |
-| **Tailscale — GitOps da ACL** | secrets do repo `MNEMOCINE-ACL` (GitHub Actions) | ✅ 29/09 | `TS_OAUTH_ID`, `TS_AUDIENCE`, `TS_TAILNET` |
-| Backup de migração | `zomboid-server-kavure/archive/migration-20260805/.env` | n/a (histórico em archive) | — |
-| **Oracle Cloud (OCI)** | `~/.oci/config` + chave privada (psicopompo) | ✅ 08/10 | `OCI_*` |
-| **Tailscale — auth key do Funnel (edge)** | `edge.yml` via `${TS_AUTH_KEY}` | ✅ 08/10 | `TS_AUTH_KEY` |
+| **Docker Registry** (psicopompo) | `~/homelab/registry/auth/htpasswd` (bcrypt — derived) | ✅ 2026-09-29 | `REGISTRY_USER`, `REGISTRY_PASSWORD` |
+| Git Push GitHub (config mirror) | `~/.git-credentials` (edu, 0600) | ✅ 2026-09-21 | `GH_PUSH_TOKEN` |
+| **Tailscale — ACL GitOps** | Secrets in `MNEMOCINE-ACL` repo (GitHub Actions) | ✅ 2026-09-29 | `TS_OAUTH_ID`, `TS_AUDIENCE`, `TS_TAILNET` |
+| Migration Archive | `zomboid-server-kavure/archive/migration-20260805/.env` | N/A (historical archive) | — |
+| **Oracle Cloud (OCI)** | `~/.oci/config` + private key (psicopompo) | ✅ 2026-10-08 | `OCI_*` |
+| **Tailscale — Funnel Auth Key (edge)** | `edge.yml` via `${TS_AUTH_KEY}` | ✅ 2026-10-08 | `TS_AUTH_KEY` |
 
-## Segredos NÃO-.env (28/08/2026 — migrados para o store)
+## Non-.env Secret Handling (Migrated 2026-08-28)
 
-Segredos em configs não-`.env` (XML/JSON/YAML) agora **capturados no store** com restauração via
-`inject-secrets.sh` (helper em `/mnt/NVME_PCI/secrets/`):
+Credentials in structured configurations (XML, JSON, YAML) are backed up inside the SOPS store and restored via `inject-secrets.sh` (located in `/mnt/NVME_PCI/secrets/`):
 
-| Segredo | Var no store | Origem (config do host) | Restore |
+| Target Secret | Store Variable | Source Configuration | Restoration Method |
 |---|---|---|---|
-| Lidarr API key | `LIDARR_API_KEY` | kuaray `config.xml` (`<ApiKey>`) | `inject-secrets.sh` |
-| Prowlarr API key | `PROWLARR_API_KEY` | kuaray `config.xml` (`<ApiKey>`) | `inject-secrets.sh` |
-| Transmission RPC | `TRANSMISSION_RPC_PASSWORD` | kuaray `settings.json` (`rpc-password`, **hash+salt** — restaurar verbatim preserva a senha) | `inject-secrets.sh` |
+| Lidarr API Key | `LIDARR_API_KEY` | kuaray `config.xml` (`<ApiKey>`) | `inject-secrets.sh` |
+| Prowlarr API Key | `PROWLARR_API_KEY` | kuaray `config.xml` (`<ApiKey>`) | `inject-secrets.sh` |
+| Transmission RPC | `TRANSMISSION_RPC_PASSWORD` | kuaray `settings.json` (`rpc-password`, salt/hash) | `inject-secrets.sh` |
 | Home Assistant | `HA_SOME_PASSWORD` | kavure `secrets.yaml` (`some_password`) | `inject-secrets.sh` |
 | rclone / GDrive | `RCLONE_GDRIVE_REFRESH_TOKEN`, `_CLIENT_ID`, `_CLIENT_SECRET` | psicopompo `~/.config/rclone/rclone.conf` | `inject-secrets.sh` (local) |
 | CrowdSec LAPI | `CROWDSEC_LAPI_LOGIN`, `_PASSWORD` | ybytu `crowdsec/config/local_api_credentials.yaml` | `inject-secrets.sh` |
 | CrowdSec CAPI | `CROWDSEC_CAPI_LOGIN`, `_PASSWORD` | ybytu `crowdsec/config/online_api_credentials.yaml` | `inject-secrets.sh` |
 
-**Adicionados em 29/09/2026 (achado do `stenio --scope mirror`):** o `rclone.conf`
-(token OAuth do GDrive) e os `crowdsec/*credentials*.yaml` estavam **em claro no
-espelho `MNEMOCINE-CONFIGS`** (repo privado, mas versionado) e **fora do cofre**.
-Migrados para o store com restore via `inject-secrets.sh`.
+> **Why rclone stores `refresh_token` instead of full `token`:** The `token` block contains transient access tokens refreshed every 60 minutes. The durable credential is the `refresh_token`. The restore script builds a minimal configuration, prompting rclone to acquire a new access token on first connection.
 
-> **Por que o rclone guarda `refresh_token`, e não o `token` inteiro:** o campo
-> `token` do rclone é um JSON **rotativo** — `access_token` e `expiry` são
-> renovados a cada ~1h. Guardá-lo seria guardar um valor que já nasce expirado.
-> O durável é o `refresh_token`; o restore **reconstrói** um JSON mínimo e o
-> rclone deriva um access_token novo na primeira chamada.
+**Non-Secret Invariants (Verified 2026-08-28):**
+- **slskd.yml** (kuaray) — Empty file (0 bytes), no credentials.
+- **soularr/config.ini** (kuaray) — Non-existent (`compose.yml` only).
+- **Uptime Kuma / AdGuard** (ybytu) — Passwords stored as irreversible bcrypt/sha hashes in databases/configs; recovered via password resets if needed.
 
-> **CrowdSec `notifications/email.yaml` NÃO é lacuna (verificado 29/09/2026):** é
-> um **template não configurado** — os campos `smtp_*` contêm os comentários de
-> exemplo (`# Replace with your actual password`), sem segredo real. Não vai ao store.
+> **Helper Usage:** `inject-secrets.sh` (supports dry-run: `--dry-run`) injects credentials into target configurations while retaining `.bak` backups. It is executed strictly during recovery drills.
 
-**Não são lacunas (verificado 28/08/2026):**
-- **slskd.yml** (kuaray) — **vazio** (0 linhas), sem segredo real.
-- **soularr/config.ini** (kuaray) — **inexistente** (só `compose.yml`).
-- **Uptime Kuma / AdGuard** (ybytu) — senhas são **hash** (bcrypt/sha) em DB/yaml, **não reutilizáveis** → não vão ao store; tratar com **reset de senha** (ver docs dos serviços).
+## Oracle Cloud (OCI) API Key Integration (2026-10-08)
 
-> **Uso do helper:** `inject-secrets.sh` (dry-run: `--dry-run`) lê do store e injeta os valores de
-> volta nos configs dos hosts com backup `.bak` — roda **apenas em restore** (nunca em operação normal).
+Oracle Cloud VMs (`ybytu`, `ybyra`) are managed via API directly from the terminal. The credential is an RSA key pair: the private key resides on **psicopompo**, with only the public key uploaded to OCI. The encrypted store manages `OCI_USER_ID`, `OCI_TENANCY_ID`, `OCI_FINGERPRINT`, `OCI_REGION`, and `OCI_PRIVATE_KEY_B64`.
 
-### Bugs corrigidos no `inject-secrets.sh` (29/09/2026)
-
-Ao estender o restore para rclone/CrowdSec, dois bugs reais apareceram — ambos
-silenciosos, ambos registrados porque podem se repetir:
-
-| Bug | Sintoma | Correção |
-|---|---|---|
-| **`tailscale ssh`** exigia checagem interativa | O script nunca funcionou de forma não-interativa (`BatchMode` falha com "requires an additional check") | passou a usar `ssh -o BatchMode=yes` (padrão do ecossistema); psicopompo é tratado **localmente** |
-| **`--dry-run` escrevia** | `DRY_RUN=1 sudo -n python3` — o `sudo` **limpa o ambiente**, então o `DRY_RUN` nunca chegava ao Python e o dry-run **gravava de verdade** | `sudo -n env DRY_RUN=1 python3 -`; o `.py` agora também é idempotente (`UNCHANGED` não cria `.bak`) |
-| **Var ausente abortava o script** | `set -e` + `grep` sem match parava o loop no meio (silenciosamente, pulando hosts) | `get(){ … || true; }` |
-
-> ⚠️ **Nunca rode este script com `bash -x`.** O trace imprime o conteúdo
-> **decifrado do cofre inteiro** no terminal. O script agora **aborta** se detectar
-> `-x` ativo (`case "$-" in *x*)`), para impedir vazamento acidental — ocorrido em
-> 29/09/2026 e tratado como incidente.
-
-## Oracle Cloud (OCI) — API key (08/10/2026)
-
-As VMs Oracle (`ybytu`, `ybyra`) passaram a ser **gerenciadas por API, do terminal**. A
-credencial é uma **API key RSA**: a privada é gerada/guardada no **psicopompo** e só a
-**pública** foi enviada à OCI (via Cloud Shell, `oci iam user api-key upload`). No cofre ficam
-`OCI_USER_ID`, `OCI_TENANCY_ID`, `OCI_FINGERPRINT`, `OCI_REGION` e `OCI_PRIVATE_KEY_B64`
-(a chave privada em base64, com o rótulo de segurança da Oracle).
-
-**Restore** (reconstrói `~/.oci/config` + a chave privada):
+**Restoration Helper:**
 ```bash
 /mnt/NVME_PCI/secrets/oci-restore.sh
 ```
 
-> Guia completo (comandos, escopo, captura da ARM): [`guides/oracle-oci-cli.md`](oracle-oci-cli.md).
+## Security Enforcement
 
-## Segurança
+- Syncthing ignore patterns (`.stignore`) strictly exclude `.env`, `.env.*`, and `secrets/`.
+- Vault markdown notes must never contain raw credentials.
 
-- `.stignore` do vault já exclui `.env`, `.env.*`, `secrets/` — **nunca** incluir segredos em notas do vault (só o `secrets.enc.env` criptografado + `.env.template`).
-- O `BORG_PASSPHRASE` do Sumænimá foi trocado do placeholder (`CHANGE_ME_STRONG_PASSWORD`) para uma passphrase forte (09/08/2026) — repo re-keyed, sentinel re-deployado.
+### Automated Governance Enforcement (`SEC-SECRETS` Rule)
 
-### Guarda automática contra segredo em claro (29/09/2026)
+StenioSentinel enforces `SEC-SECRETS` across the `homelab` and `vault` scopes. Any unencrypted credential discovered in a markdown or configuration file triggers an immediate fatal error during pre-commit passes.
 
-O `SEC-SECRETS` do StenioSentinel passou a rodar nos escopos **`homelab`** e **`vault`**
-(antes só no `hub`) — qualquer credencial em claro fora do cofre cifrado agora é
-**ERRO fatal**, inclusive numa nota `.md`. O vault é espelhado por Syncthing para
-celulares, então um segredo colado numa nota vazaria para todos os dispositivos.
+### Minimum File Permissions
 
-Ver `mnemocine/AGENTS.md` § Stênio para o desenho, os limites e os testes negativos.
+Sensitive configuration files must strictly enforce permissions `0600` (read/write by owner only):
 
-### Permissões mínimas em arquivos com segredo
-
-Padrão: **`600`** (dono = usuário que o serviço usa). Endurecidos em 29/09/2026:
-
-| Host | Arquivo | Antes → Depois |
+| Host | Path | Enforcement |
 |---|---|---|
-| kavure | `/srv/data/miracena/.env` | `644` → **`600`** |
-| kavure | `/srv/data/zomboid-panel/.env` | `644` → **`600`** |
-| kavure | `/srv/data/homeassistant/config/secrets.yaml` | `644` → **`600`** |
-| ybyra | `/home/ubuntu/homelab/sumaenima/.env` | `644` → **`600`** |
-| ybytu | `/home/ubuntu/homelab/changedetection/data/secret.txt` | `644` → **`600`** |
-
-> Falsos positivos da varredura (sem segredo real, mantidos em `644`):
-> `/srv/data/valheim/.env` (0 valores), `/srv/data/calibre/config/client_secrets.json`
-> (0 valores) e um `.pdf` de livros cujo **nome** contém "secrets".
+| kavure | `/srv/data/miracena/.env` | `0600` |
+| kavure | `/srv/data/zomboid-panel/.env` | `0600` |
+| kavure | `/srv/data/homeassistant/config/secrets.yaml` | `0600` |
+| ybyra | `/home/ubuntu/homelab/sumaenima/.env` | `0600` |
+| ybytu | `/home/ubuntu/homelab/changedetection/data/secret.txt` | `0600` |

@@ -4,120 +4,111 @@ tags: [homelab, service, uptime-kuma, monitoring, server, ybytu]
 
 # Uptime Kuma
 
-**Função:** Monitoramento de uptime com probes HTTP(S), TCP e Ping sobre Tailscale.
+**Role:** Uptime monitoring daemon executing HTTP(S), TCP, and Ping probes across the Tailnet.
 
 ## Deployment
 
-- **Servidor:** ybytu
+- **Server:** ybytu
 - **Container:** `uptime-kuma`
-- **Imagem:** `louislam/uptime-kuma:latest`
-- **Rede:** **`network_mode: host`** (07/10/2026) + `UPTIME_KUMA_PORT: 3002` — necessário porque o `INPUT` do ybytu é **default-deny** (só loopback é aceito): em bridge, o container **não alcançava** os serviços do host (`EHOSTUNREACH` em 3002/8082/8083/61208; só a 3000 passava por DNAT).
+- **Image:** `louislam/uptime-kuma:latest`
+- **Network:** **`network_mode: host`** (07/10/2026) + `UPTIME_KUMA_PORT: 3002` — Required because ybytu's `INPUT` iptables policy is **default-deny** (only loopback is accepted): In bridge mode, the container **failed to reach** local host services (`EHOSTUNREACH` on 3002/8082/8083/61208; only port 3000 passed via DNAT).
 - **Volume:** `./data` → `/app/data`
-- **Compose:** `/home/ubuntu/homelab/uptime-kuma/compose.yml` (backup do anterior: `.bak-20261007-hostnet`)
-- **Restart:** `unless-stopped`
+- **Compose:** `/home/ubuntu/homelab/uptime-kuma/compose.yml` (previous backup: `.bak-20261007-hostnet`)
+- **Restart Policy:** `unless-stopped`
 
-> ⚠️ **`kuma.db` NÃO é espelhado no NAS:** o `config-backup` exclui `*.db` — foi por isso que os
-> ~38 monitores perdidos na recriação de 16/09 ficaram **irrecuperáveis**. Reconstruídos em
-> 07/10/2026 a partir do Homepage (ver abaixo). **Pendência:** incluir um export do Uptime Kuma
-> (ou o `kuma.db`) no backup.
+> ⚠️ **`kuma.db` is NOT mirrored to NAS:** `config-backup` excludes `*.db` files — which caused the ~38 monitors lost during the 16/09 recreation to become **unrecoverable**. Reconstructed on 07/10/2026 from Homepage configuration (see below). **Action item:** Schedule automated SQLite export dumps (or `kuma.db` snapshots) to backup storage.
 
-## Acesso
+## Access
 
 - **URL:** `http://ybytu.chimaera-heptatonic.ts.net:3002`
-- **Login:** `admin` — credencial agora no **cofre sops** (`UPTIME_KUMA_ADMIN_USER` / `UPTIME_KUMA_ADMIN_PASSWORD`, adicionadas 06/10/2026). No SQLite a senha é **hash (bcrypt)**, não reutilizável.
-- **Reset de senha (28/08/2026):**
+- **Login:** `admin` — Credentials managed in **sops store** (`UPTIME_KUMA_ADMIN_USER` / `UPTIME_KUMA_ADMIN_PASSWORD`, added 06/10/2026). In SQLite, passwords are stored as **bcrypt hashes** and cannot be read in plaintext.
+- **Password Reset CLI (28/08/2026):**
   ```bash
   docker exec -it uptime-kuma npm run reset-password
   ```
-  (interativo; ou `npm run reset-password -- --new_password='<nova>'`). Remove 2FA: `npm run remove-2fa`. Ver [Reset-Password-via-CLI](https://github.com/louislam/uptime-kuma/wiki/Reset-Password-via-CLI).
+  (interactive prompt; or `npm run reset-password -- --new_password='<new_password>'`). Remove 2FA: `npm run remove-2fa`. See [Reset-Password-via-CLI](https://github.com/louislam/uptime-kuma/wiki/Reset-Password-via-CLI).
 
-## Motivação
+## Operational Motivation
 
-Oracle Cloud reivindica VMs gratuitas (AMD Free Tier) se o uso médio de CPU ficar abaixo de 20% e rede abaixo de 20% por 7 dias consecutivos. Uptime Kuma foi instalado para gerar tráfego de monitoramento real (HTTP, TCP, Ping) via Tailscale para todos os serviços do homelab, mantendo as VMs ativas.
+Oracle Cloud reclaims idle ARM and AMD Always-Free VMs if average 7-day CPU utilization drops below 20% and network utilization drops below 20%. Uptime Kuma was deployed to generate genuine telemetry traffic (HTTP, TCP, Ping) over Tailscale to all homelab nodes, keeping the cloud instances marked active.
 
-## Monitores
+## Monitors
 
-> **Reconstruído em 07/10/2026 — 51 monitores, todos UP.** A lista abaixo (41, de antes) é
-> histórica. O estado atual foi recriado a partir do **Homepage** (`services.yaml`) como fonte
-> das URLs + **3 monitores de DNS** (Pi-hole, AdGuard e caminho da casa):
-> - **48 HTTP** (serviços com URL) + **6 ping** (psicopompo, kavure, kuaray, ybytu, ybyra, kururu)… total 54 nomes,
->   dos quais **51 ficaram ativos** após ajuste de códigos aceitos (registry 400/401, transmission 401/409).
-> - Serviços locais ao ybytu monitorados via **`127.0.0.1`** (host net); `glances` via IP da tailnet (escuta só lá).
-> - Método: Socket.IO (`login` → `deleteMonitor` → `add`), por script Node descartável dentro do container.
+> **Reconstructed on 07/10/2026 — 51 active monitors, all UP.** The historical table below (41 monitors) is kept for reference. Current state was rebuilt using **Homepage** (`services.yaml`) as the source of truth for URLs + **3 dedicated DNS monitors** (Pi-hole, AdGuard, and local home route):
+> - **48 HTTP probes** (services with web endpoints) + **6 ICMP pings** (psicopompo, kavure, kuaray, ybytu, ybyra, kururu)… total 54 definitions, of which **51 remained active** after tuning accepted status codes (registry 400/401, transmission 401/409).
+> - Local services on ybytu monitored via **`127.0.0.1`** (host networking); `glances` via Tailscale IP (binds strictly there).
+> - Automation: Executed via Socket.IO API (`login` → `deleteMonitor` → `add`) using an ephemeral Node.js script inside the container.
 
-### Lista histórica (41 monitores, pré-16/09)
+### Historical List (41 Monitors, Pre-16/09)
 
-41 monitores configurados diretamente no SQLite (`/app/data/kuma.db`), organizados em 4 grupos:
+41 monitors previously provisioned in SQLite (`/app/data/kuma.db`), categorized across 4 groups:
 
-| Grupo | Qtd | Alvos |
+| Group | Count | Targets |
 |---|---|---|
-| Kavure | ~12 | Swarm sae-core (API, backup, Valkey), Jogos (Minecraft/Crafty, Zomboid, Valheim), Home Assistant, Pi-hole, Glances |
+| Kavure | ~12 | Swarm sae-core (API, backup, Valkey), Game servers (Minecraft/Crafty, Zomboid, Valheim), Home Assistant, Pi-hole, Glances |
 | Psicopompo | 4 | StênioREC, Glances, Ping, Syncthing |
 | Ybytu | 7 | AdGuard, Homepage, Uptime Kuma, Filebrowser, Syncthing, Glances, Changedetection, Ntfy |
-| Ybyra | 6 | Proxy API (externo), SPA, Funnel, Umami, Datavis, Glances, Ping |
+| Ybyra | 6 | API Proxy (external), SPA, Funnel, Umami, Datavis, Glances, Ping |
 | Kuaray | ~5 | Standby mirror, Glances, Ping |
 
-### DNS — resolução (reconstruídos 06/10/2026)
+### DNS Resolution Monitors (Rebuilt 06/10/2026)
 
-Criados via **Socket.IO** (a API do próprio app, não por edição do SQLite):
+Created via **Socket.IO** (native application API, avoiding direct SQLite schema mutation):
 
-| ID | Nome | Tipo | Alvo |
+| ID | Name | Type | Target |
 |---|---|---|---|
 | 1 | DNS · Pi-hole (kavure) | DNS (A) | `100.124.146.77` |
 | 2 | DNS · AdGuard (ybytu) | DNS (A) | `100.115.253.109` |
-| 3 | DNS · Caminho da casa | DNS (A) | `100.100.100.100` (corrida Tailscale) |
+| 3 | DNS · Home Primary Route | DNS (A) | `100.100.100.100` (Tailscale magic IP) |
 
-> Estes três cobrem a cadeia inteira: se o `unbound` (ou, na era anterior, o `dnscrypt-proxy`) do kavure morrer, o monitor 1 dispara; o 3 valida o que os aparelhos realmente usam. Ver [`unbound`](unbound.md).
+> These three monitors cover the entire resolution pipeline: If `unbound` (or previously `dnscrypt-proxy`) on kavure fails, Monitor 1 trips; Monitor 3 validates the end-to-end lookup path utilized by client devices. See [`unbound`](unbound.md).
 
-> **Histórico de migração:** anteriormente, Crafty/Minecraft e a API ficavam no Psicopompo, e *arr/HA no Kuaray. Após a consolidação no Kavure (08-09/2026), os probes de serviços foram remapeados para seus respectivos hosts reais.
+> **Migration Context:** Previously, Crafty/Minecraft and the core API resided on Psicopompo, and *arr/HA on Kuaray. Following consolidation onto Kavure (08-09/2026), probes were remapped to their active hosts.
 
-### Divisão Borda vs Física
+### Edge vs Physical Infrastructure Separation
 
-Todo monitor de serviço que passa pelo Nginx do Ybyra foi renomeado com prefixo `Proxy` para deixar claro que é o ponto de entrada de borda, não o serviço físico:
+Every service probe routing through Ybyra's Nginx reverse proxy carries the `Proxy` prefix to distinguish public ingress from the physical backing node:
 
-| ID | Nome | URL | O que monitora |
+| ID | Name | URL | Monitored Target |
 |---|---|---|---|
-| 4 | Ybyra - Proxy API Sumænimá (Externo) | `http://100.66.224.34/api/health` | Proxy reverso Nginx → API no kavure |
-| 5 | Ybyra - Proxy Umami | `http://100.66.224.34/` | Proxy Nginx → Umami no Ybyra |
-| 15 | Ybyra - Proxy SPA Sumænimá | `http://100.66.224.34/` | Proxy Nginx → Frontend SPA |
-| 48 | ~~Ybyra - Proxy Datavis Sumænimá~~ | ~~`http://100.66.224.34/api/datavis/health`~~ | ~~Proxy Nginx → Datavis no Ybyra~~ **removido 22/09/2026 (legado)** |
-| 46 | Ybyra - Funnel Sumænimá | `https://sumaenima.chimaera-heptatonic.ts.net` | Tailscale Funnel público (HTTPS) |
-| 50 | Psicopompo - Sumænimá API (Interno) | `http://100.124.146.77:9090/api/health` | API no kavure via Tailscale |
+| 4 | Ybyra - Proxy API Sumænimá (External) | `http://100.66.224.34/api/health` | Nginx reverse proxy → API on kavure |
+| 5 | Ybyra - Proxy Umami | `http://100.66.224.34/` | Nginx proxy → Umami on Ybyra |
+| 15 | Ybyra - Proxy SPA Sumænimá | `http://100.66.224.34/` | Nginx proxy → Frontend SPA |
+| 48 | ~~Ybyra - Proxy Datavis Sumænimá~~ | ~~`http://100.66.224.34/api/datavis/health`~~ | ~~Nginx proxy → Datavis on Ybyra~~ **removed 22/09/2026 (legacy)** |
+| 46 | Ybyra - Funnel Sumænimá | `https://sumaenima.chimaera-heptatonic.ts.net` | Public Tailscale Funnel (HTTPS) |
+| 50 | Psicopompo - Sumænimá API (Internal) | `http://100.124.146.77:9090/api/health` | Direct API on kavure via Tailscale |
 
-> ⚠️ **Achado (22/09/2026):** o container `uptime-kuma` foi **recriado em 16/09** e o DB (`~/homelab/uptime-kuma/data/kuma.db`) ficou **sem NENHUM monitor e sem usuário** (tabela `monitor` vazia, `user` vazia, `/setup` ativo). Todos os monitores documentados acima (e o monitor #48 datavis) **foram perdidos na recriação**.
->
-> **Parcialmente corrigido em 06/10/2026:** usuário `admin` recriado e os **3 monitores DNS** adicionados (tabela acima) via Socket.IO. **Pendente:** reconstruir os demais (~38) monitores de serviço listados nesta página — ver [`services/monitoring.md`](monitoring.md) para a lista completa. Método usado (script Node descartável dentro do container, removido após uso): eventos `needSetup` → `setup` → `login` → `add`.
+> ⚠️ **Finding (22/09/2026):** Container `uptime-kuma` was **recreated on 16/09** and the database (`~/homelab/uptime-kuma/data/kuma.db`) was left **without monitors and without an admin user** (`monitor` table empty, `user` table empty, `/setup` screen exposed). All previous monitors (including #48 datavis) **were lost during that recreation**.  
+>  
+> **Resolved on 06/10/2026 & 07/10/2026:** Admin account recreated and all 51 monitors restored via Socket.IO automation. See [`services/monitoring.md`](monitoring.md) for Prometheus/Alertmanager coverage.
 
-### Notificações — ntfy (recriado 07/10/2026)
+### Notifications — ntfy (Rebuilt 07/10/2026)
 
-A recriação de 16/09 apagou **também as notificações** (tabela `notification` com 0 linhas).
-Recriada via Socket.IO — evento `addNotification(notification, notificationID, callback)`
-**três** argumentos; passar dois faz o callback ser interpretado como ID e a chamada trava:
+Recreation also wiped **notification channels**. Reconstructed via Socket.IO `addNotification(notification, notificationID, callback)`:
 
-| Campo | Valor |
+| Field | Value |
 |---|---|
-| Tipo | `ntfy` |
-| Servidor | `http://127.0.0.1:8083` (o Uptime Kuma roda no mesmo host, em `network_mode: host`) |
-| Tópico | **`alerts`** (o mesmo do Alertmanager — `http://ybytu…:8083/alerts`) |
-| Autenticação | nenhuma (o ntfy do homelab não usa auth) |
-| Prioridade | 3 |
-| `isDefault` / `applyExisting` | `true` / `true` → **51 vínculos** (todos os monitores) |
+| Type | `ntfy` |
+| Server | `http://127.0.0.1:8083` (Uptime Kuma runs on the same host under `network_mode: host`) |
+| Topic | **`alerts`** (shared with Alertmanager — `http://ybytu…:8083/alerts`) |
+| Authentication | None (ntfy runs unauthenticated on tailnet) |
+| Priority | 3 |
+| `isDefault` / `applyExisting` | `true` / `true` → **51 bindings** (all monitors attached) |
 
-**Validado de ponta a ponta:** `testNotification` enviou mensagem real e ela chegou ao tópico
-`alerts` (`alerts [Uptime-Kuma]`).
+**Validated End-to-End:** `testNotification` sent real test payload arriving at the `alerts` topic (`alerts [Uptime-Kuma]`).
 
-> O outro tópico em uso no homelab é **`backup`** (alertas do `config-backup`).
+> The companion topic utilized in homelab is **`backup`** (dedicated to `config-backup` reports).
 
 ### Kernel Guard
 
-O driver `pm_tailscale_funnel` (kernel) verifica periodicamente:
-- `edge.yml` tem `configs:` e `ports: 80` corretos
-- `serve.json` montado via Docker Configs
-- Funnel responde HTTPS 200
-- Falha se qualquer config for removida — impede perda acidental do funnel
+The `pm_tailscale_funnel` kernel driver periodically validates:
+- `edge.yml` contains correct `configs:` and `ports: 80`
+- `serve.json` mounted via Docker Configs
+- Funnel responds with HTTPS 200
+- Fails closed if configurations drift — preventing accidental loss of ingress routes
 
-## Observações
+## Notes
 
-- Configurado sem Docker Compose (comando `docker run` direto).
-- Monitores foram inseridos via SQLite porque o Uptime Kuma não expõe API REST para criação; usa Socket.IO.
-- O hash bcrypt da senha foi corrompido uma vez pelo bash (expansão de `$`); corrigido gerando o hash dentro do container via `node -e "bcrypt.hashSync(...)"`.
+- Configured without Docker Compose (`docker run` invocation).
+- Monitors provisioned programmatically via Socket.IO rather than manual SQLite table edits.
+- The bcrypt password hash was previously corrupted by bash variable expansion (`$`); generate password hashes inside the container environment using `node -e "bcrypt.hashSync(...)"`.

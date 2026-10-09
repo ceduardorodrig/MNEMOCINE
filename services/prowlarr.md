@@ -4,30 +4,30 @@ tags: [homelab, service, prowlarr, download]
 
 # Prowlarr
 
-Indexer unificado para o *arr stack.
+Unified BitTorrent and Usenet indexer manager for the media automation pipeline.
 
-**Servidor:** kuaray
-**Porta:** `9696`
-**URL:** `http://kuaray.chimaera-heptatonic.ts.net:9696`
+**Host Node:** kuaray  
+**Port:** `9696`  
+**Web Console:** `http://kuaray.chimaera-heptatonic.ts.net:9696`  
 
 ## Stack
 
-| Container | Imagem | Função |
+| Container | Base Image | Operational Role |
 |---|---|---|
-| prowlarr | linuxserver/prowlarr:latest | Gerenciamento de indexers |
+| `prowlarr` | `linuxserver/prowlarr:latest` | Centralized indexer proxy and integration manager |
 
-## Integração
+## Integration
 
-Alimenta os indexers para:
-- Lidarr (música)
-- Demais *arr conforme necessidade
+Supplies and syncs search indexers to:
+- **Lidarr** (music acquisition)
+- Additional media daemons as needed
 
-## Funcionamento
+## Operational Workflow
 
-1. Centraliza múltiplos indexers de torrent/usenet
-2. Sincroniza automaticamente com os apps *arr conectados
-3. Usa Flaresolverr para sites protegidos por Cloudflare
+1. Centralizes configuration across multiple torrent and Usenet indexers.
+2. Automatically propagates indexer credentials and health status to connected automation applications.
+3. Routes challenges through Flaresolverr when accessing sites protected by Cloudflare bot-management.
 
-## Segredos
+## Secrets Management
 
-- **API key** no store sops (`PROWLARR_API_KEY`, 32-char — fonte `config.xml` `<ApiKey>`). O `config.xml` é **excluído** do espelho `config-backup` (nunca vai pro NAS). Restore após wipe: `inject-secrets.sh` (ver `guides/secrets-centralizados.md`).
+- **API Key:** Managed inside SOPS secret store (`PROWLARR_API_KEY`). The local `config.xml` is excluded from raw Git mirrors.
