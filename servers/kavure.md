@@ -32,6 +32,7 @@ tags: [homelab, server, kavure, docker, storage, gaming, todo]
   - **Project Zomboid:** `danixu86/project-zomboid-dedicated-server` (active since 2026-08-06);
   - **Minecraft Dominium:** Crafty Controller running Fabric Loader on Minecraft 1.21.1;
   - **Valheim:** Dedicated container server (`mbround18/valheim:3`).
+- **Homelab Automation (n8n, reactivated 2026-10-09):** Standalone n8n + `n8n-postgres` (`:5678`) for homelab workflows — **distinct** from the Miracena n8n on kuaray (not part of that stack). Its daily `pg_dump` writes to the NAS (see backups).
 - **Subnet Router (Activated 2026-10-05):** Advertises route `192.168.3.0/24` across the Tailnet, granting remote access to local IoT devices and home routers.
 - **DNS Core Resolver (2026-10-08):** Runs Pi-hole alongside a native **recursive `unbound`** instance (`127.0.0.1:5053`, DNSSEC validation). Monitored by a dedicated Rust watchdog (`hl-dns-watchdog.timer`).
 
@@ -47,6 +48,8 @@ tags: [homelab, server, kavure, docker, storage, gaming, todo]
 /srv/data/minecraft/            ← Crafty Controller and Minecraft Dominium server assets
 /srv/data/valheim/              ← Valheim dedicated server data
 /srv/data/valheim/offbox        ← NFS mount -> psicopompo:/mnt/BACKUP/valheim-server-kavure
+/srv/data/n8n/                  ← Homelab n8n container data + n8n-postgres volume (reactivated 09/10)
+/srv/data/n8n/offbox            ← NFS mount -> psicopompo:/mnt/BACKUP/n8n-server-kavure
 /var/lib/docker/                ← Docker storage root (overlay2)
 ```
 
@@ -56,6 +59,7 @@ tags: [homelab, server, kavure, docker, storage, gaming, todo]
 |---|---|---|---|
 | `hl-config-backup.timer` | 05:00 | Host configurations | rsync $\rightarrow$ NAS mirror |
 | `hl-zomboid-backup.timer` | 05:15 | Project Zomboid world saves | rsync $\rightarrow$ NAS mirror |
+| `hl-n8n-backup.timer` | 05:25 | Homelab n8n PostgreSQL | pg\_dump $\rightarrow$ NAS mirror (health stamp since 09/10) |
 | `hl-valheim-backup.timer` | 05:30 | Valheim world saves | rsync $\rightarrow$ NAS mirror |
 | `hl-sumaenima-backup.timer` | 03:00 | Sumænimá database & uploads | Borg + pg_dump $\rightarrow$ NAS mirror |
 

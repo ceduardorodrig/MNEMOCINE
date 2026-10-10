@@ -61,7 +61,8 @@ scp secrets/generated/sumaenima.env ybyra:/home/ubuntu/homelab/sumaenima/.env   
 | Homepage | `config/.env` (ybytu) | ✅ | `CRAFTY_API_KEY` |
 | Zomboid Panel | `/srv/data/zomboid-panel/.env` (kavure) | ⚠️ Config only (no secrets) | — |
 | Minecraft (crafty) | Config in `crafty.sqlite` | N/A (SQLite, not .env) | — |
-| n8n | `/srv/data/n8n/.env` (kavure) | ✅ | `N8N_*` |
+| n8n (Homelab) | `/srv/data/n8n/.env` (kavure) | ✅ | `N8N_*` |
+| n8n (Miracena) | `/srv/data/miracena/.env` (kuaray) | ✅ | `N8N_*` (shared stack env) |
 | SearXNG | `/srv/data/searxng/.env` (kavure) | ✅ | `SEARXNG_*` |
 | Monitoring | `/srv/data/monitoring/.env` (kavure) | ✅ | `GRAFANA_ADMIN_PASSWORD` |
 | **Docker Registry** (psicopompo) | `~/homelab/registry/auth/htpasswd` (bcrypt — derived) | ✅ 2026-09-29 | `REGISTRY_USER`, `REGISTRY_PASSWORD` |

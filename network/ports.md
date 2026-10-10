@@ -79,7 +79,8 @@ graph TD
 | `3100/tcp` | `100.124.146.77` / `tailscale0` | **Loki** | Distributed log aggregation and storage daemon | [`../services/`](../services/) |
 | `3003/tcp` | `100.124.146.77` / `tailscale0` | **Miracena Nuxt** | Miracena project Nuxt web frontend | [`../servers/kavure.md`](../servers/kavure.md) |
 | `4533/tcp` | `100.124.146.77` / `tailscale0` | **Navidrome** | Subsonic-compatible personal music streaming service | [`../servers/kavure.md`](../servers/kavure.md) |
-| `5678/tcp` | `100.94.209.99` / `tailscale0` | **n8n** | Visual workflow automation engine (migrated to kuaray 2026-10-04) | [`../services/n8n.md`](../services/n8n.md) |
+| `5678/tcp` | `100.94.209.99` / `tailscale0` | **n8n (Miracena)** | Workflow automation engine (Miracena stack; migrated to kuaray 2026-10-04) | [`../services/n8n.md`](../services/n8n.md) |
+| `5678/tcp` | `100.124.146.77` / `tailscale0` | **n8n (Homelab)** | Standalone Homelab workflow engine (reactivated 2026-10-09; tailnet-only bind) | [`../services/n8n.md`](../services/n8n.md) |
 | `8000/tcp` | `100.124.146.77` / `tailscale0` | **Comet** | Stremio torrent indexing and metadata addon | [`../services/comet.md`](../services/comet.md) |
 | `8055/tcp` | `100.124.146.77` / `tailscale0` | **Directus** | Headless CMS and data layer | [`../servers/kavure.md`](../servers/kavure.md) |
 | `8080/tcp` | `100.124.146.77` / `tailscale0` | **SearXNG Core** | Self-hosted privacy-preserving metasearch engine | [`../servers/kavure.md`](../servers/kavure.md) |

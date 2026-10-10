@@ -39,6 +39,14 @@ Oracle Cloud reclaims idle ARM and AMD Always-Free VMs if average 7-day CPU util
 > - Local services on ybytu monitored via **`127.0.0.1`** (host networking); `glances` via Tailscale IP (binds strictly there).
 > - Automation: Executed via Socket.IO API (`login` → `deleteMonitor` → `add`) using an ephemeral Node.js script inside the container.
 
+> ⚠️ **Anti-flap (09/10/2026):** all 51 monitors ran with **`maxretries=0`** — a single failed
+> check immediately notified **DOWN** (and the next successful one, UP). Since Kuma runs on
+> **ybytu (VPS)** and probes the homelab across the internet over Tailscale (latency/jitter), this
+> caused a **flood**: 100 notifications in 4h37, 36 monitors flapping. Fixed (with the container
+> stopped) via SQLite: `UPDATE monitor SET maxretries=2, retry_interval=60 WHERE active=1;` —
+> backup at `data/kuma.db.bak-20261009-maxretries`. **Rule:** never use `maxretries=0`. See
+> [`notification-methodology.md`](../guides/notification-methodology.md).
+
 ### Historical List (41 Monitors, Pre-16/09)
 
 41 monitors previously provisioned in SQLite (`/app/data/kuma.db`), categorized across 4 groups:
