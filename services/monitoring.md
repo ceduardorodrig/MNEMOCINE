@@ -46,7 +46,7 @@ Custom metrics exported via the **textfile collector** (homelab standard — zer
 
 - **`node`** — node_exporter **across all 5 hosts** (`:9100`) + textfile metrics (health/systemd/container/smart)
 - **`cadvisor`** — Container engine metrics on kavure
-- **`n8n`** — `/metrics` endpoint on n8n
+- **`n8n`** — `/metrics` on **both** n8n instances (Homelab on kavure, Miracena on kuaray)
 - **`prometheus`/`loki`/`grafana`/`alertmanager`** — Self-monitoring endpoints
 
 ## Logs (Loki)
@@ -58,10 +58,19 @@ Custom metrics exported via the **textfile collector** (homelab standard — zer
 ## Alerting (Prometheus → Alertmanager → alertmanager-ntfy → ntfy)
 
 > **Webhook Bridge (09/10/2026):** Alertmanager originally posted directly to the ntfy `alerts` topic. Because Alertmanager's `webhook_configs` **does not support Go templating**, raw JSON payloads were posted directly without readable titles — creating noisy code dumps on mobile screens. The flow now routes: **Alertmanager → `alertmanager-ntfy`** (container `monitoring-alertmanager-ntfy`, image `ghcr.io/alexbakker/alertmanager-ntfy:1.2.1`, `http://alertmanager-ntfy:8000/hook`, internal compose network) → ntfy `/alerts`.  
-> - **Config:** `/srv/data/monitoring/alertmanager-ntfy/config.yml` (Go templates: Title `🚨 Fired` / `✅ Resolved` + summary, body containing alert description, host, start time, `X-Click` pointing to generatorURL, priority `urgent`/`default`, tags `rotating_light`/`+1`).  
+> - **Config:** `/srv/data/monitoring/alertmanager-ntfy/config.yml` (Go templates: Title `🚨 Fired` / `✅ Resolved` + summary, body containing alert description, host, start time, `X-Click` pointing to generatorURL, priority by severity — `urgent` critical / `low` warning / `min` resolved, tags `rotating_light`/`+1`).  
 > - **Healthcheck:** Invokes native `--health-check` binary flag (runs in `scratch` image without shell).  
 > - **End-to-End Validation (09/10):** Synthetic alert payload confirmed clean formatting in mobile `/alerts`.  
 > - **Bridge Failure Failure-Domain:** If the bridge crashes, Alertmanager cannot dispatch (webhook returns 5xx) — inspect `docker logs monitoring-alertmanager-ntfy`.
+
+> **Alert Inhibition (09/10/2026):** `alertmanager.yml` had **0 inhibit rules**, so a single host
+> going down produced dozens of simultaneous alerts (storm). Two rules added:
+> (1) a specific `NodeDown`/`n8nDown` inhibits the generic `PrometheusDown` for the same
+> `instance`+`job` (removed the duplicate pair that fired together every 4h); (2) `NodeDown`
+> inhibits every other warning/critical alert of the **same host** (disk, CPU, container, backup,
+> systemd) — the root cause is already the `NodeDown`. Validated with `amtool check-config`.
+> Notification policy (priority, topics, anti-flap) is canonical in
+> [`../guides/notification-methodology.md`](../guides/notification-methodology.md).
 
 | Alert | Condition | Severity |
 |---|---|---|

@@ -30,15 +30,17 @@ Application rules:
 
 `dnscrypt-proxy` (kavure) ran on an image **without a shell** → it could not execute an in-container healthcheck. It was monitored by [`scripts/dns-watchdog`](../../scripts/dns-watchdog/) (Rust) via `hl-dns-watchdog.timer` (2 min) on kavure — covering frozen process states. **Since 2026-10-08**, dnscrypt-proxy is disabled, and the same watchdog monitors **native `unbound`** via `--service unbound` (systemd alone cannot detect a "running but unresponsive" daemon; the probe with a unique test label also catches broken upstream links).
 
-## Coverage Status (2026-10-07)
+## Coverage Status (2026-10-09 — Fleet Aligned)
 
-| Host | With Healthcheck | Pending |
+> ✅ **2026-10-09 — Sweep completed fleet-wide.** The NAS mirror scan (`INFRA-COMPOSE-HEALTHCHECK`) reports **0 warnings** (down from 24). Additions this pass: `slskd`, `vert`, `autoheal`, `watchtower` (kuaray); `autoheal`, `watchtower` (ybyra); `autoheal`, `watchtower`, `zomboid-panel`, `pz-server`, `pihole`, `calibre`, `cadvisor`, `valheim` (kavure); `umami` hub compose (psicopompo). Legacy leftovers **removed** (no cold storage — not needed): `sumaenima-backup` (kuaray), the stale `sumaenima/docker-compose.yml` (ybyra — live `nginx.conf` preserved), and `crowdsec`/`nginx-proxy-manager` (ybytu).
+
+| Host | With Healthcheck | Notes |
 |---|---|---|
-| **kavure** | 14 (monitoring, searxng, HA, navidrome, node-exporter, glances, dockerproxy, crafty, pihole…) + `unbound` via watchdog (10/08) + `sae-core_backup` (Swarm) | — (see orphaned task below) |
-| **kuaray** | 16 (miracena-*, *arr, transmission, syncthing, glances, promtail, node-exporter, dockerproxy) | — |
-| **ybytu** | 8 (adguardhome, changedetection, glances, promtail, node-exporter, ntfy, dockerproxy, homepage, uptime-kuma) | — |
-| **ybyra** | 6 (glances, promtail, node-exporter, dockerproxy, edge proxy/tunnel, **umami** via Swarm) | — |
-| **psicopompo** | 5 (registry, glances, promtail, node-exporter, dockerproxy) | — |
+| **kavure** | monitoring (prometheus, loki, cadvisor, promtail, grafana, alertmanager, alertmanager-ntfy), searxng, HA, navidrome, node-exporter, glances, dockerproxy, crafty, pihole, calibre, n8n, valheim (native `pidof`), autoheal; `watchtower` via watchdog label; `unbound` via Rust watchdog; `sae-core_backup` (Swarm) | `pz-server` intentionally stopped (healthcheck declared; game RCON `:27015`) |
+| **kuaray** | miracena-*, *arr, transmission, syncthing, glances, promtail, node-exporter, dockerproxy, slskd, vert, autoheal; `watchtower` via watchdog label | — |
+| **ybytu** | adguardhome, changedetection, glances, promtail, node-exporter, ntfy, dockerproxy, homepage, uptime-kuma, autoheal; `watchtower` via watchdog label | — |
+| **ybyra** | glances, promtail, node-exporter, dockerproxy, autoheal; `watchtower` via watchdog label; edge `proxy`/`tunnel`/`umami` (Swarm `sae-edge`) | — |
+| **psicopompo** | registry, glances, promtail, node-exporter, dockerproxy, autoheal; `watchtower` + `winboat` via watchdog label; hub `umami` | — |
 
 > **Swarm Services:** `sae-core_backup` and `sae-edge_umami` received healthchecks **inside the stack file** (`provisioning/stacks/{core,edge}.yml`) **and** via surgical `docker service update`.
 
@@ -62,7 +64,7 @@ The governance engine contains a native sibling rule to `INFRA-COMPOSE-RESTART` 
 **Coverage:** The `homelab` scope audits the vault tree **and** the **NAS mirror** (`/mnt/BACKUP/configs-homelab`, maintained by `config-backup`) — without this, the rule would find no live compose files (the vault contains 0). Only **structural compose checks** run against the mirror (rules matching `SEC-*` are excluded on captured runtime configs), and `golden/` directories are ignored to prevent duplicate alerts. Mirror scanning triggers only when targeting the live vault (external `--path` checks do not sweep the NAS).
 
 - **Severity:** `Warning` — non-blocking quality gate. Can be promoted to `Error` once all mirror copies are aligned and warning counts reach zero.
-- **Status (2026-10-07, updated):** Dropped from ~60 → **30 warnings**. The root cause on psicopompo was identified and resolved: `config-backup` was previously mirroring `/mnt/NVME_PCI/homelab` (stale September copies lacking healthchecks) instead of `/home/edu/homelab` where live composes reside — see [`../backups/config-backup.md`](../backups/config-backup.md). Remaining warnings stem from **legacy/duplicate** stacks (`psicopompo/homelab/{autoheal,watchtower,winboat}` — services no longer hosted there), repo templates (`sumaenimahub/.../docker-compose.yml`), and images **natively embedding** `HEALTHCHECK` (e.g., `valheim`).
+- **Status (2026-10-09, updated):** Dropped from ~60 → **0 warnings** across all five hosts. The 09/10 pass closed the last items: legacy/duplicate stacks were **deleted** (not cold-stored) at the user's request, and every remaining service received an explicit `healthcheck` (real probes) or the documented `homelab.healthcheck: watchdog` label (distroless: `watchtower`). The `valheim` image embeds a native `HEALTHCHECK` (`pidof valheim_server.x86_64`), now mirrored in compose. Distroless/services covered by an external watchdog retain the label — note that the Homepage Docker chip cannot show internal health for those (it shows running only).
 - **Validation:** Synthetic tests (`--path` external target) confirm the rule triggers **only** on services missing both `healthcheck` and the exemption label. `cargo test` 20/20, `--self-test` 60/60, `--guardian` zero integrity violations.
 
 ## Useful Commands
