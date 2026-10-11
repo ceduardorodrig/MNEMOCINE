@@ -118,6 +118,13 @@ All active plugins operate **entirely on the server side** — vanilla clients c
 
 ## Troubleshooting & Historical Findings
 
+### Simultaneous Player Drops (~30 s) — Network Event, Not the Server
+
+- **Symptom:** Multiple players drop at the same instant with `ZRpc timeout detected` (30 s of RPC silence) and reconnect ~2 min later. Example: **09/10 18:07** (`AhNo CaM` + `Lira`).
+- **Cause:** The server **does not crash** (`ExitCode=0`, `RestartCount=0`, container `Up`). It is a transient loss of network connectivity on the `kavure` host — `tailscaled` logs `netcheck reported send error → Rebind`, which simultaneously breaks MagicDNS, Swarm gossip and **every** tailnet-only connection (Valheim, NFS).
+- **Not:** a Valheim or mod bug (Noodles/devcommands/FuelEternal); not the home internet (the ISP router records no WAN drop at those times); not host resource exhaustion.
+- **Reference:** [`network/topology.md`](../../network/topology.md#lan-stability--nic--switch-investigation-2026-10-10).
+
 ### Compression Compatibility with Valheim 1.0 (Empty World Issue)
 - **Symptom:** World loaded with bare terrain devoid of structures and vegetation; logs threw `unknown frame tag 0x48`.
 - **Root Cause:** Network compression modules in historical networking mods conflicted with Valheim 1.0 network version 40.

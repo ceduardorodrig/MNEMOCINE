@@ -33,6 +33,7 @@ Custom metrics exported via the **textfile collector** (homelab standard — zer
 |---|---|---|
 | `health-files-metrics.sh` | `hl-health-metrics.timer` (5 min) | `homelab_backup_last_ok_seconds`/`_age_seconds` (age of `/srv/health/*-last-ok` stamps) + `homelab_systemd_unit_active`/`_failed` (critical units: mnt-storage, tailscaled, docker, hl-* timers) |
 | `container-metrics.sh` | `hl-container-metrics.timer` (2 min) | `homelab_container_state{name,state}` (running/restarting/exited/...) |
+| `netwatch-metrics.sh` | `hl-netwatch-metrics.timer` (**15 s**) | `homelab_net_ping_up` / `_loss_ratio` / `_rtt_seconds{target}` — LAN/WAN reachability + latency for the targets in `/etc/homelab/netwatch-targets.conf` (kavure: gateway, NAS-LAN, NAS-Tailscale, internet; psicopompo: gateway, kavure-LAN, kavure-Tailscale, internet). Added 10/10/2026 to diagnose the intermittent LAN/NIC blips. |
 | `smart-metrics.sh` (psicopompo/kuaray/kavure — **physical disks only**) | `hl-smart-metrics.timer` (15 min) | `smartmon_smart_available`, `smartmon_health`, `smartmon_temperature_celsius`, `smartmon_{reallocated_sector_ct,current_pending_sector,offline_uncorrectable}_raw_value`, `smartmon_power_on_hours`, `smartmon_power_cycle_count`, `smartmon_load_cycle_count`, `smartmon_unsafe_shutdown_count`, `smartmon_udma_crc_error_count`, NVMe: `smartmon_nvme_{percentage_used,available_spare,media_errors,data_units_written,power_on_hours,unsafe_shutdowns}`, Non-SMART USB/SD cards: `smartmon_usb_ioerr_total`/`smartmon_usb_iorequest_total` |
 
 > `smart-metrics.sh` invokes `smartctl -j` (JSON) + `smart-metrics.py` (parser). Cloud VPS nodes (ybytu/ybyra) do **not** support SMART (virtual disks).  
@@ -84,6 +85,12 @@ Custom metrics exported via the **textfile collector** (homelab standard — zer
 | `SmartDiskTemp` | disk temperature > 55°C | warning |
 | `ContainerRestarting` | container in restarting state for 10m | warning |
 | `n8nDown` / `PrometheusDown` | scrape target unreachable | critical |
+| `NetworkCarrierDown` | physical NIC `carrier == 0` (20 s) | warning |
+| `NetworkRxErrors` | `increase(node_network_receive_errs_total[5m]) > 0` | warning |
+| `NetworkRxDrops` | `increase(node_network_receive_drop_total[5m]) > 5` | warning |
+| `NetPingLoss` | `homelab_net_ping_loss_ratio >= 0.5` (30 s) | warning |
+
+> **Network alert group (10/10/2026):** added to `alerts.yml` (group `network`) to catch the intermittent LAN/NIC blips that drop Valheim players and stall NFS (see [`network/topology.md`](../network/topology.md#lan-stability--nic--switch-investigation-2026-10-10)). Device filter `device=~"en[ops].*"` (physical NICs only; excludes `lo`/`tailscale0`/bridges).
 
 > **Real Production Catches (28/08):** Upon initial deployment, the stack **immediately identified** (a) kuaray's HDD suffering 37 pending sectors (`SmartDiskError` firing) and (b) ybytu/ybyra config backups stalled for 7 days due to an NFS `Stale file handle` (`BackupNotRun`). Both remediated same-day.  
 >  
@@ -101,7 +108,7 @@ Custom metrics exported via the **textfile collector** (homelab standard — zer
 ## Grafana Dashboards
 
 - Provisioned Datasources: **Prometheus** (uid `prometheus`) + **Loki** (uid `loki`).  
-- Provisioned Dashboards: **Homelab Health** (default landing page), **Node Exporter Full**, **Docker and system monitoring**, **SMART 1-Year Trend** (12/09).  
+- Provisioned Dashboards: **Homelab Health** (default landing page), **Node Exporter Full**, **Docker and system monitoring**, **SMART 1-Year Trend** (12/09), **Network Stability** (10/10).  
 - **Homelab Health** (uid `homelab-health`): Hosts overview (CPU/RAM/load/uptime), Disks (storage + inodes), SMART health status, Backups (freshness age), Failed systemd units, Container health (restarting/running per node), CPU/RAM/Network/IO time series.  
 - **SMART 1-Year Trend** (uid `smart-trends`): Daily aggregated series (`smart:*:max_1d`) for reallocated/pending sectors, thermals, power-on hours, NVMe % wear, and USB/SD I/O errors.  
 - Authentication: `admin` + `GRAFANA_ADMIN_PASSWORD`. `GF_USERS_ALLOW_SIGN_UP=false`.

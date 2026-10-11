@@ -162,3 +162,14 @@ Internet → ISP Router (192.168.3.1) ⇄ IT-BLUE LE-4203 Switch ⇄ { psicopomp
 | Mobile Remote Access → AioStreams | Tailscale Funnel Public Endpoint → `kavure:10000` |
 | Remote Administration → Home LAN Subnet | Tailscale Subnet Router (**kavure** `192.168.3.0/24`) → Physical Ethernet Switch |
 | Tailnet DNS Queries | Dual parallel race: `kavure` Pi-hole (`:53`) vs. `ybytu` AdGuard Home (`:53`) |
+
+## LAN Stability — NIC / Switch Investigation (2026-10-10)
+
+Intermittent ~20–30 s connectivity losses on the wired LAN (observed **09/10 18:08**, **10/10 12:08** and **18:08** BRT) knock Valheim players offline (`ZRpc timeout`), stall the NFS mounts and spike host load (tasks in D-state → load ≈46). Findings:
+
+- **Not the WAN/ISP.** The ISP router (`WS7001-40` — Huawei WiFi AX2, `192.168.3.1`) syslog records **every** WAN drop, and **none occurred at the incident times**. Real WAN drops happened 07/10 19:03, 08/10 13:53 and **09/10 13:34** (for which psicopompo logged `tailscaled: health: connectivity impacted`). Router debug export: `~/Downloads/WS7001-40_*_20261010_182139.zip` (inner `var/syslog`).
+- **Not the Valheim server.** The container never restarted (`ExitCode=0`, `RestartCount=0`); players were dropped by the network event.
+- **Pattern — Realtek vs Intel.** The two hosts that blipped — `kavure` (`enp1s0`, Realtek **r8169** / RTL8168H) and `kuaray` (`enp7s0`, Realtek **r8169** / RTL8106E) — use Realtek NICs; `psicopompo` (Intel **e1000e** / I219-LM) stayed stable. All three share the unmanaged `IT-BLUE LE-4203` switch. `kuaray` also fell back to Wi-Fi (`CONNECTED_SITE`, ~31 s) while `kavure` lost both LAN and cloud peers.
+- **Kavure NIC health:** no link flap, 0 errors; conntrack not exhausted (747/262144). Its `tailscaled` logged `netcheck reported send error → Rebind`, which cascades to MagicDNS, Swarm gossip and every tailnet-only service (Valheim, NFS).
+- **Mitigation applied (2026-10-10):** NIC power-saving fully disabled on `kavure` and `kuaray` (ASPM already off via firmware; **EEE forced `off`** by `nic-power-tuning.service`). **Root cause still open** — the next step is a capture watcher triggered on the tailscale rebind to discriminate NIC vs switch vs router NAT.
+- **LAN hygiene note:** the router logs recurring *"LAN side maintenance IP address conflict"* for `kuaray`'s two interfaces (`192.168.3.200` wired + `192.168.3.53` Wi-Fi, same subnet) and for `psicopompo` (`192.168.3.100`).
