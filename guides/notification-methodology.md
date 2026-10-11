@@ -88,7 +88,7 @@ overrides DND; `default/low/min` silent). This is configured on the phone, not o
 
 | Tool | Rule |
 |---|---|
-| **Uptime Kuma** | `maxretries ≥ 2` + `retry_interval` — only mark DOWN after N consecutive failures. Never `maxretries=0`. |
+| **Uptime Kuma** | `maxretries ≥ 4` + `retry_interval` — only mark DOWN after N consecutive failures. Never `maxretries=0`. Use **parent monitors** (`Ping · <host>` as parent) so a host/vantage blip yields one notification, not dozens. |
 | **Prometheus** | use `for:` (≥ 5 min) on the alert — never fire on the first scrape. |
 | **Alertmanager** | `inhibit_rules` + sensible `group_interval`/`repeat_interval`. |
 | **Silence** | for a *known-bad* documented condition (e.g. a dying disk), with an explanatory `comment`. |
@@ -135,7 +135,12 @@ curl -sS 'http://ybytu:8083/alerts/json?poll=1' | wc -l
 
 - **09/10/2026 — Uptime Kuma flood:** 100 messages in 4h37, 36 monitors flapping. Cause:
   **`maxretries=0`** (one failed check = DOWN) plus transient timeouts to kavure. Fixed to
-  `maxretries=2` across all 51 monitors.
+  `maxretries=2`, later raised to **`4`**.
+- **10/10/2026 — notification bursts:** recurring bursts (e.g. +66 msgs in 2 min) where **~30
+  monitors across every host** go DOWN at once — the signature of the **vantage point** (ybytu's
+  Tailscale) dropping, not real outages. Mitigation: `maxretries=4` + **parent monitors**
+  (`Ping · <host>` as parent) so a blip yields one notification per host. Root cause (ybytu
+  `tailscaled` stability) tracked separately.
 - **09/10/2026 — raw webhook in `/alerts`:** Alertmanager published the **raw JSON** (no
   template). Fixed with the `alertmanager-ntfy` bridge + severity-based priority.
 - **09/10/2026 — `inhibit_rules`:** Alertmanager had **0** inhibition rules → a host down

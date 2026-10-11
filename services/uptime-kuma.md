@@ -39,13 +39,20 @@ Oracle Cloud reclaims idle ARM and AMD Always-Free VMs if average 7-day CPU util
 > - Local services on ybytu monitored via **`127.0.0.1`** (host networking); `glances` via Tailscale IP (binds strictly there).
 > - Automation: Executed via Socket.IO API (`login` → `deleteMonitor` → `add`) using an ephemeral Node.js script inside the container.
 
-> ⚠️ **Anti-flap (09/10/2026):** all 51 monitors ran with **`maxretries=0`** — a single failed
-> check immediately notified **DOWN** (and the next successful one, UP). Since Kuma runs on
-> **ybytu (VPS)** and probes the homelab across the internet over Tailscale (latency/jitter), this
-> caused a **flood**: 100 notifications in 4h37, 36 monitors flapping. Fixed (with the container
-> stopped) via SQLite: `UPDATE monitor SET maxretries=2, retry_interval=60 WHERE active=1;` —
-> backup at `data/kuma.db.bak-20261009-maxretries`. **Rule:** never use `maxretries=0`. See
-> [`notification-methodology.md`](../guides/notification-methodology.md).
+> ⚠️ **Anti-flap (09–10/10/2026):** all 51 monitors ran with **`maxretries=0`** — a single
+> failed check immediately notified **DOWN** (and the next successful one, UP). As Kuma runs on
+> **ybytu (VPS)** and probes the homelab across Tailscale, transient blips caused floods. Fixes
+> (SQLite, container stopped): **`maxretries=4`** + `retry_interval=60` (rides out ~4-min blips)
+> and **parent monitors** — every service monitor has its host's `Ping · <host>` set as `parent`,
+> so a host/network blip collapses to **one** notification per host instead of dozens. Backups:
+> `kuma.db.bak-20261009-maxretries`, `kuma.db.bak-20261010-maxretries-parents`. **Rule:** never
+> use `maxretries=0`. See [`notification-methodology.md`](../guides/notification-methodology.md).
+>
+> **Burst diagnosis (10/10/2026):** the flood is **not continuous** — the ntfy publish counter
+> shows bursts (e.g. +66 msgs in 2 min), always as **~30 monitors DOWN simultaneously across every
+> host**. That is the signature of the **vantage point** (ybytu's own Tailscale) dropping, not real
+> outages; `tailscaled` logs on ybytu correlate (`open-conn-track: timeout`, DERP route churn).
+> Root cause tracked separately (not changed — touching the VPS tailnet risks losing access).
 
 ### Historical List (41 Monitors, Pre-16/09)
 

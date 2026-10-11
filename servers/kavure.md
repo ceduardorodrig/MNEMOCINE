@@ -67,6 +67,14 @@ tags: [homelab, server, kavure, docker, storage, gaming, todo]
 
 Wired into the `IT-BLUE LE-4203` gigabit switch (`1000 Mb/s full-duplex`). Wake-on-LAN is persisted via Netplan and systemd (`wol@enp1s0`). The host responds to magic packets from psicopompo or kururu within 29–39 seconds from S5 power-off.
 
+### NIC power-saving disabled (2026-10-10)
+
+The Realtek RTL8168H (`enp1s0`, driver `r8169`) was investigated after intermittent ~30 s connectivity losses (see [`network/topology.md`](../network/topology.md#lan-stability--nic--switch-investigation-2026-10-10)). Power-saving is now fully off:
+- **ASPM:** already disabled by firmware (`ACPI FADT declares the system doesn't support PCIe ASPM`; the sysfs `pcie_aspm/parameters/policy` is read-only → `Operation not permitted`). No OS action possible or needed.
+- **EEE:** already `disabled`; re-asserted at every boot by `nic-power-tuning.service` (systemd oneshot, `ethtool --set-eee enp1s0 eee off`).
+
+Link verified at **1000 Mb/s full-duplex** after the change; no downtime (EEE was already off on this host).
+
 ## Container Healthchecks
 
 All standalone containers on this node implement explicit healthcheck definitions, integrated with `autoheal` for autonomous remediation.
