@@ -12,8 +12,8 @@ tags: [homelab, service, uptime-kuma, monitoring, server, ybytu]
 - **Container:** `uptime-kuma`
 - **Image:** `louislam/uptime-kuma:latest`
 - **Network:** **`network_mode: host`** (07/10/2026) + `UPTIME_KUMA_PORT: 3002` — Required because ybytu's `INPUT` iptables policy is **default-deny** (only loopback is accepted): In bridge mode, the container **failed to reach** local host services (`EHOSTUNREACH` on 3002/8082/8083/61208; only port 3000 passed via DNAT).
-- **Volume:** `./data` → `/app/data`
-- **Compose:** `/home/ubuntu/homelab/uptime-kuma/compose.yml` (previous backup: `.bak-20261007-hostnet`)
+- **Volume:** `./data` → `/app/data`, `/etc/localtime`, `/usr/share/zoneinfo`
+- **Compose:** `/home/ubuntu/homelab/uptime-kuma/compose.yml` (`TZ=America/Sao_Paulo`)
 - **Restart Policy:** `unless-stopped`
 
 > ⚠️ **`kuma.db` is NOT mirrored to NAS:** `config-backup` excludes `*.db` files — which caused the ~38 monitors lost during the 16/09 recreation to become **unrecoverable**. Reconstructed on 07/10/2026 from Homepage configuration (see below). **Action item:** Schedule automated SQLite export dumps (or `kuma.db` snapshots) to backup storage.

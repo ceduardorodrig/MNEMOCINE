@@ -1,5 +1,6 @@
 ---
 tags: [homelab, service, ntfy, monitoring, ybytu]
+pending: [HB-006]
 ---
 
 # Ntfy
@@ -16,8 +17,15 @@ Config-as-code (Docker Compose) on ybytu: `/home/ubuntu/homelab/ntfy/compose.yml
 services:
   ntfy:
     image: binwiederhier/ntfy:latest
+    container_name: ntfy
+    restart: unless-stopped
     command: ["serve"]
-    volumes: [ "./data:/etc/ntfy" ]
+    environment:
+      - TZ=America/Sao_Paulo
+    volumes:
+      - ./data:/etc/ntfy
+      - /etc/localtime:/etc/localtime:ro
+      - /usr/share/zoneinfo:/usr/share/zoneinfo:ro
     ports: [ "8083:80" ]
     healthcheck: wget -q -O /dev/null http://127.0.0.1:80/v1/health
 ```
@@ -34,7 +42,7 @@ services:
 | Topic | Origin | Usage |
 |---|---|---|
 | **`backup`** | Backup automation scripts (config, restic, agentic-ai, docs-sync, n8n, monitoring, zomboid, valheim, sumaenima, miracena, rclone, scryfall, arandu) | **OK/FAILED** status reports for all scheduled backups |
-| **`alerts`** | **Uptime Kuma** (~40 Down/Up monitors) **+ `alertmanager-ntfy`** (Prometheus/Alertmanager) **+ `arm-hunt`** | Service downtime + homelab alerts + ARM instance acquisition |
+| **`alerts`** | **Uptime Kuma** (~40 Down/Up monitors) **+ `alertmanager-ntfy`** (Prometheus/Alertmanager) **+ `arm-hunt`** **+ `hl-backlog-report`** | Service downtime + homelab alerts + ARM instance acquisition + weekly backlog digest (silent `min`, `low` on drift) |
 | `chimaera-heptatonic` | Changedetection.io | Webpage change notifications |
 | ~~`uptimekuma`~~ | **Deprecated / unused** — Uptime Kuma publishes directly to **`/alerts`** (Option A, 08/10/2026) | — |
 

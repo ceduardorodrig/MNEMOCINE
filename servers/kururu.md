@@ -50,6 +50,10 @@ tailscale ssh root@kururu
 - **Boot Hook:** Executed via `/system/etc/install-recovery.sh` on startup: initializes Wi-Fi (`wpa_supplicant`), Dropbear, `kururu-display`, `kururu-wake`, and `tailscaled`.
 - **NTP Time Synchronization:** Due to a non-functional hardware RTC, the boot hook enforces an early NTP sync before initializing network daemons, ensuring accurate log timestamps.
 
+## Known Issues
+
+- **Tailscale netfilter (HB-015, fixed 12/10):** Tailscale's health reported `adding [-i tailscale0 -j MARK …] … MARK revision 0 not supported, missing kernel module` — the Marvell 3.4.5 kernel has **no module tree and no `xt_MARK`**, so the `ts-forward` MARK rule failed. **Fix:** `tailscale set --netfilter-mode=off` (documented — disables Tailscale's netfilter management). Functionally a no-op here (the rule never applied) and it clears the health warning. ⚠️ Tailscale now warns *"configure iptables yourself"* — acceptable for this probe/WoL node (no subnet routing/NAT). Persisted in tailscaled prefs.
+
 ## See Also
 
 - [`servers/kururu-possibilidades.md`](kururu-possibilidades.md) — 20 roadmap possibilities and architectural roadmap

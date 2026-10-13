@@ -1,5 +1,6 @@
 ---
 tags: [homelab, server, ybytu, dns, monitoring, changedetection, ntfy]
+pending: [HB-013]
 ---
 
 # ybytu
@@ -53,6 +54,10 @@ All workloads execute as Docker containers managed via Docker Compose:
   - *Note on TCP Transport:* AdGuard Home uses TCP to avoid known UDP packet drop bugs ([AdguardTeam/AdGuardHome#7628](https://github.com/AdguardTeam/AdGuardHome/issues/7628)).
 - **Encrypted Fallback:** `tls://9.9.9.9` and `tls://1.1.1.1` (DNS-over-TLS). If kavure becomes temporarily unreachable, AdGuard seamlessly falls back to encrypted public resolvers with zero service interruption.
 - **Log Retention Policy:** `querylog.interval` is bounded to 7 days with memory buffer set to 200 queries, preventing memory exhaustion on this 1 GB instance.
+
+### Tailscale DNS health — HB-013 (2026-10-12)
+
+The host's Tailscale health reported `Tailscale failed to set the DNS configuration of your device: running /usr/sbin/resolvconf … Failed to resolve interface "tailscale": No such device`. Cause: `tailscaled` (started before the DNS backend settled) had fallen back to the broken `resolvconf` path. **Fix:** `sudo systemctl restart tailscaled` made it re-detect the backend — the health error cleared and MagicDNS resolution works. Detected by `homelab_tailscale_health` (see [`../network/observability.md`](../network/observability.md)). ⚠️ Verify it persists across reboot.
 
 ## Backup & Storage Mounts
 

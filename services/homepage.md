@@ -1,5 +1,6 @@
 ---
 tags: [homelab, service, homepage, monitoring]
+pending: [HB-038]
 ---
 
 # Homepage
@@ -40,8 +41,8 @@ Homepage provides **two** distinct status indicators, and homelab governance enf
 | `server:` + `container:` | **Docker chip** — "healthy"/"unhealthy" (container healthcheck state) | **Every containerized service** on a host configured in `docker.yaml` |
 | `siteMonitor:` | **Latency in ms** (green/red) | **Non-containerized services** (native systemd) or **external/Swarm/Funnel** endpoints |
 
-- **Current state:** 58 services with Docker chips, 10 with `siteMonitor`, **0 with duplicate chips**.
-- Designated for `siteMonitor` (due to lacking a stable, persistent container name): Sumænimá Portal, Sumænimá API/Backup/Umami (**Swarm** services — container names change per task recreation), Minecraft and Valheim (native game protocols), Punktfunk/Syncthing-Psicopompo (bare-metal systemd), and **Wake-on-LAN** relays (`Power on Kavure/Psicopompo`).
+- **Current state:** 61 services with Docker chips, 12 with `siteMonitor`, **0 with duplicate chips** (12/10/2026).
+- Designated for `siteMonitor` (due to lacking a stable, persistent container name): Sumænimá Portal, Sumænimá API/Backup/Umami (**Swarm** services — container names change per task recreation), Minecraft and Valheim (native game protocols), Punktfunk/Syncthing-Psicopompo (**bare-metal systemd**), **hl-infer** (native systemd, 12/10), and **Wake-on-LAN** relays (`Power on Kavure/Psicopompo`).
 
 > The Docker status chip reflects the container `healthcheck` — present on **all** production containers since 07/10 (see [`guides/docker-healthchecks.md`](../guides/docker-healthchecks.md)). This is the enforced default: it displays true internal operational health rather than mere port responsiveness.
 
@@ -55,17 +56,22 @@ Homepage provides **two** distinct status indicators, and homelab governance enf
 | `psicopompo` | `100.82.51.112:2375` | dockerproxy |
 | `kuaray` | `100.94.209.99:2375` | dockerproxy |
 | `kavure` | `100.124.146.77:2375` | dockerproxy |
+| `ybyra` | `100.66.224.34:2375` | dockerproxy |
 
 Each service in `services.yaml` with `server:` + `container:` displays live status automatically. Containers in `Exited` states (e.g. on kuaray) appear offline without manual intervention.
 
-### Groups in `services.yaml` (10/09/2026)
+### Groups in `services.yaml` (12/10/2026)
 
-Active ordering (cloud infrastructure placed last):
-1. **Psicopompo (Workstation)** — **Power on Kavure (WoL)**, Syncthing, Punktfunk, Glances
-2. **Kavure (Services)** — **Power on Psicopompo (WoL)**, Project Zomboid, Zomboid Control Panel, Crafty Controller, Minecraft Server, Valheim Server, Sumænimá API, Sumænimá Backup, **AioStreams, Comet**, **WordPress (10/09)**, **Directus (10/09)**, **NPM Admin (10/09)**, **n8n (10/09 — Docker badge)**, **Grafana (28/08)**, **Prometheus (28/08)**, **SearXNG (28/08)**, Pi-hole, Home Assistant, Navidrome, Calibre Web, Glances
-3. **Kuaray (Media & Automation)** — Syncthing, Transmission, Prowlarr, Lidarr, slskd, FlareSolverr, Soularr, Vert, Glances
-4. **Ybytu (Cloud)** — AdGuard Home, Glances, Uptime Kuma, Changedetection, Ntfy
-5. **Ybyra (Cloud)** — Sumænimá (Primary Edge), Glances
+Active ordering (cloud infrastructure placed last); **7 groups / 73 tiles**:
+1. **Psicopompo (Workstation & NAS)** — Power on Kavure (WoL), Syncthing, Punktfunk, **hl-infer (12/10)**, **StênioREC (12/10)**, **ComfyUI (12/10)**, Glances + runtime infra (Watchtower, Autoheal, Node Exporter, Promtail)
+2. **Sumænimá (ΣÆ Produção)** — Portal, API, Backup, Umami Analytics, Docker Registry
+3. **Kavure (Serviços & Games)** — Power on Psicopompo (WoL), Project Zomboid, Zomboid Control Panel, Crafty Controller, Minecraft Server, Valheim Server, AioStreams, Comet, n8n Homelab, Grafana, Prometheus, **Loki (12/10)**, **Alertmanager (12/10)**, SearXNG, Pi-hole, Unbound, Home Assistant, Navidrome, Calibre Web + runtime infra
+4. **Miracena (Kuaray)** — Portal Miracena, WordPress, Directus, Nuxt 3, n8n, NPM Admin
+5. **Kuaray (Mídia & Staging)** — Syncthing, Transmission, Prowlarr, Lidarr, slskd, FlareSolverr, Soularr, Vert + runtime infra
+6. **Ybytu (Cloud Borda)** — AdGuard Home, Glances, Uptime Kuma, Changedetection, Ntfy + runtime infra
+7. **Ybyra (Cloud Borda)** — Glances + runtime infra
+
+> **12/10/2026 — Groups corrected against the live config:** the list above was stale (it documented **5 groups** and placed the Miracena stack — WordPress/Directus/NPM/n8n — under **Kavure**, and a non-existent `Sumænimá (Primary Edge)` tile under Ybyra). The config actually has **7 groups**: the Miracena stack has its own group (**Miracena (Kuaray)**) and Ybyra carries only Glances + runtime infra. See the changelog entry below for the GPU/observability additions.
 
 > **08/08/2026:** **CasaOS removed** (uninstalled from kuaray); **Crafty/Minecraft migrated** to kavure (Kavure group); groups reordered (cloud at the bottom).  
 >  
@@ -96,6 +102,8 @@ Active ordering (cloud infrastructure placed last):
 > **27/09/2026:** **Glances on Ybytu normalized + Restart Always Policy** — Glances on Ybytu transitioned from `siteMonitor` to Docker socket (`server: ybytu`, `container: glances`), eliminating HTTP 500 errors from `EHOSTUNREACH` (bridge loopback → tailscale0 blocked by iptables). Core infrastructure containers (`dockerproxy`, `glances`, `node-exporter`, `promtail`, `autoheal`, `watchtower`) updated with `restart: always` across all nodes (`psicopompo`, `ybyra`, `ybytu`) preventing persistent `exited` states following reboots.  
 >  
 > **09/10/2026:** **`n8n Homelab` tile added** to the **Kavure (Services)** group — the standalone Homelab n8n (`server: kavure`, `container: n8n`, `http://kavure:5678`) was reactivated and is **distinct** from the Miracena n8n (`container: miracena-n8n`, Kuaray group). Both now render live Docker chips. See [`n8n`](n8n.md).
+
+> **12/10/2026 — GPU stack + observability tiles (audit pass):** **`hl-infer`** (native systemd, `:9095`; `siteMonitor` + `href` → `http://psicopompo:9095/v1/health`) and **`ComfyUI`** (Docker chip `comfyui`, description "on demand (GPU lease)") added to the **Psicopompo** group; **`StênioREC`** moved from the Sumænimá group to **Psicopompo** (Docker chip retained — it is the `steniorec` container with a healthy healthcheck, so a `siteMonitor` was **rejected** per the status-chip convention); **`Loki`** (`monitoring-loki`, `:3100`) and **`Alertmanager`** (`monitoring-alertmanager`, `:9093`) added to the **Kavure** group (running and in `ports.md` but absent from the dashboard). Audit also flagged, **not changed**: **`Project Zomboid` tile points at a non-existent container `pz-server`** (the PZ dedicated server runs as a child process of `zomboid-panel` — no docker socket mount), **`Minecraft Server` `description`** drifted from the documented `Docker`, and `ports.md` §2.2 still listed the Miracena stack under **kavure** though it runs on **kuaray** (corrected). Backup: `services.yaml.bak-20261012-gpu-tiles`; strict duplicate-key check + Homepage `js-yaml` pass; reloaded via `GET /api/revalidate` (`{"revalidated":true}`).
 
 > **09/10/2026 — Tile descriptions standardized to English (Tier A):** all `description:` values translated from PT-BR to EN (e.g. `Automação Homelab` → `Homelab Automation`, `Automação & Workflows` → `Automation & Workflows`, `Monitoramento Uptime` → `Uptime Monitoring`, `Servidor Push` → `Push Server`). Backup: `services.yaml.bak-20261009-en`; reloaded via `GET /api/revalidate`.
 

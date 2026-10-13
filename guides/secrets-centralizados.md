@@ -1,5 +1,6 @@
 ---
 tags: [homelab, env, sops, backup, secrets]
+pending: [HB-023, HB-026]
 ---
 
 # Centralized Secrets Management (.env) with SOPS/age

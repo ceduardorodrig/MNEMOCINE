@@ -29,6 +29,10 @@ tags: [homelab, server, psicopompo, gaming, docker, storage, power, gpu, nvidia,
 | **Network** | Intel I219-LM Gigabit Ethernet |
 | **MTU (PPPoE)** | **1492** (NetworkManager) configured 2026-10-07 to eliminate MTU mismatch drops across WAN |
 
+> **External drive (HB-001, resolved 12/10):** the `EXPANSION-2TB` (Seagate `ST2000LM007`) was a **USB external** connected for staging; it reported 25,296 reallocated sectors and was flagged by `SmartDiskError`. It is **disconnected** and the owner confirmed it is known/remediated. Current internal disks: `sda`/`sdc` (1 TB HDDs), `sdb` (480 GB SSD), `nvme0n1` (1.8 TB), `nvme1n1` (465 GB).
+
+> **Stray `NVME_PCI/NVME_PCI` directory (HB-024, resolved 12/10):** an **empty** duplicated path `/mnt/NVME_PCI/NVME_PCI/docker-data/volumes/sumaenimahub_umami_data/_data` existed since **2026-09-28**. Root cause: the `SUMAENIMA-HUB` `scripts/deploy-swarm.sh` guard ran `mkdir -p "$NVME_UMAMI"` **inside** a helper container that already mounted the host `/mnt/NVME_PCI` at `/mnt` — so the host path was re-prefixed (doubled) on the host. The directory was **removed** (no container, volume or compose referenced it) and the script now **re-roots** the path (`$NVME_REL`).
+
 ## GPU / NVIDIA Architecture — ReBAR & DDC/CI
 
 > **GPU:** NVIDIA GeForce RTX 5050 (proprietary driver). The Dell OEM BIOS disables ReBAR toggle, but the Linux kernel enforces it dynamically.

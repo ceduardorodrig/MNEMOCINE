@@ -1,10 +1,11 @@
 ---
 tags: [homelab, governance, stenio, tooling, rust, guides]
+pending: [HB-019, HB-029]
 ---
 
 # Operational Tooling — Single Source of Truth in Repository
 
-How (and why) **all code executing under `/usr/local/bin`** resides in `SUMAENIMA-HUB/provisioning/`. Established on **2026-09-29**.
+How (and why) **all code executing under `/usr/local/bin`** resides in the **`MNEMOCINE-OPS`** repository (private — `github.com/ceduardorodrig/MNEMOCINE-OPS`), cloned at `/mnt/NVME_PCI/homelab/mnemocine-ops`, under `provisioning/`. Established **2026-09-29**; **moved out of the product repo `SUMAENIMA-HUB` on 2026-10-12** (the homelab is larger than the product running on it — see `backlog.md` HB-014). The `provisioning/` root is required by the `stenio --tools` engine.
 
 ## The Problem
 
@@ -29,7 +30,7 @@ Measured historical incidents:
 | **`provisioning/scripts/`** | Shell scripts and tool wrappers |
 | **`provisioning/<crate>/`** | Rust operational tools (compiled and distributed as standalone binaries) |
 | **`provisioning/systemd/`** | Systemd service units and timers |
-| **`/usr/local/bin`** | **Strictly binaries and scripts deployed from `provisioning/`** |
+| **`/usr/local/bin`** | **Strictly binaries and scripts deployed from `MNEMOCINE-OPS/provisioning/`** |
 
 > Applies across all 5 active nodes: psicopompo, kavure, kuaray, ybyra, ybytu.
 

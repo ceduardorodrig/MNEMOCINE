@@ -162,3 +162,29 @@ $ docker run --rm sumaenima-server:cpu             ← kavure (CPU build): Start
 $ curl -s http://127.0.0.1:9090/v1/ready
 {"device":"cuda","device_count":1,"ready":true}    ← HTTP 200
 ```
+
+## 9. Deployment Notes (2026-10-12)
+
+- **Use the canonical manager:** `sumaenima-ctl gpu up` — it drives the compose project **`sae-gpu`**
+  with the stack's `--env-file`. A bare
+  `docker compose -f provisioning/stacks/gpu.yml up -d` uses the directory-derived project name and
+  fails with `Conflict. The container name "/steniorec" is already in use`.
+- **Rebuilding the image:** `docker build --network=host -t sumaenima-server:cuda -f app/server/Dockerfile .`
+  The build container only inherits the host resolver with `--network=host`; without it, `apt-get`
+  inside the CUDA base image can fail with `Could not resolve 'archive.ubuntu.com'` (the homelab runs
+  split-DNS).
+- **GPU gateway dependency:** the service holds a **resident lease** from
+  [`hl-infer`](hl-infer.md) and, by design, refuses to start when the gateway is unreachable
+  (`HL_INFER_REQUIRED=true`). Reachability is through the tailnet IP
+  (`http://100.82.51.112:9095`) — verified from inside the container before enforcing it.
+- **Idle unloading is disabled** (`VRAM_IDLE_TIMEOUT_SECS=0`) so the resident model and the lease
+  never disagree.
+- **The `gpu-supervisor` is RETAINED — do not retire it.** Verified 2026-10-12: it contains no
+  VRAM claim/release code; its job is **boot ordering** (wait for `tailscaled` + an active Swarm
+  session, then `docker compose up -d` with retries — the fix for the 26-hour boot-race outage) plus
+  verify/recover. Docker's `restart: unless-stopped` covers restarts *after* a successful start, but
+  it cannot handle the overlay's lazy attachment at boot. The gateway arbitrates; it does not boot.
+- **Legacy GPU stacks archived:** `steniobot-gpu/` (legacy vision/audio/ollama workers) and
+  `transcribe/` (disposable Whisper) were unversioned and unreferenced; they were moved to
+  `/mnt/NVME_PCI/homelab/.archive-legacy-gpu-2026-10-12/` (reversible) so nobody boots a stack that
+  claims the GPU behind the gateway's back.

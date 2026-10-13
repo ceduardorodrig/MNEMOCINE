@@ -4,6 +4,24 @@ tags: [homelab, service, steniobot, docker, env, ssl]
 
 # StênioBOT
 
+> ## ⚠️ Legacy name — the service no longer exists
+>
+> **"StênioBOT" is historical.** The transcription pipeline was rebuilt in Rust as
+> [`steniorec`](steniorec.md) (Whisper daemon on psicopompo, GPU-accelerated), and the institutional
+> product surface is the Sumænimá Hub stack. The legacy Python workers named below
+> (`steniobot-audio`, `steniobot-vision`) were **removed** — see HB-027 in
+> [`../backlog.md`](../backlog.md).
+>
+> This note is kept for **historical traceability** (the vault has no version control, so the
+> record is not deleted) and because the name still appears in port registries and older notes.
+>
+> **For the current state use:** [`steniorec.md`](steniorec.md) (transcription) ·
+> [`hl-infer.md`](hl-infer.md) (GPU arbitration) ·
+> [`../guides/gpu-centralization.md`](../guides/gpu-centralization.md) (runbook).
+>
+> **Still alive under this name:** the `steniobot_ollama` GPU worker container (`ollama/ollama`,
+> `runtime: nvidia`, `OLLAMA_KEEP_ALIVE=0`) — a registered consumer of the GPU gateway.
+
 AI-powered minute-taking, transcription, and meeting summarization bot for institutional governance.
 
 **Server:** kavure (Swarm manager, role: core) — migrated from psicopompo on 07/08/2026  
