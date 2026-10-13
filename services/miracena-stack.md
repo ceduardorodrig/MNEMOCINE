@@ -50,7 +50,7 @@ tags: [homelab, service, miracena, stack, docker, n8n, directus, wordpress, nuxt
 #### Directus
 - **Email:** ceduadorodrig@gmail.com
 - **Password:** (in `.env` — `ADMIN_PASSWORD`)
-- **Static Token:** `miracena-admin-token-2026` (for API / CLI access)
+- **Static Token:** in the SOPS store as `MIRACENA_DIRECTUS_TOKEN` (for API / CLI access) — retrieve with `/mnt/NVME_PCI/secrets/sops-decrypt.sh MIRACENA_DIRECTUS_TOKEN`; never inline the value in this note
 - **Status:** ✅ Configured (10/09/2026)
 - **Schema:** 21 collections, 28 relationships via direct SQL
 - **Seed Data:** 6 members, 3 guilds, 3 cabals, 3 contacts, 2 squads, 3 projects, 2 deals, 4 tasks, 3 OKRs, 5 key results, 2 invoices, 1 payment, 3 assets, 2 peer reviews

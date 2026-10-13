@@ -30,7 +30,7 @@ Documented in `config-backup.md`. To modify schedule times: Edit `/etc/systemd/s
 
 ## Monthly Recovery Drills
 
-- [x] **Docker prune** (1st of each month at 04:00, automated via `docker-prune.timer` on psicopompo) — cleans build cache and dangling layers; complements the 30GB garbage collection threshold in `daemon.json`. See [`guides/docker-disk-cleanup.md`](../guides/docker-disk-cleanup.md).
+- [x] **Docker prune** (1st of each month at 04:00, automated via `hl-docker-prune.timer` on psicopompo) — cleans build cache and dangling layers; complements the 30GB garbage collection threshold in `daemon.json`. See [`guides/docker-disk-cleanup.md`](../guides/docker-disk-cleanup.md).
 
 1. **Physical Restoration Drill** (dry-run verifications do not suffice):
    - Direct Mirror: Extract 1 configuration directory from `/mnt/BACKUP/configs-homelab/{host}/` to `/tmp` and inspect file integrity.

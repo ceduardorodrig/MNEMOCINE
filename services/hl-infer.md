@@ -1,6 +1,6 @@
 ---
 tags: [homelab, service, gpu, psicopompo]
-pending: [HB-022]
+pending: []
 ---
 
 # hl-infer (GPU Inference Gateway)
@@ -181,3 +181,59 @@ to arbitration.
 - [`steniorec.md`](steniorec.md) — ADR-020 (GPU-only, no CPU fallback) and the `gpu-supervisor`
 - [`../network/ports.md`](../network/ports.md) — port registry
 - [`../backlog.md`](../backlog.md) — HB-022
+
+## Investigation note — 2026-10-13 (HB-022 / HB-023): `steniobot_ollama` is a phantom
+
+**Question:** the `steniobot_ollama` worker container is defined in the Sumænimá Hub stack, but no
+caller was found in the hub's Rust code. Is it a live, unleased GPU consumer to migrate, or a dead
+definition?
+
+**Answer: dead definition — the container never runs and nothing calls it.** The live Ollama is a
+*host* systemd service, and its two real callers are already accounted for. Details and evidence
+(read-only audit):
+
+**1. Definition.** `sumaenima-hub/docker-compose.yml` (`ollama` service, `container_name:
+steniobot_ollama`): `ollama/ollama:latest` (digest-pinned), `OLLAMA_KEEP_ALIVE=0`, port
+`11434:11434`, volume `/mnt/NVME_PCI/ollama_models:/root/.ollama`, `runtime: nvidia` + `deploy`
+device reservation (`capabilities: [gpu]`). It is the only definition left; the current
+`provisioning/stacks/gpu.yml` holds **only** `steniorec` (the old `ollama` block survives solely in
+`.archive-legacy-gpu-2026-10-12/steniobot-gpu/gpu.yml`).
+
+**2. Live state — not running anywhere.** `docker ps -a` on psicopompo shows no `steniobot_ollama`
+and no `ollama` image is even pulled; `docker service ls` / `docker ps -a` on kavure, kuaray and
+ybyra show none either. The container is a config artifact, not a service.
+
+**3. No caller exists.**
+- **Hub Rust:** `rg -i ollama` over `*.rs` → **zero matches** (no HTTP client to `:11434`, no
+  `OLLAMA_HOST` use).
+- **n8n:** kavure `n8n` → `SELECT count(*) FROM workflow_entity` = **0**; kuaray `miracena-n8n`
+  (`miracena-postgres`, db `n8n`) → **0** workflows. No workflow references `ollama`/`11434`/`9095`.
+- **Scripts/units:** the only `11434` hits outside the compose file are the autopilot provider
+  registry and the archived `kernel-watchdog` skill doc.
+- **`.env`:** `OPENWIKI_PROVIDER=ollama` is dead — OpenWiki lives only under `scripts/archive/` and
+  runs nowhere (no container on kavure).
+
+**4. The real Ollama is the host service, not the container.** `ollama.service` on psicopompo
+(`/usr/local/bin/ollama serve`, drop-in `OLLAMA_MODELS=/mnt/NVME_PCI/ollama_models/models`, models
+`gemma4:e2b`, `qwen3:8b`, `qwen2.5:7b`), listening on **`127.0.0.1:11434` only** (no overlay, no
+host publish). Its callers:
+- **Autopilot** (`hl-autopilot.timer`, `autopilot-providers`): endpoint `http://127.0.0.1:11434`,
+  model `gemma4:e2b`; the call is wrapped by a gateway lease (`gateway.rs`) — this is the path
+  already recorded as migrated.
+- **OpenCode server** (`opencode serve`, loopback): polls `GET /api/tags` every 30 s. Metadata
+  only — it lists installed models and loads none, so it never touches VRAM.
+
+**5. VRAM / drift.** `nvidia-smi` compute apps: only `python` (ComfyUI idle context, 84 MiB),
+`helium` (browser) and `electron` (Obsidian) — **no ollama process**. Gateway
+`GET /v1/gpu/consumers` → `unmanaged: 0`, `leases: []`; `GET /v1/queue` → `reserved_bytes: 0`,
+`effective_free_bytes: 5.8 GB`. The host Ollama holds no VRAM at rest (no model loaded), so there is
+**no drift** to flag.
+
+**6. Decision implied.** The `steniobot_ollama` path is **dead**: there is nothing to lease. The
+migration step is therefore *removal*, not an env/lease change — delete the `ollama` service from
+`docker-compose.yml` (and fix the stale `steniobot_ollama → :11434` claim in
+[`../network/service-topology.md`](../network/service-topology.md) and
+[`steniobot.md`](steniobot.md)), after which the container is no longer a registered-but-nonexistent
+GPU claim and **HB-022 can be closed**. The live host Ollama needs no `OLLAMA_HOST` change: the
+autopilot already holds the lease around it, and OpenCode's `/api/tags` polling is metadata-only
+(if it ever runs a model it must be leased like any batch consumer).

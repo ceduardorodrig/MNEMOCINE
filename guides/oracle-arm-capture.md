@@ -73,6 +73,10 @@ else
 fi
 ```
 
+> **Note (2026-10-13, HB-008):** the snippet above is the *original* loop. The **deployed** `arm-hunt`
+> additionally injects the **tagged** Tailscale auth key into the cloud-init (resolved from SOPS, never
+> hardcoded) and **refuses to launch** when that key is unavailable — see *Identity & tags* below.
+
 ### Systemd Units (`provisioning/systemd/`)
 
 `hl-arm-hunt.service`:
@@ -103,12 +107,34 @@ WantedBy=timers.target
 
 Upon launch, the instance is provisioned automatically via cloud-init (`provisioning/cloud-init/ybytyra.yaml`):
 1. Docker runtime installation with standardized log rotation defaults;
-2. Automatic Tailscale registration using the pre-authenticated vault key;
+2. Automatic Tailscale registration using the pre-authenticated vault key (**tagged** — see below);
 3. Deployment of core monitoring containers (node-exporter, promtail, glances, dockerproxy, autoheal, watchtower);
 4. `etckeeper` backup initialization;
 5. Completion push notification to ntfy `/alerts`.
 
 > The captured node is designated **`ybytyra`** (Tupi: *mountain range*), continuing the naming convention of homelab Oracle cloud nodes (`ybytu` = wind, `ybyra` = tree).
+
+### Identity & tags — the VM must be born tagged (HB-008 · HB-049)
+
+The cloud-init joins the tailnet with `tailscale up --authkey="${TAILSCALE_AUTHKEY}"`. `arm-hunt`
+resolves that value **at launch time from the SOPS store** (`/mnt/NVME_PCI/secrets/sops-decrypt.sh
+TS_AUTH_KEY`) — it is **never hardcoded**. The key itself must be **tagged** (`tag:server`):
+
+- **The tag comes from the key, not a flag.** Per the Tailscale docs, a device enrolled with a
+  **tagged** auth key *"assumes the identity of the auth key's tags"*; `--advertise-tags` is **not**
+  used together with an auth key (and cannot *remove* tags). The fix is therefore to regenerate
+  `TS_AUTH_KEY` **with** `tag:server` — which also makes `ybytyra` a first-class server under the
+  tag policy (`network/tailscale.md`, `guides/tailnet-tagging.md`).
+- **Tagging also turns key expiry off.** *"When you apply a tag to a device for the first time and
+  authenticate it, the tagged device's key expiry is disabled by default."* An **untagged** key is
+  what would have left `ybytyra` carrying the default 180-day expiry (Trap 5 of `tailnet-tagging.md`).
+- **Fail-closed.** If the cloud-init or `TS_AUTH_KEY` cannot be resolved, `arm-hunt` **refuses to
+  launch** (it logs, fires a single ntfy alert, and retries next cycle) instead of capturing a VM
+  with **no identity** — an unreachable machine that wastes the Always-Free slot.
+
+**Verified 2026-10-13:** with `HOME=/home/edu` (as `hl-arm-hunt.service` sets it) `TS_AUTH_KEY`
+resolves (62 chars) and the generated user-data is valid YAML carrying the tagged key, with no
+unresolved placeholder; the live loop logged a normal capacity miss on the next tick.
 
 ## Extra Levers (research 2026-10-12) — and what does **not** work
 
@@ -136,10 +162,15 @@ The loop can **stop silently** (dead timer, stalled log). `arm-hunt-watchdog`
 `/alerts` if the timer is not active or the log has been idle for > 1 h. If already captured
 (`done` sentinel), it does not watch.
 
-## Current Status (2026-10-12)
+## Current Status (2026-10-13)
 
 Active on **psicopompo** via `hl-arm-hunt.timer` (every 2 min). As of 2026-10-12: **2,666 capacity
-attempts, no luck yet** (~4 days). Target shape 2 OCPU/12 GB. Not captured.
+attempts, no luck yet** (~4 days). Target shape 2 OCPU/12 GB. **Not captured yet** — the loop keeps
+polling and now logs a normal `sem capacidade` miss each cycle.
+
+**Ready to be born tagged (2026-10-13):** the SOPS `TS_AUTH_KEY` now carries `tag:server`, so when a
+capacity window finally opens the VM will register with a tag identity and key expiry off — and the
+loop will **refuse** to launch if the key is ever missing (see *Identity & tags* above).
 
 ## See Also
 

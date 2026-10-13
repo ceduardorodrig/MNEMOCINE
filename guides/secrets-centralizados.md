@@ -1,6 +1,6 @@
 ---
 tags: [homelab, env, sops, backup, secrets]
-pending: [HB-023, HB-026]
+pending: [HB-023, HB-026, HB-051]
 ---
 
 # Centralized Secrets Management (.env) with SOPS/age
@@ -72,6 +72,7 @@ scp secrets/generated/sumaenima.env ybyra:/home/ubuntu/homelab/sumaenima/.env   
 | Migration Archive | `zomboid-server-kavure/archive/migration-20260805/.env` | N/A (historical archive) | — |
 | **Oracle Cloud (OCI)** | `~/.oci/config` + private key (psicopompo) | ✅ 2026-10-08 | `OCI_*` |
 | **Tailscale — Funnel Auth Key (edge)** | `edge.yml` via `${TS_AUTH_KEY}` | ✅ 2026-10-08 | `TS_AUTH_KEY` |
+| **Miracena — Directus static token** | Referenced from `services/miracena-stack.md` | ✅ 2026-10-13 | `MIRACENA_DIRECTUS_TOKEN` |
 
 ## Non-.env Secret Handling (Migrated 2026-08-28)
 
@@ -104,6 +105,121 @@ Oracle Cloud VMs (`ybytu`, `ybyra`) are managed via API directly from the termin
 ```bash
 /mnt/NVME_PCI/secrets/oci-restore.sh
 ```
+
+## Secret Hygiene Findings (HB-051) — 2026-10-13
+
+Reconnaissance recorded three secret-hygiene gaps. The Directus token is remediated here; the
+`TS_AUTH_KEY` was **rotated the same day** — but must be rotated **again** because the new value
+was exposed in a chat session (see (a)); the `authorized_keys` cleanup is a recommendation only
+(files deliberately untouched).
+
+### (a) `TS_AUTH_KEY` in the running `sae-edge_tunnel` service spec — rotated 2026-10-13, rotate AGAIN
+
+**Finding.** The `sae-edge` stack passes the Tailscale auth key as an *inline environment
+variable* (`TS_AUTH_KEY: ${TS_AUTH_KEY}` in `provisioning/stacks/edge.yml`, services `tunnel`
+and `tunnel-standby`). `docker stack deploy` bakes the resolved value into the service spec, so it
+is readable by anyone with Docker API access (`docker service inspect`) and persisted in the
+Swarm **Raft log** — and therefore in every manager snapshot/backup.
+
+Verified 2026-10-13 (key **name** only — the value is never printed):
+
+```bash
+ssh kavure 'docker service inspect sae-edge_tunnel \
+  --format "{{range .Spec.TaskTemplate.ContainerSpec.Env}}{{println .}}{{end}}"'
+# → TS_AUTH_KEY=<redacted>  (61-char tskey…), TS_HOSTNAME, TS_STATE_DIR, TS_USERSPACE, TS_SERVE_CONFIG
+```
+
+> ✅ **Rotated 2026-10-13 (14:10).** A replacement key was generated, written to the master
+> `secrets.env` **and** the encrypted store, and the `sae-edge` stack was redeployed: the running
+> spec's key now **matches the store** (compared by SHA-256 of the value — never by value). A
+> **new `TS_API_TOKEN`** was added to the store the same day. The pre-rotation store is kept as
+> `mnemocine/secrets.enc.env.bak-rotacao-2026-10-13-1410` (rollback point — delete once stable;
+> it still contains the **old** key, so it is itself a hygiene item).
+>
+> ⚠️ **Rotate AGAIN.** The new values were **pasted into a chat session**, so they must be treated
+> as exposed. Generate fresh ones in the console and repeat the procedure below; the Docker-secret
+> hardening is the durable fix.
+
+**Rotation procedure (owner + operator):**
+
+1. **Console (owner).** Create a new auth key tagged `tag:edge`; mark it **ephemeral** for the
+   standby so a decommissioned failover leaves no orphan node. Never click *"Disable key expiry"*
+   on an already-expired device (see `tailnet-acl-runbook.md` §8).
+2. **Store.** Update `TS_AUTH_KEY` in the SOPS store (never inline it) through the master
+   `secrets.env` + re-encrypt workflow above.
+3. **Redeploy.** `docker stack deploy -c edge.yml sae-edge` from the provisioning directory so the
+   containers re-authenticate with the new key.
+4. **Revoke.** Delete the old key in the console **after** the stack re-authenticates.
+5. **Verify.** `docker exec <tunnel-task> tailscale status` shows the node as tagged and connected;
+   confirm the old key is gone from the console.
+
+**Proposed hardening (text only — NOT applied).** Stop passing the key inline and inject it as a
+**Docker secret** materialised from the SOPS store at deploy time. The Tailscale container natively
+reads the key from a file via `TS_AUTHKEY_FILE` (or `TS_AUTHKEY=file:/…`), so no entrypoint shim is
+needed on current images:
+
+```yaml
+# edge.yml (proposed)
+services:
+  tunnel:
+    environment:
+      TS_AUTH_KEY_FILE: /run/secrets/ts_auth_key
+    secrets:
+      - ts_auth_key
+secrets:
+  ts_auth_key:
+    external: true   # create once: printf %s "$(/mnt/NVME_PCI/secrets/sops-decrypt.sh TS_AUTH_KEY)" | docker secret create ts_auth_key -
+```
+
+Apply the same to `tunnel-standby`. This keeps the value **out of the service spec, the Raft log
+and `docker service inspect`**; the secret is still readable inside the container at runtime, but
+the exposure window and blast radius shrink substantially. Coordinate the compose change with the
+edge stack owner before deploying.
+
+### (b) Static Directus token moved out of the vault — remediated 2026-10-13
+
+The literal token previously inlined in `services/miracena-stack.md` was moved to the SOPS store
+under the key **`MIRACENA_DIRECTUS_TOKEN`**; the note now references the key name only. Retrieve it
+with `/mnt/NVME_PCI/secrets/sops-decrypt.sh MIRACENA_DIRECTUS_TOKEN`. The same value was added to
+the master `secrets.env` to keep the re-encrypt workflow lossless.
+
+> ✅ **Master-store drift — reconciled 2026-10-13 (HB-056).** The master `secrets.env` was found
+> **behind** the encrypted store by three keys (`GEMINI_API_KEY`, `BLUESKY_HANDLE`,
+> `BLUESKY_APP_PASSWORD`), so running the re-encrypt step from the master as-is would have
+> **dropped** them from the store. All three have live consumers — `hl-autopilot` injects them
+> from the SOPS store at runtime (`provisioning/scripts/hl-autopilot`; `autopilot-publish` /
+> `autopilot-providers`). The master was **backfilled from the store**, proved by **key name +
+> SHA-256 of each value** (never by value). Both stores now carry the **same 93 keys** with **no
+> value divergence** (`comm` of key names is empty; perms stay `0600`).
+>
+> **Guard against recurrence.** The trap is the blind `>` redirect in step 2 of *Adding or Updating
+> a Secret*. After editing the master, confirm the re-encrypt **never shrinks** the store — compare
+> key names before and after (`cut -d= -f1 | sort -u`), or merge additively instead of overwriting.
+> A key that exists only in the store and not in the master is the signal to reconcile before
+> encrypting.
+
+### (c) SSH `authorized_keys` inventory — recommendation only (files NOT modified)
+
+Fingerprints of the current client key and of every `authorized_keys` entry across the three
+nodes, verified 2026-10-13:
+
+| Host | File | Fingerprint (SHA256) | Comment | Assessment |
+|---|---|---|---|---|
+| psicopompo (current client key) | `~/.ssh/id_ed25519.pub` | `U3VF75dsdtt+CY4F96oS71X06g6FozSvs4PQA3xaSIs` | `edu@psicopompo` | — |
+| psicopompo | `~/.ssh/authorized_keys` | `/Ry7XvbkZczypEogPEaIodholanjrb9BVuB6s/44s4k` | `kavure` | **Legitimate** — kavure's own user key (matches kavure `~/.ssh/id_ed25519.pub`); keep |
+| kuaray | `~/.ssh/authorized_keys` | `GLg5fhclnN5FjgxdlrGTsrKf0VAGOjxrm0MheTLYnuE` | `edu@Psicopompo` | **Vestigial** — stale and duplicated ×2; superseded by the current key |
+| kuaray | `~/.ssh/authorized_keys` | `U3VF75dsdtt+CY4F96oS71X06g6FozSvs4PQA3xaSIs` | `edu@psicopompo` | **Current key** — keep |
+| kavure | `~/.ssh/authorized_keys` | `U3VF75dsdtt+CY4F96oS71X06g6FozSvs4PQA3xaSIs` | `edu@psicopompo` | **Current key** — keep |
+
+**Verified behaviour.** A forced login with the current key succeeds on both LAN nodes:
+`ssh -o IdentitiesOnly=yes -i ~/.ssh/id_ed25519 kuaray` → OK and `… kavure` → OK. Loopback to
+`psicopompo` is refused **by design** (no inbound sshd for self). This contradicts the earlier
+"LAN key login refused" note — the current key *is* authorised on kuaray and kavure.
+
+**Recommendation.** Do **not** authorise a new key — it already works. Delete the two stale
+`edu@Psicopompo` duplicates from **kuaray**'s `authorized_keys`, keeping the current `U3VF75ds…`
+entry, to remove an obsolete credential from an exposed file. Keep kavure's and psicopompo's
+entries unchanged. The removal is a host change and was deliberately **not** performed here.
 
 ## Security Enforcement
 

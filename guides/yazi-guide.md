@@ -1,5 +1,5 @@
 ---
-tags: [homelab, guide, tutorial, desktop]
+tags: [homelab, tutorial, desktop]
 created: 2026-09-25
 ---
 

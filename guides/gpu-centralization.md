@@ -1,6 +1,6 @@
 ---
-tags: [homelab, guides, gpu, rust, psicopompo]
-pending: [HB-022]
+tags: [homelab, tutorial, gpu, rust, psicopompo]
+pending: []
 ---
 
 # GPU Centralization — Runbook

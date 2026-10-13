@@ -10,12 +10,37 @@ Web page change monitoring and notification daemon. Runs on ybytu (Docker).
 
 ## Deployment
 
-```bash
-docker run -d --restart unless-stopped --name changedetection \
-  -p 8082:5000 \
-  -v changedetection-data:/datastore \
-  dgtlmoon/changedetection.io
+Managed as a **Compose service** (`/home/ubuntu/homelab/changedetection/compose.yml`) — the homelab
+rule forbids orphan `docker run` containers:
+
+```yaml
+name: changedetection
+services:
+  changedetection:
+    image: dgtlmoon/changedetection.io:latest
+    container_name: changedetection
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "python3 -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:5000/', timeout=5)\""]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    volumes:
+      - ./data:/datastore
+      - /etc/localtime:/etc/localtime:ro
+      - /usr/share/zoneinfo:/usr/share/zoneinfo:ro
+    environment:
+      - TZ=America/Sao_Paulo
+    ports:
+      - "8082:5000"
+    network_mode: "bridge"
 ```
+
+> **Correction (2026-10-13):** this doc previously showed an orphan `docker run …` command. Verified
+> live: the container is created and owned by the Compose project above (`docker ps` →
+> `changedetection`, `com.docker.compose.project=changedetection`), consistent with the
+> config-as-code rule in [`AGENTS.md`](../AGENTS.md).
 
 ## Access
 

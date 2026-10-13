@@ -108,6 +108,26 @@ Kavure utilizes compressed in-memory swap (**zram**) exclusively, avoiding disk-
 - **Pre-Update Compression:** `zomboid-update` generates a dedicated `tar.zst` snapshot stored in `offbox/archive/pre-update-<date>.tar.zst`.
 - **Local Control Panel Backups:** Generates local rolling archives daily at midnight (`backupSchedule: 0 0 * * *`) with a 7-day retention limit.
 
+## Dashboard Status (Homepage)
+
+The dedicated server has **no HTTP status endpoint**, so the Homepage tile **cannot** use a
+`siteMonitor` yet and **must not** use a Docker chip on the manager:
+
+- The game runs as a **native child process of `zomboid-panel`** (the panel's active server has
+  `isRemote:false` → provider `native`; the panel has **no docker socket mount**), so there is **no
+  container that reflects the game's state** — a chip on `zomboid-panel` would show false uptime
+  (the manager stays up while the game is down).
+- The panel's API is **auth-gated** (`/api/servers/status` → `401`; `/api/health` reflects only the
+  panel), so it cannot feed a Homepage `siteMonitor`.
+
+**Pending (13/10/2026):** deploy a lightweight native **`zomboid-health`** endpoint mirroring
+[`minecraft-status`](minecraft-status.md) (RCON TCP `27015` probe → `200` up / `503` down; candidate
+port `:9098`), then set the tile to `siteMonitor: http://kavure:9098`. The name avoids the existing
+**`zomboid-status`** CLI helper (`/usr/local/bin/zomboid-status`, which prints container + port
+state) — an HTTP service binary of that name would overwrite it. Until then the tile carries
+**no status chip** (the invalid `pz-server` Docker chip was removed 13/10 — see
+[`homepage.md`](homepage.md) changelog).
+
 ## See Also
 - [`../../servers/kavure.md`](../../servers/kavure.md) — Kavure dedicated services node profile
 - [`zomboid-control-panel.md`](zomboid-control-panel.md) — Web administration interface

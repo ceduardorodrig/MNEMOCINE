@@ -1,6 +1,6 @@
 ---
 tags: [homelab, service, homepage, monitoring]
-pending: [HB-038]
+pending: []
 ---
 
 # Homepage
@@ -41,8 +41,8 @@ Homepage provides **two** distinct status indicators, and homelab governance enf
 | `server:` + `container:` | **Docker chip** — "healthy"/"unhealthy" (container healthcheck state) | **Every containerized service** on a host configured in `docker.yaml` |
 | `siteMonitor:` | **Latency in ms** (green/red) | **Non-containerized services** (native systemd) or **external/Swarm/Funnel** endpoints |
 
-- **Current state:** 61 services with Docker chips, 12 with `siteMonitor`, **0 with duplicate chips** (12/10/2026).
-- Designated for `siteMonitor` (due to lacking a stable, persistent container name): Sumænimá Portal, Sumænimá API/Backup/Umami (**Swarm** services — container names change per task recreation), Minecraft and Valheim (native game protocols), Punktfunk/Syncthing-Psicopompo (**bare-metal systemd**), **hl-infer** (native systemd, 12/10), and **Wake-on-LAN** relays (`Power on Kavure/Psicopompo`).
+- **Current state:** 60 services with Docker chips, 12 with `siteMonitor`, **0 with duplicate chips** (13/10/2026; the Project Zomboid Docker chip was removed — see changelog).
+- Designated for `siteMonitor` (due to lacking a stable, persistent container name): Sumænimá Portal, Sumænimá API/Backup/Umami (**Swarm** services — container names change per task recreation), Minecraft and Valheim (native game protocols), Punktfunk/Syncthing-Psicopompo (**bare-metal systemd**), **hl-infer** (native systemd, 12/10), **Project Zomboid** (native game protocol; **awaiting a `zomboid-health` endpoint** — 13/10), and **Wake-on-LAN** relays (`Power on Kavure/Psicopompo`).
 
 > The Docker status chip reflects the container `healthcheck` — present on **all** production containers since 07/10 (see [`guides/docker-healthchecks.md`](../guides/docker-healthchecks.md)). This is the enforced default: it displays true internal operational health rather than mere port responsiveness.
 
@@ -83,7 +83,7 @@ Active ordering (cloud infrastructure placed last); **7 groups / 73 tiles**:
 > **Pi-hole and Home Assistant migrated from kuaray → kavure** (Kavure group); **Home Assistant** restricted to **tailnet-only access** (`http://100.124.146.77:8123`, no public Funnel — 18/09/2026); **AioStreams** moved to Funnel port **`:10000`** (`kavure.chimaera-heptatonic.ts.net:10000` → `localhost:3000`) — port `:8443` is unsupported for public Tailscale Funnels (valid ports: 443, 8080, 10000); removed from Kuaray group.  
 >  
 > **Navidrome and Calibre Web** configured in Kavure group; **Kavita removed (10/08)** — entry removed from Kavure group and container purged from kavure.  
-> **Minecraft Server** `description` updated to **`Docker`** — Dominium server executes as a **Java child process inside the `crafty-controller` container** (bind mount `MINECRAFT SERVER` → `/crafty/servers/dominium`); not an isolated container or bare-metal binary. Only the `minecraft-status.service` probe daemon (systemd, `:9095`) runs natively on the host.  
+> **Minecraft Server** `description` updated to **`Docker`** — Dominium server executes as a **Java child process inside the `crafty-controller` container** (bind mount `MINECRAFT SERVER` → `/crafty/servers/dominium`); not an isolated container or bare-metal binary. Only the `hl-minecraft-status.service` probe daemon (systemd, `:9095`) runs natively on the host.  
 > **Pi-hole** `icon` updated to **`pi-hole`** (vibrant Dashboard Icons asset; the local `pihole.svg` was monochrome).  
 >  
 > **26/08/2026:** **Mosquitto removed from dashboard** (container uninstalled from kuaray on 16/08 — orphaned entry) and **Rclone GUI removed** (webgui disabled/deleted on psicopompo — port `46295` released; Homepage siteMonitor was the sole open connection). Configuration backup: `services.yaml.bak-20260826`.  
@@ -105,6 +105,38 @@ Active ordering (cloud infrastructure placed last); **7 groups / 73 tiles**:
 
 > **12/10/2026 — GPU stack + observability tiles (audit pass):** **`hl-infer`** (native systemd, `:9095`; `siteMonitor` + `href` → `http://psicopompo:9095/v1/health`) and **`ComfyUI`** (Docker chip `comfyui`, description "on demand (GPU lease)") added to the **Psicopompo** group; **`StênioREC`** moved from the Sumænimá group to **Psicopompo** (Docker chip retained — it is the `steniorec` container with a healthy healthcheck, so a `siteMonitor` was **rejected** per the status-chip convention); **`Loki`** (`monitoring-loki`, `:3100`) and **`Alertmanager`** (`monitoring-alertmanager`, `:9093`) added to the **Kavure** group (running and in `ports.md` but absent from the dashboard). Audit also flagged, **not changed**: **`Project Zomboid` tile points at a non-existent container `pz-server`** (the PZ dedicated server runs as a child process of `zomboid-panel` — no docker socket mount), **`Minecraft Server` `description`** drifted from the documented `Docker`, and `ports.md` §2.2 still listed the Miracena stack under **kavure** though it runs on **kuaray** (corrected). Backup: `services.yaml.bak-20261012-gpu-tiles`; strict duplicate-key check + Homepage `js-yaml` pass; reloaded via `GET /api/revalidate` (`{"revalidated":true}`).
 
+> **13/10/2026 — "Sumænimá API" tile description corrected (doc-side):** the live tile still reads
+> `description: Fastify Core Swarm · Kavure`, but the API is **not Fastify** — `sae-core_api` is a
+> **Rust Axum** service (`sumaenima-server:cpu`, overlay-only on `sae-net:9090`). Verified against
+> [`services/steniobot.md`](steniobot.md) (`Rust Axum 0.8 backend`) and the deployed image.
+> The description in `homepage/config/services.yaml` on ybytu must be changed to
+> `Rust Axum Core Swarm · Kavure` at the next config edit (no host write was made here — this
+> vault is the record, the host is read-only to the doc pass). The `href`/`siteMonitor`
+> (`https://sumaenima.chimaera-heptatonic.ts.net/api/health`) are correct and unchanged.
+
+> **13/10/2026 — `Project Zomboid` tile: invalid Docker chip removed (HB-038):** The tile carried
+> `server: kavure` + `container: pz-server`, but **no `pz-server` container exists** (Docker API →
+> 404), so the chip rendered **"not found"**. Confirmed live on kavure: `zomboid-panel` is the only
+> Zomboid container (running/healthy), `docker inspect pz-server` → *no such object*, and the served
+> HTML carries no chip for `pz-server` because Homepage 2.5 hydrates Docker status client-side via
+> `/api/docker/statuses?server=kavure` — the container is absent from that map, and the UI falls back
+> to `{status:"not found"}`. The PZ dedicated server runs as a **native child process of
+> `zomboid-panel`** (the panel's active server `VaiMorreSim` has `isRemote:false` → provider
+> `native`; the panel has **no docker socket mount**), and the game is currently **down** (no UDP
+> `16261/16262` listener; the server has been stopped since **2026-08-26** and `hl-zomboid-restart.timer`
+> is gone — only `hl-zomboid-backup.timer` remains). Per the status-chip convention, a game server with
+> a custom binary protocol gets a **`minecraft-status`-style HTTP probe + `siteMonitor`** — but **no
+> Zomboid status endpoint exists yet** (`zomboid-panel`'s API is auth-gated: `/api/servers/status` →
+> `401`; `/api/health` reflects only the panel, and the panel's own healthcheck is `wget :3001/` →
+> panel UI). A chip on `zomboid-panel` was **rejected** (the manager stays up while the game is down →
+> false uptime). **Applied:** the misleading `server`/`container` keys were **removed** from the tile
+> (now `icon` + `href` + `description` only). **Proposed, not yet deployed (kavure is read-only for
+> this pass):** a native **`zomboid-health`** endpoint (Rust, mirroring `minecraft-status`: RCON TCP
+> `27015` probe → `200` up / `503` down; candidate port `:9098`) + `siteMonitor: http://kavure:9098`.
+> Backup: `services.yaml.bak-20261013-zomboid`; strict duplicate-key check + Homepage `js-yaml` pass;
+> reloaded via `GET /api/revalidate` (`{"revalidated":true}`).
+
+
 > **09/10/2026 — Tile descriptions standardized to English (Tier A):** all `description:` values translated from PT-BR to EN (e.g. `Automação Homelab` → `Homelab Automation`, `Automação & Workflows` → `Automation & Workflows`, `Monitoramento Uptime` → `Uptime Monitoring`, `Servidor Push` → `Push Server`). Backup: `services.yaml.bak-20261009-en`; reloaded via `GET /api/revalidate`.
 
 ### Status Standard (CONVENTION — Enforced for all additions)
@@ -117,8 +149,9 @@ Active ordering (cloud infrastructure placed last); **7 groups / 73 tiles**:
 
 **Rules:**
 1. **HTTP → `siteMonitor`** (latency chip in ms). This is the preferred default.
-2. **Non-HTTP → Docker badge** (`server` + `container`). E.g.: Project Zomboid (`pz-server`).
+2. **Non-HTTP → Docker badge** (`server` + `container`). E.g.: Valheim Server (`valheim-server`).
    - **Game servers with custom binary protocols (e.g. Minecraft)** → To maintain a **compact chip + true in-game state**, deploy a **lightweight HTTP status endpoint** on the host and configure `siteMonitor: <url>`. On kavure: `minecraft-status` service (port `9095`, Minecraft SLP probe on `25565` → 200 up / 503 down). Avoid the `crafty-controller` badge (the manager stays up even when the server crashes) and avoid the `minecraft` widget (renders an oversized 3-field card outside UI conventions).
+   - **⚠️ The Docker chip must point at the container that actually runs the game.** A chip on the *manager* is a false-uptime signal (it stays up while the game is down). The **Project Zomboid** tile's `pz-server` chip was **removed (13/10)** — that container does not exist (the game runs as a native child of `zomboid-panel`); the tile awaits a `zomboid-health` endpoint + `siteMonitor` (see changelog).
 3. **⚠️ Avoid `customapi` widget** — Renders an oversized card panel rather than a compact status chip and fails easily on API schema changes. Only use when no standard alternative exists and visually validated.
 4. **Environment variables**: For credentials/tokens in gethomepage, define them in the config directory `.env` with the **`HOMEPAGE_VAR_` prefix** (e.g. `HOMEPAGE_VAR_CRAFTY_API_KEY=...`) and reference via `{{HOMEPAGE_VAR_CRAFTY_API_KEY}}`. Without the prefix, variables remain unset.
 5. **Swarm services** (sae-core/sae-edge): Badge mapped via service name + `swarm: true` on the `docker.yaml` instance (dockerproxy with `SERVICES=1`).

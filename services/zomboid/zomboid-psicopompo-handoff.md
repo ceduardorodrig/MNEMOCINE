@@ -1,5 +1,5 @@
 ---
-tags: [homelab, guide, zomboid, migration, handoff, psicopompo]
+tags: [homelab, tutorial, zomboid, migration, handoff, psicopompo]
 ---
 
 # Handoff — Project Zomboid Decommissioning on Psicopompo (Completed)

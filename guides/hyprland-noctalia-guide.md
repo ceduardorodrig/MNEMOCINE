@@ -1,5 +1,5 @@
 ---
-tags: [homelab, hyprland, noctalia, guide, cachyos, gpu]
+tags: [homelab, hyprland, noctalia, tutorial, cachyos, gpu]
 created: 2026-09-21
 ---
 
@@ -33,7 +33,44 @@ System authentication is managed by the **Noctalia Greeter** (`greetd`, installe
 
 **Dual-DE Daemon Policy:** Redundant KDE daemons are suppressed in the Hyprland session:
 - ✅ Disabled: `akonadi`, `kalendarac`, `kactivitymanagerd`, `baloo` (indexing), and `powerdevil` (power management).
-- ✅ Preserved: `org.kde.kdeconnect.daemon`, `plasma-xdg-desktop-portal-kde` (Qt file pickers), and `gnome-keyring`.
+- ✅ Preserved: `org.kde.kdeconnect.daemon`, `xdg-desktop-portal-kde` (installed, but see portal note below), and `gnome-keyring`.
+
+## XDG Desktop Portal — FileChooser Backend (2026-10-13)
+
+Portal backend selection lives in `~/.config/xdg-desktop-portal/portals.conf`:
+
+```ini
+[preferred]
+default=hyprland;gtk
+org.freedesktop.impl.portal.FileChooser=gtk
+```
+
+**`FileChooser=gtk`** (changed from `kde` on 2026-10-13). Rationale: the `FileChooser` portal is consumed by **GTK and Electron/Chromium apps on Wayland** (e.g. Obsidian runs native Wayland — `xwayland=false`), *not* by native Qt apps. Dolphin and other KDE apps use their own native Qt/KFileDialog, independent of this portal. Previously set to `kde`, which caused Electron apps (Obsidian "Export to PDF") to render the **KDE file dialog** — visually identical to Dolphin — instead of a GTK/Nautilus-style dialog, despite Nautilus being the default `inode/directory` handler.
+
+- **Apply:** `systemctl --user restart xdg-desktop-portal.service` (the config is read at startup; portals are stateless per-call, so apps do **not** need to be restarted).
+- **Qt side unaffected:** `xdg-desktop-portal-kde` remains installed; KDE/Qt apps keep their native pickers.
+
+## D-Bus `FileManager1` Conflict — Known Benign, No Action (2026-10-13)
+
+**Finding (known, not a defect):** Two D-Bus service files claim the same well-known name `org.freedesktop.FileManager1`:
+
+| Service file | `Exec` | Package |
+|---|---|---|
+| `/usr/share/dbus-1/services/org.freedesktop.FileManager1.service` | `nautilus --gapplication-service` | `nautilus` |
+| `/usr/share/dbus-1/services/org.kde.dolphin.FileManager1.service` | `dolphin --daemon` | `dolphin` |
+
+The conflict exists because the Dolphin file violates the D-Bus naming recommendation — its filename (`org.kde.dolphin.FileManager1.service`) does not match the bus name it declares (`org.freedesktop.FileManager1`).
+
+**Verdict: do NOT fix.** Documented decision after upstream research (2026-10-13):
+
+1. **The live bus is `dbus-broker`, not `dbus-daemon`.** Confirmed via `systemctl --user status dbus.service` (`dbus-broker.service`) and `pgrep -a dbus-broker`. Per the dbus-broker maintainer (bus1/dbus-broker issue #339), the broker **deterministically ignores the Dolphin file** and honours the correctly-named one. Verified on host: `GetNameOwner org.freedesktop.FileManager1` → `/usr/bin/nautilus`.
+2. **The dbus-daemon man page** calls the same-directory duplicate case "arbitrary" — but that ambiguity applies to the reference daemon, not to dbus-broker.
+3. **The classic workaround** (symlink/service file in `~/.local/share/dbus-1/services/`) targets `dbus-daemon` precedence semantics and would introduce an orphan override pointing at a possibly-absent binary — i.e. risk with no benefit on this host.
+4. **Upstream attribution:** the malformed service file ships in the `dolphin` package; KDE is responsible for correcting it (the dbus-broker maintainer explicitly urges this).
+
+**Only remaining symptom:** a cosmetic journal line at boot (`Service file '...org.kde.dolphin.FileManager1.service' is not named after the D-Bus name...` / `Ignoring duplicate name 'org.freedesktop.FileManager1'`). This is log noise, not a functional fault.
+
+**Revisit condition:** only if a "reveal / Open containing folder" action ever launches Dolphin instead of Nautilus (downloads, PDF export, etc.). That does not occur today because Nautilus owns the name and the broker is deterministic.
 
 ## Idle, Screen Power & Media Inhibitors (2026-09-24)
 

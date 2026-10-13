@@ -54,8 +54,15 @@ tailscale ssh root@kururu
 
 - **Tailscale netfilter (HB-015, fixed 12/10):** Tailscale's health reported `adding [-i tailscale0 -j MARK …] … MARK revision 0 not supported, missing kernel module` — the Marvell 3.4.5 kernel has **no module tree and no `xt_MARK`**, so the `ts-forward` MARK rule failed. **Fix:** `tailscale set --netfilter-mode=off` (documented — disables Tailscale's netfilter management). Functionally a no-op here (the rule never applied) and it clears the health warning. ⚠️ Tailscale now warns *"configure iptables yourself"* — acceptable for this probe/WoL node (no subnet routing/NAT). Persisted in tailscaled prefs.
 
+## Tailnet Tagging
+
+`kururu` is an **untagged** tailnet device (verified live 2026-10-13). It stays untagged because it is a **probe / Wake-on-LAN node — not a service host**.
+
+> **If you host a service on `kururu`** — a Docker service, any listener, a subnet route, or a Funnel that other tailnet devices must reach — **tag it `tag:server`** (plus any role tag it takes on) **in the same change that introduces the service.** Until then, leave it untagged. The general rule and the tag procedure are in [`guides/tailnet-tagging.md`](../guides/tailnet-tagging.md) §1 and §6.
+
 ## See Also
 
-- [`servers/kururu-possibilidades.md`](kururu-possibilidades.md) — 20 roadmap possibilities and architectural roadmap
+- [`servers/kururu-possibilities.md`](kururu-possibilities.md) — 20 roadmap possibilities and architectural roadmap
 - [`services/wol-relay.md`](../services/wol-relay.md) — Homelab Wake-on-LAN architecture
+- [`guides/tailnet-tagging.md`](../guides/tailnet-tagging.md) — Tailnet tags: the applied map and the rules for future devices
 - [GitHub Repository: KURURU-TAB3LITE-LINUX](https://github.com/ceduardorodrig/KURURU-TAB3LITE-LINUX)

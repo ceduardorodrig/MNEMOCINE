@@ -13,7 +13,7 @@ Cloud storage synchronization and remote filesystem mount client (Google Drive) 
 | Unit (Systemd --user) | Function | Status |
 |---|---|---|
 | `rclone-webgui.service` | Rclone Web GUI + Remote Control daemon | ❌ **Decommissioned (2026-08-26)** — Unused endpoint purged |
-| `rclone-mount.service` | FUSE mount of `gdrive:` to `/home/edu/Google_Drive` | ✅ Active |
+| `hl-rclone-mount.service` | FUSE mount of `gdrive:` to `/home/edu/Google_Drive` | ✅ Active |
 
 ## Configuration & Mount Specifications
 
@@ -24,7 +24,7 @@ Cloud storage synchronization and remote filesystem mount client (Google Drive) 
 Operational commands:
 ```bash
 # Mount Google Drive FUSE filesystem:
-systemctl --user start rclone-mount.service
+systemctl --user start hl-rclone-mount.service
 
 # Re-authenticate Google OAuth token (requires local browser):
 rclone config reconnect gdrive:

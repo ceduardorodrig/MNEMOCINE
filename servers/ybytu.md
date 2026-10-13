@@ -39,14 +39,21 @@ All workloads execute as Docker containers managed via Docker Compose:
 | Container | Image | Ports | Responsibility |
 |---|---|---|---|
 | adguardhome | `adguard/adguardhome:latest` | `0.0.0.0:53`, `0.0.0.0:3000` | DNS server & admin panel |
-| homepage | `ghcr.io/gethomepage/homepage:latest` | `0.0.0.0:3001` | Homelab portal interface |
-| glances | `nicolargo/glances:latest` | `0.0.0.0:61208` | Node telemetry metrics |
-| dockerproxy | `tecnativa/docker-socket-proxy:latest` | `127.0.0.1:2375` | Secure socket gateway for Homepage |
-| uptime-kuma | `louislam/uptime-kuma:latest` | `0.0.0.0:3002` | Service availability monitor |
+| homepage | `ghcr.io/gethomepage/homepage:latest` | `0.0.0.0:3001` (`host` net) | Homelab portal interface |
+| glances | `nicolargo/glances:latest` | `100.115.253.109:61208` | Node telemetry metrics |
+| dockerproxy | `tecnativa/docker-socket-proxy:latest` | `100.115.253.109:2375` | Secure socket gateway for Homepage |
+| node-exporter | `prom/node-exporter:v1.9.0` | `0.0.0.0:9100` (nft → tailnet) | Host performance metrics for Prometheus |
+| promtail | `grafana/promtail:3.2.0` | — | Log shipping agent forwarding to Loki on kavure |
+| uptime-kuma | `louislam/uptime-kuma:latest` | `0.0.0.0:3002` (`host` net) | Service availability monitor |
 | changedetection | `dgtlmoon/changedetection.io:latest` | `0.0.0.0:8082` | Web page alteration alerts |
 | ntfy | `binwiederhier/ntfy:latest` | `0.0.0.0:8083` | Push notification service |
 | watchtower | `containrrr/watchtower:latest` | — | Automated container image updater |
 | autoheal | `willfarrell/autoheal:latest` | — | Restarts unhealthy containers automatically |
+
+> **Correction (2026-10-13):** `node-exporter` and `promtail` were missing from this table.
+> Verified live: both run on ybytu (the node ships host metrics to Prometheus and logs to Loki).
+> The `glances`/`dockerproxy` binds were also corrected to their real Tailscale-IP binds
+> (they do not listen on `0.0.0.0`/`127.0.0.1` as previously written).
 
 ## DNS Architecture & Upstream Resolution
 
@@ -69,3 +76,10 @@ The host's Tailscale health reported `Tailscale failed to set the DNS configurat
 - [`services/adguard-home.md`](../services/adguard-home.md) — AdGuard Home configuration and filter rules
 - [`services/homepage.md`](../services/homepage.md) — Homelab application portal configuration
 - [`guides/oracle-oci-cli.md`](../guides/oracle-oci-cli.md) — OCI CLI remote instance management
+
+## Security Baseline (2026-10-13)
+
+- **SSH (OpenSSH)**: **key-only** — `PasswordAuthentication no` + `KbdInteractiveAuthentication no` (drop-in `/etc/ssh/sshd_config.d/00-homelab.conf`). O `:22` é alcançável da **internet pública**, mas só por **chave** (as ~34.000 tentativas de força bruta em 30 dias falharam todas: `passwordauth no`, `kbdinteractive no`, `permitemptypasswords no`).
+- **fail2ban** (1.0.2, ativo): jail `sshd` (`mode = aggressive`, `bantime 1h`, `findtime 10m`, `maxretry 5`). **`ignoreip` inclui a tailnet (`100.64.0.0/10`)** — o acesso normal é por ela e **nunca** deve ser banido.
+- **Acesso normal**: **Tailscale SSH** pela tailnet (não usa o OpenSSH). Detalhe: [`../network/tailscale.md`](../network/tailscale.md).
+- **Revisão de compromisso (13/10)**: **sem sinais** — todos os logins bem-sucedidos usam a **mesma chave do dono** (do ISP brasileiro), sem usuários/chaves/unidades/cron/conexões de saída fora do padrão.

@@ -7,7 +7,7 @@ tags: [homelab, service, dnscrypt, dns, kavure]
 > ## ⛔ DECOMMISSIONED on 2026-10-08 — Succeeded by [`unbound`](unbound.md) · **COLD STORAGE**
 >
 > The anonymized DNSCrypt egress pipeline incurred **353 ms cold query latency** due to transatlantic routing without South American relays. Native recursive **unbound** assumed port `5053` on kavure — upstream targets on Pi-hole and AdGuard Home did not change their listening endpoints, only the underlying backend daemon.
-> Full cold storage methodology documented in [`../guides/cold-storage-servicos.md`](../guides/cold-storage-servicos.md).
+> Full cold storage methodology documented in [`../guides/cold-storage-services.md`](../guides/cold-storage-services.md).
 >
 > **Applied Cold Storage State (2026-10-08):**
 > - Profile `cold` and restart policy `no` configured in compose manifest.
@@ -61,4 +61,4 @@ docker compose --profile cold up -d
 ## See Also
 - [`unbound.md`](unbound.md) — Active recursive DNS resolver
 - [`pihole.md`](pihole.md) — Local filtering sinkhole
-- [`../guides/cold-storage-servicos.md`](../guides/cold-storage-servicos.md) — Homelab service freezing standard
+- [`../guides/cold-storage-services.md`](../guides/cold-storage-services.md) — Homelab service freezing standard

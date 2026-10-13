@@ -8,8 +8,8 @@ tags: [homelab, service, crafty, gaming]
 
 **Server:** kavure  
 **Port:** `9095` (HTTP, `0.0.0.0`)  
-**Service:** `minecraft-status.service` (systemd, native) · binary `/usr/local/bin/minecraft-status`  
-**Source:** `SUMAENIMA-HUB/provisioning/minecraft-status/` (Rust, zero dependencies)  
+**Service:** `hl-minecraft-status.service` (systemd, native) · binary `/usr/local/bin/minecraft-status`  
+**Source:** `MNEMOCINE-OPS/provisioning/minecraft-status/` (Rust, zero dependencies)  
 
 ## API Contract
 
@@ -42,14 +42,14 @@ Solution: A minimal HTTP status endpoint + `siteMonitor` → compact status chip
 ## Operation
 
 ```bash
-systemctl status minecraft-status
+systemctl status hl-minecraft-status
 curl -s -w " [%{http_code}]" http://127.0.0.1:9095/    # up|down + 200|503
-journalctl -u minecraft-status -n 30 --no-pager
+journalctl -u hl-minecraft-status -n 30 --no-pager
 ```
 
-Rebuild & deploy: `cargo build --release` in `SUMAENIMA-HUB/provisioning/minecraft-status/` → `install -m 755 target/release/minecraft-status /usr/local/bin/` (kavure) → restart systemd unit.
+Rebuild & deploy: `cargo build --release` in `MNEMOCINE-OPS/provisioning/minecraft-status/` → `install -m 755 target/release/minecraft-status /usr/local/bin/` (kavure) → restart systemd unit.
 
 ## References
 
 - Server & Management: [`crafty.md`](crafty.md) · Dashboard: [`homepage.md`](homepage.md)
-- Systemd unit definition in HUB: `provisioning/systemd/minecraft-status.service`
+- Systemd unit definition in `MNEMOCINE-OPS`: `provisioning/systemd/hl-minecraft-status.service`

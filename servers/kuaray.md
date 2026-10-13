@@ -11,7 +11,9 @@ pending: [HB-013]
 
 **Role:** Miracena Client Project Stack (Directus, WordPress, Nuxt 3, n8n, DBs) + Multimedia Suite (*arr stack, P2P, streaming)  
 **Default Shell:** bash (`/bin/bash`)  
-**Swarm Role:** `standby` — Docker Swarm worker node holding dormant failover containers  
+**Swarm Role:** **none** — kuaray is **not** a Docker Swarm node (`docker info` → `Swarm: pending`); it runs **standalone Docker/Compose only**. The Sumænimá edge standby lives on **kavure**, not here.  
+
+> **Correction (2026-10-13):** the previous claim — *"`standby` — Docker Swarm worker node holding dormant failover containers"* — was **materially wrong**. Verified live: `docker info` reports `Swarm: pending`, and the Swarm manager (`kavure`) lists only **psicopompo / kavure / ybyra** as nodes. The dormant `sae-edge_*` standby replicas are scheduled on **kavure** (`node.labels.edge_backup == true`), never on kuaray.
 
 ## Hardware Specifications
 
@@ -29,7 +31,7 @@ pending: [HB-013]
 | **Tailscale DNS** | kuaray.chimaera-heptatonic.ts.net |
 | **Network Interfaces** | Realtek RTL810xE Fast Ethernet (`enp7s0`: 192.168.3.200/24) + Qualcomm Atheros QCA9565 Wi-Fi (`wlp6s0`, metric 600) |
 | **MTU (PPPoE)** | **1492** (NetworkManager) configured to match WAN uplink |
-| **Access** | `tailscale ssh kuaray@kuaray` |
+| **Access** | `tailscale ssh kuaray@kuaray` · **OpenSSH key-only** (sem senha desde 13/10 — [detalhe](../network/tailscale.md)) |
 
 ## Operational Workloads
 
@@ -58,11 +60,17 @@ pending: [HB-013]
 | soularr | `mrusse08/soularr:latest` | `0.0.0.0:8265` | Bridge connecting Soulseek to Lidarr |
 | flaresolverr | `ghcr.io/flaresolverr/flaresolverr:latest` | `0.0.0.0:8191` | Cloudflare challenge proxy |
 | vert | `ghcr.io/vert-sh/vert` | `0.0.0.0:3030` | Decentralized microblogging web UI |
-| syncthing | `linuxserver/syncthing:1.29.7` | `0.0.0.0:8384` | Continuous file synchronization |
-| glances | `nicolargo/glances:latest` | — | Telemetry monitoring agent |
-| dockerproxy | `tecnativa/docker-socket-proxy:latest` | — | Secure Docker socket gateway |
+| syncthing | `linuxserver/syncthing:1.29.7` | `127.0.0.1:8384` + tailnet (`host` net) | Continuous file synchronization |
+| glances | `nicolargo/glances:latest` | `100.94.209.99:61208` (`host` net) | Telemetry monitoring agent |
+| dockerproxy | `tecnativa/docker-socket-proxy:latest` | `127.0.0.1:2375` + `100.94.209.99:2375` | Secure Docker socket gateway |
 | watchtower | `containrrr/watchtower:latest` | `8080` (internal) | Automated container updates |
 | autoheal | `willfarrell/autoheal:latest` | — | Automatic container restart monitor |
+
+> **Correction (2026-10-13):** the `syncthing` row previously claimed `0.0.0.0:8384`. Verified live:
+> the container runs `network_mode: host` and binds **`127.0.0.1:8384`** plus the **Tailscale IP**
+> (`100.94.209.99%tailscale0:8384`) — never `0.0.0.0` (see [`services/syncthing.md`](../services/syncthing.md)
+> and [`network/ports.md`](../network/ports.md) §2.5). The `glances` and `dockerproxy` rows also
+> carried no bind: both are host-net and bind loopback + the Tailscale IP.
 
 ## Storage Architecture & HDD Remediation
 
@@ -75,7 +83,7 @@ pending: [HB-013]
 - Configured `pcie_aspm=off` in GRUB parameters to eliminate ASPM power state conflicts on older Haswell Dell motherboards.
 - Performed cold hardware power drain to reset auxiliary PHY controller power.
 - Link verified at stable **100 Mb/s Full Duplex** on `192.168.3.200/24`. LAN latency dropped from ~22 ms (Wi-Fi) to 0.28 ms.
-- **EEE disabled (2026-10-10):** Energy-Efficient Ethernet was `enabled - inactive`; now forced `off` by `nic-power-tuning.service` (systemd oneshot, `ethtool --set-eee enp7s0 eee off`, runs at boot) — removing the last NIC power-saving state as a possible source of intermittent link stalls. Context: [`network/topology.md`](../network/topology.md#lan-stability--nic--switch-investigation-2026-10-10).
+- **EEE disabled (2026-10-10):** Energy-Efficient Ethernet was `enabled - inactive`; now forced `off` by `hl-nic-power-tuning.service` (systemd oneshot, `ethtool --set-eee enp7s0 eee off`, runs at boot) — removing the last NIC power-saving state as a possible source of intermittent link stalls. Context: [`network/topology.md`](../network/topology.md#lan-stability--nic--switch-investigation-2026-10-10).
 
 ### Tailscale DNS health — HB-013 (2026-10-12)
 
