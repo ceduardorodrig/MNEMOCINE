@@ -1,5 +1,5 @@
 ---
-tags: [homelab, service, wake-on-lan, wol, power, psicopompo, kavure, kururu]
+tags: [homelab, service, wol, power, psicopompo, kavure, kururu]
 ---
 
 # Wake-on-LAN Relay
@@ -40,7 +40,7 @@ A single native Rust daemon (`kururu-wake`) deployed across three nodes:
 | Canonical 24/7 LAN Sender | `kururu-wake` (Native Rust, port `9096` on `kururu`) |
 | Redundant Peer Sender (psicopompo) | `wol-relay` (Native Rust binary, port `9096`) |
 | Redundant Peer Sender (kavure) | `wol-relay` (Native Rust binary, port `9096`) |
-| System Daemons | `wol-dispatcher.service` (ybytu) / `wol-relay.service` (x86) / `/system/etc/install-recovery.sh` (kururu) |
+| System Daemons | `hl-wol-dispatcher.service` (ybytu) / `hl-wol-relay.service` (x86) / `/system/etc/install-recovery.sh` (kururu) |
 | NIC State Persistence | `wol@.service` + native network manager configurations (NetworkManager / Netplan) |
 | Security Perimeter | Binds to `127.0.0.1` + Tailscale Serve on x86; binds to Tailscale IP on ybytu |
 
@@ -115,7 +115,7 @@ Runtime invocations of `ethtool -s <iface> wol g` do not survive reboots. Two-ti
 
 ```bash
 # Check daemon status on x86 node:
-systemctl status wol-relay
+systemctl status hl-wol-relay
 
 # Test local loopback wake:
 curl http://127.0.0.1:9096/wake/kavure

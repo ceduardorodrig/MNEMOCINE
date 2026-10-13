@@ -68,14 +68,37 @@ Operates as a Swarm worker (`role=gpu`) attached to the `sae-net` overlay networ
 
 | Container | Image | Ports | Responsibility |
 |---|---|---|---|
-| steniorec | `sumaenima-server:cuda` | `127.0.0.1:9090` / `100.82.51.112:9090` | Whisper transcription daemon in Rust + CUDA |
-| registry | `registry:3` | `100.82.51.112:5000` + `127.0.0.1:5000` | Private TLS-authenticated image registry for cluster deployment |
-| promtail | `grafana/promtail` | — | Log scraping agent forwarding to Loki on kavure |
-| node-exporter | `prom/node-exporter` | — | System metrics collection for Prometheus |
-| glances | `nicolargo/glances:latest` | `0.0.0.0:61208` | Resource monitoring |
-| dockerproxy | `tecnativa/docker-socket-proxy:latest` | `0.0.0.0:2375` | Secure socket gateway for Homepage |
+| steniorec | `sumaenima-server:cuda` | `127.0.0.1:9090` + `100.82.51.112:9090` | Whisper transcription daemon in Rust + CUDA |
+| comfyui | `obeliks/comfyui:master-cu130` | `127.0.0.1:8188` + `100.82.51.112:8188` | Diffusion image generation (batch GPU consumer, started on demand under an `image_gen` lease) |
+| registry | `registry:3` | `127.0.0.1:5000` + `100.82.51.112:5000` | Private TLS-authenticated image registry for cluster deployment |
+| promtail | `grafana/promtail` | `127.0.0.1:9080` (health) | Log scraping agent forwarding to Loki on kavure |
+| node-exporter | `prom/node-exporter` | `100.82.51.112:9100` | System metrics collection for Prometheus |
+| glances | `nicolargo/glances:latest` | `127.0.0.1:61208` + `100.82.51.112:61208` | Resource monitoring |
+| dockerproxy | `tecnativa/docker-socket-proxy:latest` | `127.0.0.1:2375` + `100.82.51.112:2375` | Secure socket gateway for Homepage |
 | watchtower | `containrrr/watchtower:latest` | — | Automated container image updater |
 | autoheal | `willfarrell/autoheal:latest` | — | Restarts unhealthy containers automatically |
+
+> **Correction (2026-10-13):** `comfyui` was missing from this table and the bind cells for
+> `glances` / `dockerproxy` claimed `0.0.0.0`. Verified live (`docker ps` + `ss -tlnp`): both bind
+> **loopback + the Tailscale IP** only, and the node's full container set is exactly
+> `steniorec`, `comfyui`, `registry`, `promtail`, `node-exporter`, `glances`, `dockerproxy`,
+> `watchtower`, `autoheal`.
+
+### Native & User Services (no container)
+
+| Service | How | Port(s) + bind | Purpose |
+|---|---|---|---|
+| `hl-infer` | native systemd | `127.0.0.1:9095` + `100.82.51.112:9095` | Centralized GPU inference gateway (VRAM leases, fixed windows) — see [`services/hl-infer.md`](../services/hl-infer.md) |
+| `ollama` | native systemd | `127.0.0.1:11434` | Local LLM runtime (leased through `hl-infer`) |
+| `sumaenima-gpu` | native systemd | — | GPU worker supervisor (Rust) that boot-orders and revives `steniorec` |
+| `libvirtd` + `dnsmasq` | native systemd | `192.168.122.1:53` (`virbr0`) | KVM hypervisor + NAT DNS/DHCP for the isolated guest network |
+| `waydroid-container` | native systemd | — | Android-in-container runtime |
+| `nfsd` / `rpcbind` / `rpc.mountd` | native systemd | `100.82.51.112:2049`, `111`, `20048` | NFSv4 NAS exports (`/mnt/BACKUP`) |
+| `hl-wol-relay` | native systemd | `127.0.0.1:9096` + `tailscale serve` | Wake-on-LAN relay (wakes kavure) |
+| `syncthing` | **user** systemd (`edu`) | `127.0.0.1:8384` + tailnet `8384` + `22000` | Vault P2P synchronization |
+| `punktfunk-host` | **user** systemd (`edu`) | `0.0.0.0:47990` (ufw-scoped) + `9777/udp` | Low-latency game/desktop streaming host |
+| `punktfunk-web` | **user** systemd (`edu`) | `0.0.0.0:47992` (ufw-scoped) | Punktfunk management web console |
+| `punktfunk-scripting` | **user** systemd (`edu`) | `0.0.0.0:47993` (ufw-scoped) | Punktfunk plugin/script runner |
 
 > **Note on `live-restore`:** Strictly removed from `daemon.json` on 2026-10-02 due to fundamental incompatibility with Docker Swarm mode. See [`AGENTS.md`](../AGENTS.md).
 

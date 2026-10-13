@@ -1,6 +1,6 @@
 ---
-tags: [homelab, governance, stenio, tooling, rust, guides]
-pending: [HB-019, HB-029]
+tags: [homelab, governance, stenio, tooling, rust, tutorial]
+pending: [HB-019]
 ---
 
 # Operational Tooling — Single Source of Truth in Repository
@@ -111,6 +111,51 @@ CLI history and navigation hooks are registered in interactive shell configurati
 ### Tailnet SSH Configuration (2026-10-06)
 
 Host definitions in `~/.ssh/config` point strictly to **Tailnet IPs** (`100.66.224.34` for ybyra, `100.117.164.8` for ybytu) rather than public cloud interfaces, ensuring deterministic latency and avoiding external firewall rate-limits during `stenio --tools` cluster sweeps.
+
+## Service Naming Convention (`hl-` prefix)
+
+Canonized **2026-10-12**: every **Mnemocine infrastructure service** (a systemd unit — service
+or timer — or a Docker/Compose service owned by the homelab) carries the **`hl-`** prefix
+(*homelab*). The rule resolves three otherwise-colliding namespaces:
+
+| Entities | Naming | Examples |
+|---|---|---|
+| **Mnemocine infrastructure services** | `hl-<role>` | `hl-config-backup.timer`, `hl-infer.service`, `hl-scryfall-mirror.timer` |
+| **Hosts** | keep the **Tupi-Guarani** name | `psicopompo`, `kavure`, `kururu` |
+| **SUMÆNIMÁ products** | keep the **brand** name | `sae-core_api`, `sae-edge_proxy`, `sumaenima-swarm.service` |
+| **Upstream / third-party** | keep the vendor name | `ollama.service`, `punktfunk-host.service` |
+
+The prefix lives on the **unit/service**, never on the **binary**: `hl-minecraft-status.service`
+runs `/usr/local/bin/minecraft-status`; `hl-wol-relay.service` runs `/usr/local/bin/wol-relay`.
+Renaming a unit is therefore **runtime-transparent** to the executable and to consumers that
+reach it by port (Homepage `siteMonitor`, Prometheus targets).
+
+> **Static enforcement** is being added by `HOMELAB-NAMING-SERVICE` (HB-020); the dynamic
+> counterpart is `stenio --reconcile` (the catalogue in [`../services-catalog.md`](../services-catalog.md)
+> is the declaration it checks reality against).
+
+### Fleet migration (HB-019, 2026-10-13)
+
+| Host(s) | Before | After | Kind |
+|---|---|---|---|
+| kavure | `minecraft-status.service` | `hl-minecraft-status.service` | daemon (`:9095`) |
+| kavure | `unbound-status.service` | `hl-unbound-status.service` | daemon (`:9097`) |
+| psicopompo, kavure | `wol-relay.service` | `hl-wol-relay.service` | daemon (`:9096`) |
+| ybytu | `wol-dispatcher.service` | `hl-wol-dispatcher.service` | daemon (`:9096`) |
+| kavure, kuaray | `nic-power-tuning.service` | `hl-nic-power-tuning.service` | oneshot (boot) |
+| ybytu | `tailscale-gro.service` | `hl-tailscale-gro.service` | oneshot (boot) |
+| psicopompo | `docker-prune.{service,timer}` | `hl-docker-prune.{service,timer}` | oneshot + timer |
+| psicopompo (user) | `homelab-sftp-mount.{service,timer}` | `hl-sftp-mount.{service,timer}` | oneshot + timer |
+| psicopompo (user) | `rclone-mount.service` | `hl-rclone-mount.service` | daemon (FUSE) |
+
+**Deliberately not prefixed** (not homelab infrastructure *services*):
+
+- Templates / helpers with an instance or trigger namespace: `wol@<iface>.service` (NIC WoL
+  persistence, enabled as `wol@eno1` / `wol@enp1s0`), `notify-backup-failure@<unit>.service`
+  (referenced by `OnFailure=`), `hollyland-fix@.service` (udev-triggered, personal device).
+- Host tuning helpers excluded from the catalogue: `tailscaled-wait.service`,
+  `disable-acpi-spurious-wakeup.service`.
+- SUMÆNIMÁ products and upstream/third-party units — see the table above.
 
 ## See Also
 

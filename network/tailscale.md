@@ -1,5 +1,6 @@
 ---
 tags: [homelab, network, tailscale]
+pending: [HB-049]
 ---
 
 # Tailscale
@@ -18,6 +19,38 @@ tags: [homelab, network, tailscale]
 | anansi | `100.71.232.79` | Android Mobile Device |
 | kururu | `100.127.188.45` | Headless lightweight probe node (Samsung SM-T110 / Alpine Linux) |
 
+## Tagging — the applied map + the rules for future devices
+
+Since **2026-10-13** the tailnet is no longer flat: the infra devices carry **purpose tags**
+(`tag:server`, `tag:edge`, `tag:subnet-router`, `tag:exit-node`, `tag:monitoring`, `tag:registry`)
+and the policy targets them. The full guide is
+[`../guides/tailnet-tagging.md`](../guides/tailnet-tagging.md); this is the short version.
+
+**The applied map** (verified live 2026-10-13):
+
+| Device | Tags |
+|---|---|
+| `psicopompo` | `server`, `registry` |
+| `kavure` | `server`, `subnet-router`, `exit-node`, `edge`, `monitoring` |
+| `kuaray` | `server` |
+| `ybyra` | `server`, `edge` |
+| `ybytu` (device `ybytu-vnic`) | `server`, `exit-node` |
+| `sumaenima`, `miracena` | `edge` (Funnel **containers**, not VMs) |
+| `kururu` | *(none)* — **not a server yet** |
+| All user devices (phones, tablets, desktop) | *(none)* — by design |
+
+> **The rule to remember:** a device that **hosts a service** another tailnet device must reach
+> **must carry `tag:server`** (plus the matching role tag) — and that includes **`kururu`**: it is
+> untagged **today** only because it is a probe/WoL node; **the moment `kururu` hosts a Docker
+> service (or any listener/subnet route), tag it `tag:server`.** Consumers (phones, laptops,
+> probes) stay untagged. Full wording and traps: [`../guides/tailnet-tagging.md`](../guides/tailnet-tagging.md) §1.
+
+**Consequences of a tag** (documented Tailscale behaviour, verified here): it **removes the
+device's user identity**; it makes the device **stop matching `autogroup:self`** (so the tag-based
+`ssh` rule must exist *before* tagging); it is **effectively irreversible** ("you cannot remove
+all tags"); and a tagged node **connects out as its tag** — which is why `psicopompo` (itself
+`tag:server`) lost SSH until the `tag:server → tag:server` rule was added.
+
 ## Access Standard (Tailscale SSH)
 
 **Primary administration access method: Tailscale SSH** — leverages end-to-end WireGuard authentication within the tailnet without exposing TCP port 22 to the public internet.
@@ -32,28 +65,68 @@ tailscale ssh ubuntu@ybyra
 
 Tailscale's **default ACL** applies `action: check` when connecting to **one's own devices**, requiring **browser re-authentication every 12 hours** (`checkPeriod: 12h`). While manageable for interactive human sessions, this broke headless automation runs: automated scripts like `deploy-swarm.sh` invoking remote SSH commands stalled waiting for interactive authorization links.
 
-**ACL Policy Fix Applied via Tailscale Admin Console** (Access Controls → JSON Editor) on **2026-09-29**: non-root connections proceed directly without re-auth; `root` retains mandatory SSO verification.
+**ACL Policy Fix Applied via Tailscale Admin Console** (Access Controls → JSON Editor) on **2026-09-29**: non-root connections proceed directly without re-auth.
+
+> ⚠️ **Correção 13/10/2026 — o doc estava desatualizado.** Este trecho descrevia **duas** regras
+> (`accept` non-root + `check` root). O `policy.hujson` **real** tem **uma só**, e ela **aceita `root`
+> também** — sem a checagem interativa (commit `dba0ea9` *"acl(ssh): accept root without 12h
+> reauthentication check"*). O `sshTests` do próprio arquivo **afirma** isso. A política é **mais
+> permissiva** do que este documento dizia.
 
 ```jsonc
+// policy.hujson — estado REAL em 13/10/2026 (quatro regras; ver o guia de tagging)
 "ssh": [
-  // 1) Automation and routine non-root access: bypasses browser re-auth prompts
-  {
-    "action": "accept",
-    "src":    ["autogroup:member"],
-    "dst":    ["autogroup:self"],
-    "users":  ["autogroup:nonroot"],
-  },
-  // 2) Root access retains mandatory interactive SSO check (least privilege standard)
-  {
-    "action": "check",
-    "src":    ["autogroup:member"],
-    "dst":    ["autogroup:self"],
-    "users":  ["root"],
-  },
+  // 1) user-owned devices (untagged): non-root AND root accepted directly (the 2026-09-29 fix).
+  { "action": "accept", "src": ["autogroup:member"], "dst": ["autogroup:self"],  "users": ["autogroup:nonroot", "root"] },
+  // 2) tagged servers, administered by an admin: root → interactive check; non-root → accept.
+  { "action": "check",  "src": ["autogroup:admin"],  "dst": ["tag:server"],     "users": ["root"] },
+  { "action": "accept", "src": ["autogroup:admin"],  "dst": ["tag:server"],     "users": ["autogroup:nonroot"] },
+  // 3) server → server (a tagged node connects OUT as its tag, not as a user).
+  { "action": "accept", "src": ["tag:server"],       "dst": ["tag:server"],     "users": ["autogroup:nonroot", "root"] },
+],
+"sshTests": [
+  { "src": "ceduardorodrig@gmail.com", "dst": ["ceduardorodrig@gmail.com"], "accept": ["edu", "root"] },
 ],
 ```
 
-**Rationale for `autogroup:self` over `tag:server`:** earlier ACL drafts specified `dst: ["tag:server"]`, but no homelab machines carry static tags (`Tags: None` on kavure, psicopompo, and ybyra), rendering tag-based policies ineffective. `autogroup:self` automatically matches all devices owned by the account.
+> **`root` is now `check` on the tagged path** (rule 2) — the least-privilege recommendation is
+> satisfied for tagged servers. The untagged `autogroup:self` path (rule 1) still accepts `root`
+> directly, kept deliberately so headless automation (which cannot click a browser check link)
+> keeps working. The three tag rules and the reason rule 3 exists are documented in
+> [`../guides/tailnet-tagging.md`](../guides/tailnet-tagging.md) §4.
+
+### SSH hardening — OpenSSH sem senha (2026-10-13)
+
+**O que foi encontrado:** `kavure` e `kuaray` tinham **`PasswordAuthentication yes`** (efetivo) no
+OpenSSH. Como a tailnet é *allow-all*, **qualquer device da tailnet** (inclusive os 5 dispositivos de
+terceiros da família) podia forçar-bruta esses usuários — e a LAN também (as duas não têm firewall).
+
+**O que foi feito:** drop-in `/etc/ssh/sshd_config.d/00-homelab.conf` com
+`PasswordAuthentication no` + `KbdInteractiveAuthentication no` em **kavure** e **kuaray**.
+O `00-` ordena **antes** do `50-cloud-init.conf` (que diz `yes`) e o `sshd_config` usa o **primeiro**
+valor que obtém — por isso o drop-in vence.
+
+**Verificado:** `sshd -T` → `passwordauthentication no`; teste pela **LAN** → `Permission denied (publickey)`
+(o servidor deixou de oferecer o método `password`). Rollback: apagar o drop-in + `systemctl reload ssh`.
+
+**⚠️ E uma clareza importante que isso revelou:** o `:22` **via tailnet** nestes hosts é servido pela
+**Tailscale SSH** (`RunSSH: true`; o cliente autentica pela identidade da tailnet — `Authenticated …
+using "none"`), **não** pelo OpenSSH. Logo:
+- **fechar a senha do OpenSSH foi seguro** — nada usava aquele caminho (o acesso do dono é Tailscale SSH);
+- o **OpenSSH só serve a LAN**, e é ali que a senha importava;
+- as chaves em `authorized_keys` (`edu@psicopompo` na kuaray/kavure, `kavure` no psicopompo) **não
+  autenticam** a chave atual (`id_ed25519`) → são **vestigiais** (candidatas a limpeza).
+
+**psicopompo:** **não tem sshd do OpenSSH servindo TCP** (serviço `inactive`, **sem host keys**, nada
+em `:22`) — o `:22` dele é **100% Tailscale SSH**. O drop-in foi deixado como *baseline defensiva*
+(se o sshd algum dia subir, nasce sem senha). **Não havia senha a fechar ali.**
+
+**Rationale for `autogroup:self` over `tag:server` (updated 2026-10-13):** the untagged
+`autogroup:self` rule is what gives each **user** SSH to **their own** (untagged) devices, and it is
+kept for exactly that. Earlier ACL drafts used only `dst: ["tag:server"]` when no machine carried a
+tag (rendering tag-based policies ineffective); since **2026-10-13** the servers **do** carry tags,
+so tag-based `ssh`/grants are live **and** `autogroup:self` remains for user devices. See
+[`../guides/tailnet-tagging.md`](../guides/tailnet-tagging.md).
 
 **Policy Syntax Nuances Verified via Official Documentation** ([Tailscale Policy Syntax](https://tailscale.com/kb/1337/policy-syntax)):
 
@@ -92,6 +165,69 @@ Host kavure
     IdentityFile ~/.ssh/id_ed25519
     PreferredAuthentications publickey
 ```
+
+> ✅ **Corrigido 13/10/2026 — o achado anterior estava ERRADO.** Este fallback **funciona**: a chave
+> `~/.ssh/id_ed25519` (`SHA256:U3VF75ds…`) **está** nas `authorized_keys` da kavure **e** da kuaray, e o
+> sshd **aceita** a chave (`ssh -vv` → *"Server accepts key"*). O teste inicial falhou porque a chave tem
+> **passphrase** e o teste era **não-interativo** (`BatchMode=yes`) → sem agente/prompt a assinatura não
+> acontece, e o cliente reporta `Permission denied (publickey)`.
+>
+> **Lição registrada:** um teste de chave não-interativo **não** prova que a chave está errada — o `-vv`
+> é que diz a verdade (`Server accepts key` × `no mutual signature algorithm`).
+>
+> **O único item real:** a **kuaray** tem **2 entradas duplicadas antigas** (`SHA256:GLg5fhcl…`,
+> comentário `edu@Psicopompo`, de maio/2026) — candidatas a limpeza; a atual fica. No **psicopompo**, a
+> chave `kavure` (`SHA256:/Ry7Xvbk…`) é legítima (é a chave da própria kavure).
+
+## Least-Privilege ACL Redesign (HB-049) — State (2026-10-13)
+
+Moving the tailnet off the single **allow-all** grant (`{src:*, dst:*, ip:*}`) to a tagged,
+least-privilege policy. The procedure is [`../guides/tailnet-acl-runbook.md`](../guides/tailnet-acl-runbook.md);
+this section records **where it stands**.
+
+> **State verified against the deployed policy (`MNEMOCINE-ACL`, `main`) and the live tailnet on
+> 2026-10-13.** The policy is deployed by GitOps; the console is locked, so `main` **is** the live
+> policy.
+
+- **Phase 1 — additive — ✅ MERGED & DEPLOYED (2026-10-13).** PR
+  [#5](https://github.com/ceduardorodrig/MNEMOCINE-ACL/pull/5) (`acl/least-privilege-phase-1`)
+  merged at 17:05; CI (`acls`) green, `action: apply` succeeded. It added, **on top of** the still-
+  present allow-all grant (so nothing changed for users):
+  - `tagOwners` for `tag:server`, `tag:edge`, `tag:subnet-router`, `tag:exit-node`,
+    `tag:monitoring`, `tag:registry` (ownership `autogroup:admin`);
+  - the **catalogue-derived** `autogroup:member` grant (per-port, one port per `ip` entry — the
+    parser rejects comma lists) and the `192.168.3.0/24` subnet grant;
+  - the **exit-node** grant (`autogroup:internet`) for **members only** — never `autogroup:shared`;
+  - the **`cap/relay`** grant preserved verbatim (ybyra relies on the peer relay);
+  - the tag-based `ssh` rules **added on top of** the existing `autogroup:self` rule;
+  - the **accept** `tests` that hold while allow-all is still present.
+- **PR [#7](https://github.com/ceduardorodrig/MNEMOCINE-ACL/pull/7) — Funnel, pre-tagging.** Widened
+  `nodeAttrs` to `target: ["autogroup:member", "tag:edge"]` **before** tagging the Funnel nodes, so
+  tagging `sumaenima`/`miracena` did not drop the public site.
+- **Commit `76b66fa` — the SSH hard lesson.** Added the `tag:server → tag:server` `ssh` rule after a
+  live outage: a tagged node **connects out as its tag**, so `psicopompo` (itself `tag:server`) no
+  longer matched the admin rule. See [`../guides/tailnet-tagging.md`](../guides/tailnet-tagging.md) §4.
+- **Phase 2 — tag the devices — ✅ APPLIED (2026-10-13).** The map above is live. `kururu` and all
+  user devices stay **untagged** (see the rule in the *Tagging* section).
+- **The game players are shared users.** The players (`Twister`, `Onidsouza`, `Papaco`, `zepp`)
+  arrive as **`autogroup:shared`**, and Tailscale's documented behaviour is that *"shared machines
+  do not advertise subnets into the tailnet they are shared with"* — so they have **no LAN path**
+  and reach `kavure` only at its **tailnet IP** (`100.124.146.77`). That is why the
+  `autogroup:shared` grant covers exactly the game ports (`25565`/`24454`/`2456-2458`/`16261-16262`)
+  and why `25565` is a **tailnet**, not a LAN, exception.
+- **Phase 3 — tighten — ⚠️ PENDING (the last one).** The allow-all grant is **still present**. Phase
+  3 must: (1) **delete** `{ "src": ["*"], "dst": ["*"], "ip": ["*"] }`; (2) **fix two grants the
+  audit found to be gaps** — `tag:monitoring → tag:server` (today it is only `→ tag:monitoring`)
+  and **add `tag:server → tag:server`** (today it does not exist; without it NFS, Swarm, Loki, the
+  registry and `hl-infer` fall); (3) enable the **`deny` pins** with a **concrete member e-mail**
+  (`autogroup` is not a valid test `src`); (4) restrict the Funnel `nodeAttrs` to **`tag:edge`** only
+  (today `autogroup:member` still allows any member to open a public Funnel); (5) regenerate
+  `TS_AUTH_KEY` with `tag:edge` (HB-051 / runbook §8). Full detail:
+  [`../guides/tailnet-acl-runbook.md`](../guides/tailnet-acl-runbook.md) §6.
+
+> `stenio --reconcile` reports the allow-all grant as `POLICY-UNDERIVABLE` — expected until Phase 3.
+> The policy's own Phase-1 comments still say *"no device carries a tag yet"*; that text is now
+> stale (devices **are** tagged) and can be cleaned up with the Phase 3 PR.
 
 ## Exit Nodes
 

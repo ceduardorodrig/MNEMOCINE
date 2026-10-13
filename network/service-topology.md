@@ -97,16 +97,24 @@ graph LR
 ### Docker Networks
 
 ```text
+sae-net (Swarm overlay — worker: ybyra; managed by kavure)
+├── sae-edge_proxy ──────→ port 80 (mode: host — public edge nginx)
+├── sae-edge_tunnel ─────→ Tailscale Funnel gateway (TLS terminated here)
+└── sae-edge_umami ──────→ internal 3000 (web analytics)
+
 bridge (172.17.0.0/16)
 ├── watchtower ──────────→ Docker API
 ├── autoheal ───────────→ Docker Socket
-├── glances ────────────→ port 61208
-├── filebrowser ────────→ port 8334
-└── syncthing ──────────→ ports 8384, 22000
+├── glances ────────────→ 100.66.224.34:61208 + 127.0.0.1:61208
+├── node-exporter ──────→ 0.0.0.0:9100 (host nftables → tailnet only)
+├── promtail ───────────→ Loki (kavure)
+└── dockerproxy ────────→ 100.66.224.34:2375
 ```
 
 ### Native Host Services
-- **nginx:** Port 80 / 443. Serves public SPA frontend (Primary Cloud Edge) and acts as reverse proxy toward the core API.
+- **None for ingress.** There is **no native nginx** on ybyra, and **no `443` listener** on the
+  host: port `80` belongs to the **`sae-edge_proxy` container** (`mode: host`), and public TLS is
+  terminated by the **Tailscale Funnel** container (`sae-edge_tunnel`), not by Certbot.
 
 ### Dependencies
 
@@ -115,9 +123,19 @@ graph LR
     subgraph ybyra
         W[watchtower] --> DS[Docker Socket]
         A[autoheal] --> DS
-        N[proxy:80/443] -->|Reverse Proxy via overlay| API[kavure:9090]
+        N[sae-edge_proxy:80] -->|Reverse Proxy via overlay| API[kavure sae-core_api]
+        N --> U[sae-edge_umami]
+        T[sae-edge_tunnel] -->|Funnel TLS| N
     end
 ```
+
+> **Correction (2026-10-13):** this section previously listed **`filebrowser:8334`** and
+> **`syncthing`** on ybyra, plus a **native nginx on 80/443 with Certbot**. Verified live on the
+> host: neither `filebrowser` nor `syncthing` exists on ybyra (nor is filebrowser on ybytu), the
+> only `80` listener is the `sae-edge_proxy` container, and there is **no `443` socket at all** —
+> Funnel terminates TLS. The container set is exactly `sae-edge_{proxy,tunnel,umami}` + `glances`,
+> `watchtower`, `autoheal`, `node-exporter`, `promtail`, `dockerproxy`.
+
 
 ---
 
@@ -183,7 +201,6 @@ sae-net (Swarm overlay — Manager: kavure)
 ├── sae-core_api ─────────→ FastAPI :9090 (published via overlay)
 ├── sae-core_umami-db ────→ PostgreSQL 15 (umami)
 ├── sae-core_backup ──────→ sentinel Borg (NFS → psicopompo /mnt/BACKUP/sumaenima-server-kavure/)
-├── sae-core_asciline ────→ streaming ASCII :8766
 └── sae-edge_* ───────────→ proxy/tunnel/umami (ybyra primary; kavure standby — label edge_backup=true)
 
 zomboid_default (172.18.0.0/16)
@@ -220,7 +237,7 @@ graph LR
 
 | Originating Service | Hosting Node | Dependent Target | Remote Node | Communication Mechanism |
 |---|---|---|---|---|
-| Syncthing | psicopompo | ↔ Syncthing | kuaray / ybyra | Direct Tailnet mTLS (port 22000) |
+| Syncthing | psicopompo | ↔ Syncthing | kuaray | Direct Tailnet mTLS (port 22000) |
 | Homepage Dashboard | ybytu | → dockerproxy | psicopompo / kuaray / kavure | Encrypted Tailnet HTTP (`:2375`) |
 | Sumænimá Frontend | ybyra (primary) / kavure (standby) | → Backend API | kavure | Swarm Overlay Mesh (`sae-net` :9090) |
 | Sumænimá GPU Workers | psicopompo | → Valkey / API | kavure | Swarm Overlay Mesh (`sae-net`) |
@@ -262,4 +279,8 @@ graph LR
 |---|---|---|---|---|---|
 | `docker` | ✅ enabled | ✅ enabled | ✅ enabled | ✅ enabled | ✅ enabled |
 | `tailscaled` | ✅ enabled | ✅ enabled | ✅ enabled | ✅ enabled | ✅ enabled |
-| `filebrowser` | — | ✅ enabled | — | — | — |
+
+> **Correction (2026-10-13):** a `filebrowser` row (marked ✅ on **ybytu**) was removed — no
+> `filebrowser` binary, systemd unit or `:8334` listener exists on ybytu or anywhere else in the
+> fleet (verified live). A stale `8334` entry still lingers in ybytu's nftables allow list but
+> fronts no service.

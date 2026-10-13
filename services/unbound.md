@@ -10,7 +10,7 @@ Local **recursive caching DNS resolver** with DNSSEC validation — installed as
 **Package:** `unbound` **1.19.2-1ubuntu3.10** (Ubuntu Noble with backported security fixes)  
 **Socket Bindings:** `127.0.0.1:5053` (Pi-hole) + `100.124.146.77:5053` (Tailnet — AdGuard)  
 **Configuration File:** `/etc/unbound/unbound.conf.d/mnemocine.conf`  
-**System Services:** `unbound.service` (Systemd) · Watchdog: `hl-dns-watchdog.timer` (2 min) · Status Endpoint: `unbound-status.service` (`:9097` for Homepage tile)  
+**System Services:** `unbound.service` (Systemd) · Watchdog: `hl-dns-watchdog.timer` (2 min) · Status Endpoint: `hl-unbound-status.service` (`:9097` for Homepage tile)  
 
 ## Purpose & Architecture Rationale
 
@@ -52,9 +52,9 @@ The external watchdog binary monitors Unbound health every 2 minutes:
 - After 3 consecutive timeouts, triggers `systemctl reset-failed` and restarts `unbound.service`.
 - Logs cache hit rate, query count, and memory RSS directly to systemd journal.
 
-## Status Endpoint for Homepage (`unbound-status`)
+## Status Endpoint for Homepage (`hl-unbound-status`)
 
-Because Unbound runs natively without an embedded web server, a lightweight native Rust HTTP daemon (`unbound-status.service`, listening on port `9097`) provides live health checks for Homepage dashboard monitoring:
+Because Unbound runs natively without an embedded web server, a lightweight native Rust HTTP daemon (`hl-unbound-status.service`, listening on port `9097`) provides live health checks for Homepage dashboard monitoring:
 - `GET /` → returns HTTP `200 up` when DNS probe succeeds; HTTP `503 down` on lookup failure.
 
 ## Operational Commands

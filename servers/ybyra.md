@@ -53,9 +53,17 @@ All inbound requests arrive through the Tailscale Funnel container and route to 
 
 | Container | Image | Ports | Responsibility |
 |---|---|---|---|
-| glances | `nicolargo/glances:latest` | `0.0.0.0:61208` | Host telemetry monitoring |
+| glances | `nicolargo/glances:latest` | `100.66.224.34:61208` + `127.0.0.1:61208` | Host telemetry monitoring |
+| node-exporter | `prom/node-exporter:v1.9.0` | `0.0.0.0:9100` (nft → tailnet) | Host performance metrics for Prometheus |
+| promtail | `grafana/promtail:3.2.0` | — | Log shipping agent forwarding to Loki on kavure |
+| dockerproxy | `tecnativa/docker-socket-proxy:latest` | `100.66.224.34:2375` | Secure socket gateway for Homepage |
 | autoheal | `willfarrell/autoheal:latest` | — | Restarts unhealthy containers automatically |
 | watchtower | `containrrr/watchtower:latest` | — | Automated container image updater |
+
+> **Correction (2026-10-13):** `node-exporter`, `promtail` and `dockerproxy` were missing from this
+> table. Verified live: the standalone set on ybyra is exactly `glances`, `node-exporter`, `promtail`,
+> `dockerproxy`, `autoheal`, `watchtower` (alongside the `sae-edge` Swarm services). The `glances`
+> bind was also corrected to loopback + the Tailscale IP.
 
 ## Re-provisioning Post-Mortem (150 GB $\rightarrow$ 50 GB Reduction, 2026-10-08)
 
@@ -71,3 +79,10 @@ To release block storage quota for the Always Free ARM instance (`ybytyra`), yby
 - [`guides/oci-shrink-boot-volume.md`](../guides/oci-shrink-boot-volume.md) — Step-by-step reduction runbook
 - [`services/sumaenima-edge.md`](../services/sumaenima-edge.md) — Edge architecture and reverse proxy setup
 - [`network/topology.md`](../network/topology.md) — Global mesh network topology
+
+## Security Baseline (2026-10-13)
+
+- **SSH (OpenSSH)**: **key-only** — `PasswordAuthentication no` + `KbdInteractiveAuthentication no` (drop-in `/etc/ssh/sshd_config.d/00-homelab.conf`). O `:22` é alcançável da **internet pública**, mas só por **chave** (as ~34.000 tentativas de força bruta em 30 dias falharam todas: `passwordauth no`, `kbdinteractive no`, `permitemptypasswords no`).
+- **fail2ban** (1.0.2, ativo): jail `sshd` (`mode = aggressive`, `bantime 1h`, `findtime 10m`, `maxretry 5`). **`ignoreip` inclui a tailnet (`100.64.0.0/10`)** — o acesso normal é por ela e **nunca** deve ser banido.
+- **Acesso normal**: **Tailscale SSH** pela tailnet (não usa o OpenSSH). Detalhe: [`../network/tailscale.md`](../network/tailscale.md).
+- **Revisão de compromisso (13/10)**: **sem sinais** — todos os logins bem-sucedidos usam a **mesma chave do dono** (do ISP brasileiro), sem usuários/chaves/unidades/cron/conexões de saída fora do padrão.

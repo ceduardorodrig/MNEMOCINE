@@ -66,7 +66,7 @@ To guarantee that remote shares appear automatically as mounted **Network Drives
 1. **Mount Automation Script:** `~/.local/bin/homelab-sftp-mount.sh`
    - Checks whether the target endpoint is already mounted (`gio mount -l`).
    - If missing, mounts via `gio mount sftp://{host}/` with a 5-second defensive timeout in case the host is currently powered down.
-2. **User Systemd Service:** `~/.config/systemd/user/homelab-sftp-mount.service` (`Type=oneshot`).
-3. **Periodic Health Check Timer:** `~/.config/systemd/user/homelab-sftp-mount.timer`
+2. **User Systemd Service:** `~/.config/systemd/user/hl-sftp-mount.service` (`Type=oneshot`).
+3. **Periodic Health Check Timer:** `~/.config/systemd/user/hl-sftp-mount.timer`
    - Triggers 30 seconds following graphical session initialization and repeats every 5 minutes.
    - Ensures that if an offline server (such as `kuaray`) boots after Psicopompo has already initialized, it is discovered and mounted automatically the moment it becomes reachable.

@@ -142,3 +142,22 @@ Custom metrics exported via the **textfile collector** (homelab standard — zer
 - [[n8n]] — Metrics scraped by Prometheus
 - [[homepage]] — Grafana/Prometheus dashboard shortcuts in Kavure group
 - [[backup-rituals]] — Monitored backup health stamps (28/08)
+## Backup off-box — incidente resolvido (2026-10-13)
+
+O `hl-monitoring-backup` (Prometheus/Loki/Grafana → NFS no psicopompo) ficou **falhando por dias**
+(12–13/10, exit 1 após ~4 min) e o log dizia apenas `snapshot Prometheus falhou (resposta: )` — **sem
+motivo**, porque o `stderr` do `curl` ia para `/dev/null`. Eram **dois bugs reais escondidos** atrás
+desse silêncio:
+
+1. **URL errada:** `PROM_URL` apontava para `http://localhost:9091`, mas o container do Prometheus
+   publica **só no IP da tailnet** (`100.124.146.77:9091`) — nada escuta no loopback, então o
+   snapshot nunca conectava. Corrigido para o IP da tailnet **e** o `stderr` do `curl` agora vai para
+   o log (a próxima falha é diagnosticável).
+2. **rsync fora do padrão:** as 3 chamadas usavam `-a` puro, que tenta preservar dono/grupo. O NAS
+   exporta com **`all_squash,anonuid=1000`** — todo cliente escreve como `edu` e **não pode `chown`**
+   → `chown: Operation not permitted`. Agora usam **`--no-o --no-g`**, o mesmo padrão que o
+   `config-backup` já usava (este script era o único fora do padrão).
+
+**Verificado ao vivo:** `exit 0`; log `snapshot → rsync prometheus/loki/grafana OK → backup OK —
+health file atualizado`; e **5.0 GB** (prometheus) + **537 MB** (loki) + **15 MB** (grafana) no NAS.
+Health file (marcador) em `/srv/health/monitoring-backup-last-ok`. Commit `242a209` (MNEMOCINE-OPS).

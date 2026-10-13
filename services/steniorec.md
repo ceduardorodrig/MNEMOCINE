@@ -13,12 +13,16 @@ Replaces legacy fragmented Python workers (`steniobot-audio`, `steniobot-vision`
 ## 1. Topology & Hardware
 
 - **Physical Host:** Psicopompo (Xeon E-2246G + RTX 5050 8GB Blackwell)
-- **Port:** `9090/tcp` (bound to `0.0.0.0:9090` on host)
+- **Port:** `9090/tcp` — bound to **`127.0.0.1:9090` + `100.82.51.112:9090`** (loopback + tailnet, never `0.0.0.0`)
 - **Tailnet Access:** `http://100.82.51.112:9090` (or `http://psicopompo:9090`)
 - **Container:** `steniorec` (image `sumaenima-server:latest` / `sumaenima-server:cuda`)
 - **Compose:** `/mnt/NVME_PCI/homelab/sumaenimahub/sumaenima-hub/provisioning/stacks/gpu.yml`
 - **Model:** Whisper `Large-v3-Turbo Q8_0` GGML (`/mnt/NVME_PCI/homelab/sumaenimahub/llm_model_cache/whisper-ggml/ggml-large-v3-turbo-q8_0.bin`, 874 MB)
 - **VRAM Footprint:** ~1.6 GB on RTX 5050
+
+> **Correction (2026-10-13):** the bind was previously documented as `0.0.0.0:9090`. Verified live
+> (`docker ps` + `ss -tlnp` on psicopompo): the container publishes **`127.0.0.1:9090`** and
+> **`100.82.51.112:9090`** only — no `0.0.0.0` socket exists (see [`network/ports.md`](../network/ports.md) §2.1).
 
 ---
 
@@ -127,7 +131,7 @@ For guides on how agents and remote clients consume the API:
 
 | Node | `tailscaled-wait` | Docker Waits for TS | Swarm Role | Session Failures Since Boot |
 |---|---|---|---|---|
-| psicopompo | ✅ (nfs-server, wol-relay, sumaenima-gpu) | ❌ | worker | 24 (resolved) |
+| psicopompo | ✅ (nfs-server, hl-wol-relay, sumaenima-gpu) | ❌ | worker | 24 (resolved) |
 | kavure | ❌ | ✅ (`nfs-ordering.conf`) | manager | 4 |
 | ybyra | ❌ | ✅ | worker | — |
 | ybytu | ❌ | ❌ | inactive | — |

@@ -83,7 +83,7 @@ df -h /mnt/NVME_PCI
    ```json
    "builder": { "gc": { "enabled": true, "defaultKeepStorage": "30GB" } }
    ```
-2. **Monthly Systemd Timer:** `docker-prune.timer` executes on the 1st of every month at 04:00, purging stale build cache and untagged images.
+2. **Monthly Systemd Timer:** `hl-docker-prune.timer` executes on the 1st of every month at 04:00, purging stale build cache and untagged images.
 3. **Snapper Policy Optimization:** Transient caches (`/mnt/NVME_PCI/containerd-data`) are excluded from extended backup retention; critical subvolumes maintain a bounded rolling timeline.
 
 ## Results of the 2026-09-06 Reclamation
