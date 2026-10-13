@@ -1,5 +1,6 @@
 ---
 tags: [homelab, oracle, oci, cloud, tutorial, todo]
+pending: [HB-007, HB-008]
 ---
 
 # Always Free ARM VM (A1.Flex) Capture — Loop Design
@@ -109,9 +110,36 @@ Upon launch, the instance is provisioned automatically via cloud-init (`provisio
 
 > The captured node is designated **`ybytyra`** (Tupi: *mountain range*), continuing the naming convention of homelab Oracle cloud nodes (`ybytu` = wind, `ybyra` = tree).
 
-## Current Status (2026-10-08)
+## Extra Levers (research 2026-10-12) — and what does **not** work
 
-Active and monitoring on **psicopompo** via `hl-arm-hunt.timer`.
+Research across Oracle's official docs and the community (`oci-*-catcher` projects). Conclusion:
+**the loop is already optimal**; there is no magic lever.
+
+| Lever | Verdict |
+|---|---|
+| **PAYG (account upgrade)** | ❌ **does not** add host capacity or priority (docs only say "more resource types"); **requires a card** with a ~US$100 pre-auth. Out of scope |
+| **Rotate ADs** | ❌ our region has a **single AD** (`WdCV:SA-SAOPAULO-1-AD-1`) |
+| **Change region** | ❌ *Always Free* is **home-region-only** |
+| **Capacity report** (`oci compute compute-capacity-report create`) | ⚠️ it is a **hint, not a reservation** — can be stale. Using it as a gate could **miss** a window. Not worth the risk |
+| **Shorter interval** | ❌ 60 s hits **429** (measured). 120 s is the useful ceiling |
+| **Fault domain** | ✅ already left **unset** (Oracle picks the best) |
+
+> **Community consensus:** ARM capacity appears back in **windows of minutes to hours**; whoever is
+> trying when one opens wins. Most tools use a **1–5 min** interval plus notification.
+> **Idle reclamation:** Oracle may reclaim idle A1 instances (CPU/network/memory <20% for 7 days) →
+> `ybytyra` needs **real work** (a resolver/edge counts as "serving").
+
+## Loop Watchdog (HB-007)
+
+The loop can **stop silently** (dead timer, stalled log). `arm-hunt-watchdog`
+(`provisioning/scripts/arm-hunt-watchdog` + `hl-arm-hunt-watchdog.timer`, daily 09:00) alerts on
+`/alerts` if the timer is not active or the log has been idle for > 1 h. If already captured
+(`done` sentinel), it does not watch.
+
+## Current Status (2026-10-12)
+
+Active on **psicopompo** via `hl-arm-hunt.timer` (every 2 min). As of 2026-10-12: **2,666 capacity
+attempts, no luck yet** (~4 days). Target shape 2 OCPU/12 GB. Not captured.
 
 ## See Also
 

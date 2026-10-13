@@ -26,8 +26,8 @@ Vault (Source of Truth)                       Working Tree Mirror               
 
 | Component | Path |
 |---|---|
-| Script | `/usr/local/bin/homelab-docs-sync` (versioned in `sumaenima-hub/provisioning/scripts/`) |
-| Systemd Units | `hl-mnemocine-docs-sync.{service,timer}` and `hl-ceduardorodrig-docs-sync.{service,timer}` (in `sumaenima-hub/provisioning/systemd/`) |
+| Script | `/usr/local/bin/homelab-docs-sync` (versioned in `MNEMOCINE-OPS/provisioning/scripts/`) |
+| Systemd Units | `hl-mnemocine-docs-sync.{service,timer}` and `hl-ceduardorodrig-docs-sync.{service,timer}` (in `MNEMOCINE-OPS/provisioning/systemd/`) |
 | Schedule | **04:40** (CV) and **04:45** (Mnemocine), daily, `Persistent=true`, **executes as user `edu`** |
 | Logs | `~/.local/state/<repo>-docs-sync.log` + systemd journal |
 | Telemetry & Alerts | ntfy `/backup` on gate failure or git push errors |

@@ -1,0 +1,28 @@
+# GPU consumers — the single source of truth for the HOMELAB-GPU-UNIFIED rule.
+#
+# WHY THIS FILE EXISTS
+# The homelab shares a single GPU (RTX 5050, psicopompo). No workload may touch
+# it without a lease from the centralized gateway (hl-infer). StenioSentinel
+# enforces this statically: a compose service that claims the GPU must be a
+# registered consumer. This file is the allowlist the engine reads.
+#
+# ADDING A CONSUMER IS A DATA EDIT, NOT AN ENGINE CHANGE
+# Register a new consumer here (one name per line) and in
+# mnemocine/services/hl-infer.md — never by editing the governance engine.
+# The engine keeps a built-in fallback list (see src/infra.rs,
+# FALLBACK_GPU_CONSUMERS) used only when this file is missing or unreadable.
+#
+# FORMAT
+#   * one consumer per line, lowercase
+#   * matching is case-insensitive substring against the compose service name
+#   * '#' starts a comment; blank lines are ignored
+#
+# Policy and runbook: mnemocine/guides/gpu-centralization.md
+hl-infer
+steniorec
+stenio-server
+steniobot
+sae-core
+ollama
+transcribe
+comfyui

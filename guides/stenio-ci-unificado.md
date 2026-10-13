@@ -1,5 +1,6 @@
 ---
 tags: [homelab, governance, ci, stenio, github, rust]
+pending: [HB-020]
 ---
 
 # Unified Stênio in CI

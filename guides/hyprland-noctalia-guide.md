@@ -55,7 +55,7 @@ Noctalia natively honors `org.freedesktop.ScreenSaver.Inhibit` signals from Chro
 | Shortcut | Action |
 |---|---|
 | `Super + Return` | Launch Kitty terminal |
-| `Super + E` | Launch Yazi terminal file manager |
+| `Super + E` | Launch Nautilus file manager (floating, centered) |
 | `Super + W` | Launch Zen browser |
 | `Super + T` | Launch text editor |
 | `Super + C` | Launch calculator |
@@ -121,9 +121,36 @@ Noctalia natively honors `org.freedesktop.ScreenSaver.Inhibit` signals from Chro
 Enforced in `~/.config/hypr/config/windowrules.lua`:
 
 - **KeePassXC:** Floats centered at 960×702.
-- **Yazi:** Floats centered at 45% width / 55% height.
+- **Nautilus:** Floats centered at 55% width / 65% height (default GUI file manager, bound to `Super + E`).
+- **Yazi:** Floats centered at 45% width / 55% height (orphaned — no keybinding; launch via `Super + Space`).
 - **Swash, Calculator (`kcalc`), Ark:** Configured floating defaults.
 - **Minecraft & Prism Launcher:** Bound to workspace `name:gaming` with `content = "game"` to trigger GPU direct scanout.
+
+---
+
+## Appearance: Window Opacity & Icon Theme (2026-10-12)
+
+### Window Opacity (Hyprland compositor)
+
+Global opacity set in `~/.config/hypr/config/decorations.lua`:
+
+| Setting | Value | Behavior |
+|---|---:|---|
+| `active_opacity` | `1.0` | Focused windows are **fully opaque** |
+| `inactive_opacity` | `0.70` | Unfocused windows fade to **30% transparent** |
+| `fullscreen_opacity` | `1` | Fullscreen always opaque |
+
+> **Whitelist exception:** `firefox|zen`, terminals, and media players (`mpv`, `vlc`, etc) carry an `opacity = "1.0 override"` window rule (`windowrules.lua:140-142`) — they remain opaque even when unfocused, so terminal/browser text stays readable at a glance. All other apps (including Nautilus) follow the global active/inactive values.
+
+### GTK Icon Theme (Nautilus & GTK apps)
+
+The GTK icon theme is **`Papirus-Dark`** (modern third-party theme; deliberately distinct from the KDE `breeze-dark` used by Qt/Plasma apps). Configured in three places:
+
+- `~/.config/gtk-3.0/settings.ini` → `gtk-icon-theme-name=Papirus-Dark`
+- `~/.config/gtk-4.0/settings.ini` → `gtk-icon-theme-name=Papirus-Dark`
+- `gsettings get org.gnome.desktop.interface icon-theme` → `'Papirus-Dark'`
+
+> **Dual-DE split (by design):** The Qt side (`~/.config/qt6ct/qt6ct.conf` → `icon_theme=breeze-dark`) and Plasma remain on the KDE `breeze-dark` theme. Only the GTK/Nautilus side uses Papirus. Preview and switch GTK themes live with `nwg-look`.
 
 ---
 

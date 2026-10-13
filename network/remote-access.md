@@ -4,7 +4,7 @@ tags: [homelab, network, storage]
 
 # Remote Server Access via File Managers (SFTP)
 
-Canonical and unified methodology for accessing remote filesystems on homelab servers (`kuaray`, `kavure`) from **Psicopompo**, simultaneously compatible with both **Dolphin** (KDE Plasma) and **Cosmic Files** (COSMIC Desktop).
+Canonical and unified methodology for accessing remote filesystems on homelab servers (`kuaray`, `kavure`) from **Psicopompo**, simultaneously compatible with both **Dolphin** (KDE Plasma) and **Nautilus** (GNOME).
 
 ## Architectural Principles
 
@@ -13,12 +13,12 @@ Canonical and unified methodology for accessing remote filesystems on homelab se
    - `~/.ssh/config` defines explicit aliases `Host kuaray` and `Host kavure` backed by an Ed25519 identity key (`~/.ssh/id_ed25519`).
    - The user `ssh-agent` transparently negotiates sessions without manual passphrase entry.
 3. **Multi-Desktop Compatibility Standard:**
-   - **Cosmic Files (GIO/GVFS):** Parses bookmarks from `~/.config/gtk-3.0/bookmarks` and mounts endpoints at `/run/user/1000/gvfs/sftp:host={host}` via `gio mount sftp://{host}/`.
+   - **Nautilus (GIO/GVFS):** Parses bookmarks from `~/.config/gtk-3.0/bookmarks` and mounts endpoints at `/run/user/1000/gvfs/sftp:host={host}` via `gio mount sftp://{host}/`.
    - **Dolphin (KIO):** Parses bookmark definitions from `~/.local/share/user-places.xbel` using the XML structure `<bookmark href="sftp://{host}/">`.
 
 ## File Manager Configuration
 
-### 1. Cosmic Files (`~/.config/gtk-3.0/bookmarks`)
+### 1. Nautilus (`~/.config/gtk-3.0/bookmarks`)
 
 ```text
 sftp://kuaray/ Kuaray (Root)
@@ -61,7 +61,7 @@ Entries are registered using the canonical `sftp://` scheme:
 
 ## Automated Session Login Mounting & Recovery (2026-10-06)
 
-To guarantee that remote shares appear automatically as mounted **Network Drives** inside Cosmic Files and Dolphin immediately upon graphical login:
+To guarantee that remote shares appear automatically as mounted **Network Drives** inside Nautilus and Dolphin immediately upon graphical login:
 
 1. **Mount Automation Script:** `~/.local/bin/homelab-sftp-mount.sh`
    - Checks whether the target endpoint is already mounted (`gio mount -l`).

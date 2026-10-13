@@ -1,5 +1,6 @@
 ---
 tags: [homelab, backup, config, docker, compose]
+pending: [HB-009, HB-010]
 ---
 
 # Canonical Configuration Backup — `config-backup`

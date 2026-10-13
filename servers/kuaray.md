@@ -1,5 +1,6 @@
 ---
 tags: [homelab, server, kuaray, docker, storage, media, home-assistant, automation]
+pending: [HB-013]
 ---
 
 # kuaray
@@ -75,6 +76,10 @@ tags: [homelab, server, kuaray, docker, storage, media, home-assistant, automati
 - Performed cold hardware power drain to reset auxiliary PHY controller power.
 - Link verified at stable **100 Mb/s Full Duplex** on `192.168.3.200/24`. LAN latency dropped from ~22 ms (Wi-Fi) to 0.28 ms.
 - **EEE disabled (2026-10-10):** Energy-Efficient Ethernet was `enabled - inactive`; now forced `off` by `nic-power-tuning.service` (systemd oneshot, `ethtool --set-eee enp7s0 eee off`, runs at boot) — removing the last NIC power-saving state as a possible source of intermittent link stalls. Context: [`network/topology.md`](../network/topology.md#lan-stability--nic--switch-investigation-2026-10-10).
+
+### Tailscale DNS health — HB-013 (2026-10-12)
+
+Tailscale reported `resolvconf … Failed to resolve interface "tailscale": No such device`. Root cause: **`systemd-resolved` was installed but disabled**, so `tailscaled` fell back to the broken `resolvconf` path. **Fix:** `systemctl enable --now systemd-resolved` + `/etc/resolv.conf` → `/run/systemd/resolve/stub-resolv.conf` + restart `tailscaled`. Health cleared; MagicDNS ok. Detected by `homelab_tailscale_health` (see [`../network/observability.md`](../network/observability.md)). ⚠️ Verify it persists across reboot.
 
 ## See Also
 

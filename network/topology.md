@@ -1,5 +1,6 @@
 ---
 tags: [homelab, network, tailscale, docker, storage, env]
+pending: [HB-002]
 ---
 
 # Network Topology

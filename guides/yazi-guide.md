@@ -5,13 +5,14 @@ created: 2026-09-25
 
 # Yazi Operations Guide — Terminal File Manager (psicopompo)
 
-This guide documents the usage, architecture, and keybindings of **Yazi** on CachyOS/Hyprland with Noctalia, replacing Dolphin as the default system file manager.
+This guide documents the usage, architecture, and keybindings of **Yazi** on CachyOS/Hyprland with Noctalia.
+
+> **Status (12/10/2026):** Yazi is currently **orphaned — no keybinding assigned**. The `Super + E` shortcut was reassigned to **Nautilus** (the default GUI file manager, floating centered). Yazi is still installed and its floating window rule is preserved; launch it via the Noctalia app launcher (`Super + Space` → type `yazi`). To give it a global shortcut again, add a bind in `~/.config/hypr/config/binds.lua`.
 
 ## Why Yazi?
 
 - **Written in Rust:** Asynchronous, non-blocking, and highly resource-efficient (<30 MB RAM in active use, 0% CPU at idle).
 - **No Background Daemons:** Eliminates reliance on heavy desktop indexing services (`baloo`, `kiod6`).
-- **Hyprland Integration:** Spawned instantly in a floating centered window via global shortcut (`Super + E`).
 - **Native Previews:** Built-in high-performance previews for source code (`bat`), images and videos (`ffmpegthumbnailer` + `chafa`), documents (`pdftoppm`), and archives (`7z`).
 
 ---
@@ -20,7 +21,7 @@ This guide documents the usage, architecture, and keybindings of **Yazi** on Cac
 
 | Action | Keybinding / Command | Description |
 |---|---|---|
-| **Launch Yazi** | `Super + E` | Spawns Yazi in a centered floating Kitty window |
+| **Launch Yazi** | No global shortcut (orphaned) — use `Super + Space` launcher | Spawns Yazi in a centered floating Kitty window |
 | **Quit** | `q` | Closes Yazi cleanly |
 | **Exit to Sub-shell** | `_` (underscore) | Spawns a sub-shell within the current active directory |
 | **Force Close** | `Super + Q` | Closes the window via standard Hyprland window manager kill |
@@ -125,5 +126,5 @@ Yazi supports native Wayland mouse drag events (`mouse_events = [ "click", "scro
 
 - **Keybindings:** [`~/.config/yazi/keymap.toml`](file:///home/edu/.config/yazi/keymap.toml)
 - **General Settings:** `~/.config/yazi/yazi.toml`
-- **Hyprland Launcher:** [`~/.config/hypr/config/variables.lua`](file:///home/edu/.config/hypr/config/variables.lua) (`FILE_MANAGER = "kitty --class yazi -e yazi"`)
+- **Hyprland Launcher:** [`~/.config/hypr/config/variables.lua`](file:///home/edu/.config/hypr/config/variables.lua) (`FILE_MANAGER = "nautilus"` — Yazi is **not** bound to `Super + E` since 12/10/2026)
 - **Window Rules:** [`~/.config/hypr/config/windowrules.lua`](file:///home/edu/.config/hypr/config/windowrules.lua) (class `yazi` floats centered at 45% width / 55% height).

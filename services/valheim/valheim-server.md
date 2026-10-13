@@ -124,6 +124,7 @@ All active plugins operate **entirely on the server side** — vanilla clients c
 - **Cause:** The server **does not crash** (`ExitCode=0`, `RestartCount=0`, container `Up`). It is a transient loss of network connectivity on the `kavure` host — `tailscaled` logs `netcheck reported send error → Rebind`, which simultaneously breaks MagicDNS, Swarm gossip and **every** tailnet-only connection (Valheim, NFS).
 - **Not:** a Valheim or mod bug (Noodles/devcommands/FuelEternal); not the home internet (the ISP router records no WAN drop at those times); not host resource exhaustion.
 - **Reference:** [`network/topology.md`](../../network/topology.md#lan-stability--nic--switch-investigation-2026-10-10).
+- **Resilience (HB-012, resolved 12/10):** the server is **tailnet-only** (`public=false`), so *any* Tailscale/DERP blip can drop players. **Owner decision: accept the risk** — no crossplay/port-forward; blips are rare and the service is fully usable. Direct peer paths + peer relays are already active (see [`../../network/observability.md`](../../network/observability.md)).
 
 ### Compression Compatibility with Valheim 1.0 (Empty World Issue)
 - **Symptom:** World loaded with bare terrain devoid of structures and vegetation; logs threw `unknown frame tag 0x48`.

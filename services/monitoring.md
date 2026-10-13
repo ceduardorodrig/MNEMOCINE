@@ -1,5 +1,6 @@
 ---
 tags: [homelab, service, grafana, prometheus, loki, monitoring]
+pending: [HB-005]
 ---
 
 # Observability — Grafana + Prometheus + Loki
@@ -33,7 +34,7 @@ Custom metrics exported via the **textfile collector** (homelab standard — zer
 |---|---|---|
 | `health-files-metrics.sh` | `hl-health-metrics.timer` (5 min) | `homelab_backup_last_ok_seconds`/`_age_seconds` (age of `/srv/health/*-last-ok` stamps) + `homelab_systemd_unit_active`/`_failed` (critical units: mnt-storage, tailscaled, docker, hl-* timers) |
 | `container-metrics.sh` | `hl-container-metrics.timer` (2 min) | `homelab_container_state{name,state}` (running/restarting/exited/...) |
-| `netwatch-metrics.sh` | `hl-netwatch-metrics.timer` (**15 s**) | `homelab_net_ping_up` / `_loss_ratio` / `_rtt_seconds{target}` — LAN/WAN reachability + latency for the targets in `/etc/homelab/netwatch-targets.conf` (kavure: gateway, NAS-LAN, NAS-Tailscale, internet; psicopompo: gateway, kavure-LAN, kavure-Tailscale, internet). Added 10/10/2026 to diagnose the intermittent LAN/NIC blips. |
+| `netwatch-metrics.sh` | `hl-netwatch-metrics.timer` (**15 s**) | `homelab_net_ping_{up,loss_ratio,rtt_seconds}{target}`, `homelab_nic_errors{device,type}` (ethtool `-S`), `homelab_tailscale_health` — the **network path-segment model**. Targets in `/etc/homelab/netwatch-targets.conf`; source `MNEMOCINE-OPS/provisioning/scripts/`. See [`network/observability.md`](../network/observability.md). |
 | `smart-metrics.sh` (psicopompo/kuaray/kavure — **physical disks only**) | `hl-smart-metrics.timer` (15 min) | `smartmon_smart_available`, `smartmon_health`, `smartmon_temperature_celsius`, `smartmon_{reallocated_sector_ct,current_pending_sector,offline_uncorrectable}_raw_value`, `smartmon_power_on_hours`, `smartmon_power_cycle_count`, `smartmon_load_cycle_count`, `smartmon_unsafe_shutdown_count`, `smartmon_udma_crc_error_count`, NVMe: `smartmon_nvme_{percentage_used,available_spare,media_errors,data_units_written,power_on_hours,unsafe_shutdowns}`, Non-SMART USB/SD cards: `smartmon_usb_ioerr_total`/`smartmon_usb_iorequest_total` |
 
 > `smart-metrics.sh` invokes `smartctl -j` (JSON) + `smart-metrics.py` (parser). Cloud VPS nodes (ybytu/ybyra) do **not** support SMART (virtual disks).  
@@ -48,6 +49,7 @@ Custom metrics exported via the **textfile collector** (homelab standard — zer
 - **`node`** — node_exporter **across all 5 hosts** (`:9100`) + textfile metrics (health/systemd/container/smart)
 - **`cadvisor`** — Container engine metrics on kavure
 - **`n8n`** — `/metrics` on **both** n8n instances (Homelab on kavure, Miracena on kuaray)
+- **`hl-infer`** — `/metrics` on the GPU inference gateway (psicopompo `:9095`), instance relabelled `psicopompo`
 - **`prometheus`/`loki`/`grafana`/`alertmanager`** — Self-monitoring endpoints
 
 ## Logs (Loki)
@@ -59,8 +61,8 @@ Custom metrics exported via the **textfile collector** (homelab standard — zer
 ## Alerting (Prometheus → Alertmanager → alertmanager-ntfy → ntfy)
 
 > **Webhook Bridge (09/10/2026):** Alertmanager originally posted directly to the ntfy `alerts` topic. Because Alertmanager's `webhook_configs` **does not support Go templating**, raw JSON payloads were posted directly without readable titles — creating noisy code dumps on mobile screens. The flow now routes: **Alertmanager → `alertmanager-ntfy`** (container `monitoring-alertmanager-ntfy`, image `ghcr.io/alexbakker/alertmanager-ntfy:1.2.1`, `http://alertmanager-ntfy:8000/hook`, internal compose network) → ntfy `/alerts`.  
-> - **Config:** `/srv/data/monitoring/alertmanager-ntfy/config.yml` (Go templates: Title `🚨 Fired` / `✅ Resolved` + summary, body containing alert description, host, start time, `X-Click` pointing to generatorURL, priority by severity — `urgent` critical / `low` warning / `min` resolved, tags `rotating_light`/`+1`).  
-> - **Healthcheck:** Invokes native `--health-check` binary flag (runs in `scratch` image without shell).  
+> - **Config:** `/srv/data/monitoring/alertmanager-ntfy/config.yml` (Go templates: Title `🚨 Fired` / `✅ Resolvido` + summary, body containing alert description, host, start time via `{{ .StartsAt.Local.Format "02/01/2006 15:04" }} BRT`, `X-Click` pointing to generatorURL, priority by severity — `urgent` critical / `low` warning / `min` resolved, tags `rotating_light`/`+1`).  
+> - **Healthcheck & Timezone:** Invokes native `--health-check` binary flag (runs in `scratch` image without shell). Environment `TZ=America/Sao_Paulo` + mounts `/etc/localtime` e `/usr/share/zoneinfo` para converter timestamps UTC do Alertmanager para o horário de Brasília.  
 > - **End-to-End Validation (09/10):** Synthetic alert payload confirmed clean formatting in mobile `/alerts`.  
 > - **Bridge Failure Failure-Domain:** If the bridge crashes, Alertmanager cannot dispatch (webhook returns 5xx) — inspect `docker logs monitoring-alertmanager-ntfy`.
 
@@ -87,10 +89,17 @@ Custom metrics exported via the **textfile collector** (homelab standard — zer
 | `n8nDown` / `PrometheusDown` | scrape target unreachable | critical |
 | `NetworkCarrierDown` | physical NIC `carrier == 0` (20 s) | warning |
 | `NetworkRxErrors` | `increase(node_network_receive_errs_total[5m]) > 0` | warning |
-| `NetworkRxDrops` | `increase(node_network_receive_drop_total[5m]) > 5` | warning |
+| `NetworkRxMissed` | `delta(homelab_nic_errors{type=~"rx_missed.*"}[5m]) > 20` | warning |
 | `NetPingLoss` | `homelab_net_ping_loss_ratio >= 0.5` (30 s) | warning |
+| `TailscaleHealthDegraded` | `homelab_tailscale_health == 0` (30 m) | warning |
+| `HlInferDown` | `up{job="hl-infer"} == 0` for 5m | critical |
+| `HlInferVramExhausted` | `hl_infer_vram_effective_free_bytes < 512 MiB` for 15m | warning |
 
-> **Network alert group (10/10/2026):** added to `alerts.yml` (group `network`) to catch the intermittent LAN/NIC blips that drop Valheim players and stall NFS (see [`network/topology.md`](../network/topology.md#lan-stability--nic--switch-investigation-2026-10-10)). Device filter `device=~"en[ops].*"` (physical NICs only; excludes `lo`/`tailscale0`/bridges).
+> **GPU arbitration group (added 12/10/2026):** `alerts.yml` group `gpu-gateway` watches the
+> centralized GPU inference gateway ([`hl-infer`](hl-infer.md)) on psicopompo. Losing it means the
+> GPU has no arbiter (no VRAM accounting, no fixed windows) — hence critical.
+
+> **Network alert group (added 10/10/2026, reworked 12/10):** `alerts.yml` group `network` catches the intermittent path blips that drop Valheim players, stall NFS and disturb Swarm. Device filter `device=~"en[ops].*"` (physical NICs only). Full path-segment model: [`network/observability.md`](../network/observability.md).
 
 > **Real Production Catches (28/08):** Upon initial deployment, the stack **immediately identified** (a) kuaray's HDD suffering 37 pending sectors (`SmartDiskError` firing) and (b) ybytu/ybyra config backups stalled for 7 days due to an NFS `Stale file handle` (`BackupNotRun`). Both remediated same-day.  
 >  
@@ -108,7 +117,7 @@ Custom metrics exported via the **textfile collector** (homelab standard — zer
 ## Grafana Dashboards
 
 - Provisioned Datasources: **Prometheus** (uid `prometheus`) + **Loki** (uid `loki`).  
-- Provisioned Dashboards: **Homelab Health** (default landing page), **Node Exporter Full**, **Docker and system monitoring**, **SMART 1-Year Trend** (12/09), **Network Stability** (10/10).  
+- Provisioned Dashboards: **Homelab Health** (default landing page), **Node Exporter Full**, **Docker and system monitoring**, **SMART 1-Year Trend** (12/09), **Network Stability** (10/10), **GPU Gateway (hl-infer)** (12/10).  
 - **Homelab Health** (uid `homelab-health`): Hosts overview (CPU/RAM/load/uptime), Disks (storage + inodes), SMART health status, Backups (freshness age), Failed systemd units, Container health (restarting/running per node), CPU/RAM/Network/IO time series.  
 - **SMART 1-Year Trend** (uid `smart-trends`): Daily aggregated series (`smart:*:max_1d`) for reallocated/pending sectors, thermals, power-on hours, NVMe % wear, and USB/SD I/O errors.  
 - Authentication: `admin` + `GRAFANA_ADMIN_PASSWORD`. `GF_USERS_ALLOW_SIGN_UP=false`.
@@ -127,6 +136,7 @@ Custom metrics exported via the **textfile collector** (homelab standard — zer
 - **Add Alerts / Dashboards:** Modify `prometheus/alerts.yml` (+ reload) or `grafana/dashboards/` (JSON) and run `docker compose restart grafana`.  
 - **Tune Retention / Rules:** Modifying `compose.yml` (`--storage.tsdb.retention.time`) requires recreating the container; `rules.yml` changes only require a reload.  
 - **Mirrors:** Configs and dashboards are mirrored by `config-backup` (kavure `/srv/data` → NAS). `.env` is excluded (managed in sops secret store).
+- **Collector journal noise (HB-011, resolved 12/10):** the 15 s `hl-netwatch-metrics.timer` emitted a `Starting`/`Finished` pair every cycle that promtail shipped to Loki. Fixed with a promtail `drop` stage (expression `network path probes`) on kavure/psicopompo/ybytu — verified 0 lines in Loki.
 
 ## See also
 - [[n8n]] — Metrics scraped by Prometheus
