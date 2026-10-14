@@ -74,6 +74,20 @@ To release block storage quota for the Always Free ARM instance (`ybytyra`), yby
 4. Tailscale identity restored from backup, retaining IP `100.66.224.34`;
 5. Node rejoined Swarm as worker (`role=primary`), and edge traffic failed back with zero data loss.
 
+## DNS Resolution (2026-10-13)
+
+| Component | Configuration |
+|---|---|
+| Host resolver | **`systemd-resolved` stub** — `/etc/resolv.conf` → `/run/systemd/resolve/stub-resolv.conf` (`127.0.0.53`); Tailscale on the **`systemd-resolved`** backend injecting `100.100.100.100` (`~.`) into `tailscale0` |
+| Global fallback | `9.9.9.9#dns.quad9.net 1.1.1.1#cloudflare-dns.com` with `DNSOverTLS=opportunistic` — **added 2026-10-13** (the `[Resolve]` section was empty); identical to `kuaray`/`kavure` |
+| Oracle metadata | `169.254.169.254` (domain `vcn06051818.oraclevcn.com`) remains the link resolver on `ens3` |
+
+> **Why it was changed:** the [`../network/dns.md`](../network/dns.md) egress table claims every
+> host carries the global `9.9.9.9`/`1.1.1.1` fallback; `ybyra` was the one host that did not.
+> The `~.` route on `tailscale0` still sends general queries to the tailnet race, so the fallback
+> is used only when Tailscale is down. Evidence:
+> [`../guides/dns-consistency-map.md`](../guides/dns-consistency-map.md) §4.1.
+
 ## See Also
 
 - [`guides/oci-shrink-boot-volume.md`](../guides/oci-shrink-boot-volume.md) — Step-by-step reduction runbook

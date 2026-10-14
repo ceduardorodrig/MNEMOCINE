@@ -39,7 +39,7 @@ The recovery path pivots to **rclone off-site storage** (Google Drive `BACKUP MN
 2. Retrieve off-site backup: `rclone sync "gdrive:BACKUP MNEMOCINE" /mnt/BACKUP`.
 3. Re-export NFS shares (`/etc/exports`) and run `exportfs -arv`.
 4. Restore Obsidian vault: `/mnt/BACKUP/agentic-ai-server-psicopompo/agentic-ai` → `/mnt/NVME_PCI/agentic-ai`.
-5. Restore credentials: SOPS store (`secrets.enc.env` in vault) using offline age master key from KeePassXC.
+5. Restore credentials: SOPS store (`secrets.enc.env` in vault) — decrypt with the **surviving age key**: psicopompo's `~/.config/sops/age/keys.txt`, or, if psicopompo is the host lost, **kavure's** (`/home/kavure/.config/sops/age/keys.txt`, **2nd recipient since 2026-10-13**; `sops` + `age` installed there on 2026-10-13). ⚠️ The **cold offline copy** (KeePassXC/USB) is **pending** — it is what would be needed if **both** hosts are lost. Then run `inject-secrets.sh`. See [`psicopompo-loss.md`](psicopompo-loss.md) §2 G1 · HB-064.
 
 > ⚠️ If Google Drive is unreachable: **Recover via etckeeper and client mirrors** (`/mnt/BACKUP/configs-homelab/*` is the sole surviving mirror — prioritize `psicopompo`, `kavure`, and `kuaray`).
 

@@ -1,5 +1,6 @@
 ---
 tags: [homelab, service, kururu, wol, power, monitoring]
+pending: [HB-074]
 ---
 
 # Kururu Power Sentinel
@@ -8,7 +9,7 @@ Autonomous power outage detection, coordinated safe shutdown, and closed-loop Wa
 
 **Node:** Kururu (Samsung Galaxy Tab 3 Lite SM-T110 / Alpine Linux 3.20 ARMv7)  
 **Binary:** `/usr/local/bin/kururu-sentinel` (Rust native, static musl)  
-**Target Hosts:** Kavure (`100.124.146.77`), Psicopompo (`100.82.51.112`)  
+**Target Hosts:** Kavure (`192.168.3.41` / `100.124.146.77`), Psicopompo (`192.168.3.100` / `100.82.51.112`)  
 **Log Path:** `/data/kururu-sentinel.log` (persistent ext4 partition)
 
 ---
@@ -86,11 +87,13 @@ To prevent state thrashing between `PortableUsage` and `BlackoutPending`:
 - `CriticalBattery` never de-escalates unless physical AC power is restored.
 - In `BlackoutPending`, detecting AC drains debit at 10s per 5s cycle. It only transitions back to `AcNormal` when debit reaches `0s`.
 
-### E. Native HTTP Control via Tailscale (Zero SSH Complexity)
-Shutdown commands do not rely on SSH keys, passphrases, or batch mode. Both Kavure and Psicopompo run `wol-relay` (native Rust on port `9096` as root):
-* **Kavure:** `POST http://100.124.146.77:9096/power/shutdown`
-* **Psicopompo:** `POST http://100.82.51.112:9096/power/shutdown`
-Each node receives the command over Tailscale and executes `shutdown -P now` instantly.
+### E. Native HTTP Control via LAN ⚡ Tailscale Concurrent Race (Zero SSH, WAN-Immune)
+Shutdown commands do not rely on SSH keys, passphrases, batch mode, or external WAN internet. Both Kavure and Psicopompo run `wol-relay` (native Rust on port `9096` as root) protected by UFW rules accepting only Kururu's fixed LAN IP (`192.168.3.55`) and Tailscale:
+* **Concurrent Race:** Kururu fires parallel background threads targeting both LAN (`192.168.3.x:9096`) and Tailnet (`100.x.y.z:9096`).
+* **First Response Wins:** Whichever channel returns HTTP 200 first commits the shutdown. If the ISP fiber is severed during a blackout, the local Wi-Fi/switch packet completes the command in `<1ms`.
+* **Kavure:** `POST http://192.168.3.41:9096/power/shutdown` ⚡ `http://100.124.146.77:9096/power/shutdown`
+* **Psicopompo:** `POST http://192.168.3.100:9096/power/shutdown` ⚡ `http://100.82.51.112:9096/power/shutdown`
+Each target receives the command and executes `shutdown -P now` instantly.
 
 ### F. Simultaneous Closed-Loop Recovery
 When mains power returns:

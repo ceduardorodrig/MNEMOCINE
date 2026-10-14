@@ -95,4 +95,4 @@ Once the `device_id` and `local_key` are known:
 
 All extracted Tuya local keys must be stored in the homelab's central secret repository:
 - Master plaintext (0600): `/mnt/NVME_PCI/secrets/secrets.env`
-- Encrypted repository mirror: `mnemocine/secrets.enc.env` (via `sops --encrypt --age`)
+- Encrypted repository mirror: `mnemocine/secrets.enc.env` (via `sops --encrypt`, recipients driven by `mnemocine/.sops.yaml` — **never** pass `--age` on the CLI; see `guides/secrets-centralizados.md`)

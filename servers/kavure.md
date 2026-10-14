@@ -79,6 +79,22 @@ Link verified at **1000 Mb/s full-duplex** after the change; no downtime (EEE wa
 
 All standalone containers on this node implement explicit healthcheck definitions, integrated with `autoheal` for autonomous remediation.
 
+## Disaster-Recovery Role — SOPS/age keyholder (2026-10-13)
+
+kavure is the **second age recipient** of the centralized SOPS store, so the homelab's secrets stay
+decryptable if `psicopompo` is lost — DR "Rota A" (detail in
+[`../recovery/psicopompo-loss.md`](../recovery/psicopompo-loss.md) §2 G1 · HB-064).
+
+- **Key:** `~/.config/sops/age/keys.txt` — `0600`, owner `kavure` (the recovery user); **never synced
+  and never mirrored to the NAS** (`config-backup` sources only `/srv/data`).
+- **Public recipient:** `age1u2c35fk…` — the **private key never leaves this host**.
+- **Tooling (installed 2026-10-13):** `age` (apt, Ubuntu repo) + `sops` (`sops_3.13.3_amd64.deb`,
+  official GitHub release — `sops` is not packaged in Ubuntu).
+- **Decrypt from here:** `sops --decrypt --input-type dotenv --output-type dotenv <store>` (fetch the
+  ciphertext store from Syncthing/GitHub or the vault mirror first).
+- **Verified 2026-10-13:** decrypts the store with its **own** key alone — whole-store sha256 and the
+  `TS_AUTH_KEY` value-hash both match psicopompo (no regression on psicopompo).
+
 ## See Also
 
 - [`network/kavure-migration-plan.md`](../network/kavure-migration-plan.md) — Service migration blueprint

@@ -1,6 +1,6 @@
 ---
 tags: [homelab, env, sops, backup, secrets]
-pending: [HB-023, HB-026, HB-051]
+pending: [HB-023, HB-026, HB-051, HB-072]
 ---
 
 # Centralized Secrets Management (.env) with SOPS/age
@@ -10,8 +10,10 @@ Standard for consolidating distributed `.env` files and credentials into a **sin
 ## Architecture
 
 ```
-age Private Key (psicopompo only, NEVER synchronized)
-  ~/.config/sops/age/keys.txt        ← ONLY mechanism to decrypt (backup in /mnt/NVME_PCI/secrets/age-keys-backup.txt)
+age Private Keys — TWO recipients since 2026-10-13 (DR "Rota A"), NEVER synchronized
+  psicopompo  ~/.config/sops/age/keys.txt  ← primary (same-host convenience copy: /mnt/NVME_PCI/secrets/age-keys-backup.txt)
+  kavure      ~/.config/sops/age/keys.txt  ← 2nd recipient: the store stays decryptable if psicopompo is LOST
+  (the store decrypts with EITHER key; the cold OFFLINE copy is still pending — see recovery/psicopompo-loss.md §2 G1 / HB-064)
 
 Central Master Store (psicopompo, plaintext, permissions 0600, NEVER synchronized)
   /mnt/NVME_PCI/secrets/secrets.env  ← Master source for all environment keys
@@ -24,7 +26,11 @@ Operational Helpers (psicopompo, permissions 0700)
   /mnt/NVME_PCI/secrets/gen-envs.sh       # Generates per-service .env files into secrets/generated/
 ```
 
-> ⚠️ **age Private Key = access to ALL secrets.** It never leaves psicopompo; `age-keys-backup.txt` is an offline local copy. If destroyed without backup, the encrypted vault is irrecoverable (the plaintext `secrets.env` acts as fallback).
+> ⚠️ **age Private Key = access to ALL secrets.** The store is encrypted to **two** age recipients
+> — **psicopompo** and **kavure** (since 2026-10-13) — so it decrypts with **either** key: losing
+> one host no longer loses the vault. `age-keys-backup.txt` (psicopompo) is a same-host convenience
+> copy, **not** an off-host backup; the **cold offline copy** (KeePassXC / USB) is still **pending**
+> — see [`../recovery/psicopompo-loss.md`](../recovery/psicopompo-loss.md) §2 G1 · HB-064.
 
 ## Workflow
 
@@ -35,12 +41,18 @@ Operational Helpers (psicopompo, permissions 0700)
 
 **Adding or Updating a Secret:**
 1. Edit `/mnt/NVME_PCI/secrets/secrets.env` (plaintext, permissions `0600`).
-2. Re-encrypt into the vault repository:
+2. Re-encrypt into the vault repository — **let `mnemocine/.sops.yaml` supply the recipients**:
    ```bash
-   AGE_KEY=$(grep -oE "age1[a-z0-9]+" ~/.config/sops/age/keys.txt | head -1)
-   sops --encrypt --age "$AGE_KEY" --input-type dotenv --output-type dotenv \
-     /mnt/NVME_PCI/secrets/secrets.env > /mnt/NVME_PCI/agentic-ai/mnemocine/secrets.enc.env
+   cd /mnt/NVME_PCI/agentic-ai/mnemocine        # run from here: SOPS discovers .sops.yaml from the CWD
+   sops --encrypt --input-type dotenv --output-type dotenv \
+     /mnt/NVME_PCI/secrets/secrets.env > secrets.enc.env
    ```
+   > ⚠️ **Never pass `--age` on the command line.** A CLI recipient **overrides** `mnemocine/.sops.yaml`
+   > (SOPS docs: *"the configuration file is ignored when … parameters are passed on the SOPS command
+   > line"*), which would re-encrypt to a **single** key and silently **drop the kavure recipient** —
+   > re-breaking host-loss recovery (HB-064). `.sops.yaml` is the single source of truth for recipients.
+   > After re-encrypting, confirm the store still lists **both** recipients:
+   > `rg -c 'sops_age__list_[0-9]+__map_recipient=' secrets.enc.env` → **2**.
 3. Run `/mnt/NVME_PCI/secrets/gen-envs.sh` → regenerates service-specific `.env` bundles.
 
 **Deploying Generated Environment Files:**
@@ -109,11 +121,12 @@ Oracle Cloud VMs (`ybytu`, `ybyra`) are managed via API directly from the termin
 ## Secret Hygiene Findings (HB-051) — 2026-10-13
 
 Reconnaissance recorded three secret-hygiene gaps. The Directus token is remediated here; the
-`TS_AUTH_KEY` was **rotated the same day** — but must be rotated **again** because the new value
-was exposed in a chat session (see (a)); the `authorized_keys` cleanup is a recommendation only
-(files deliberately untouched).
+`TS_AUTH_KEY` was rotated the same day, but the replacement value was then exposed in a chat
+session (see (a)) — the owner **accepted that exposure risk on 2026-10-13** instead of rotating a
+second time; the `authorized_keys` cleanup is a recommendation only (files deliberately
+untouched).
 
-### (a) `TS_AUTH_KEY` in the running `sae-edge_tunnel` service spec — rotated 2026-10-13, rotate AGAIN
+### (a) `TS_AUTH_KEY` in the running `sae-edge_tunnel` service spec — rotated 2026-10-13; second rotation declined (risk accepted)
 
 **Finding.** The `sae-edge` stack passes the Tailscale auth key as an *inline environment
 variable* (`TS_AUTH_KEY: ${TS_AUTH_KEY}` in `provisioning/stacks/edge.yml`, services `tunnel`
@@ -136,9 +149,16 @@ ssh kavure 'docker service inspect sae-edge_tunnel \
 > `mnemocine/secrets.enc.env.bak-rotacao-2026-10-13-1410` (rollback point — delete once stable;
 > it still contains the **old** key, so it is itself a hygiene item).
 >
-> ⚠️ **Rotate AGAIN.** The new values were **pasted into a chat session**, so they must be treated
-> as exposed. Generate fresh ones in the console and repeat the procedure below; the Docker-secret
-> hardening is the durable fix.
+> ⚠️ **Exposure risk accepted — no second rotation (owner decision, 2026-10-13).** The replacement
+> values were **pasted into a chat session**, so they are treated as exposed. The advice to rotate
+> again **stands and remains valid**, but the owner has **deliberately chosen not to** follow it
+> here. What the exposed key implies while it stays in place: its value is known to anyone with
+> access to that chat thread (transcript, logs, tool history), and it remains embedded **inline**
+> in the service spec and the Swarm Raft log/snapshots as described above — so the exposure window
+> and blast radius are unchanged until a future rotation. This is a **documented, reversible
+> decision**: reverting it is cheap and carries no architectural change — run the procedure below
+> at any time to generate and deploy a fresh key. The durable fix (moving the key out of the
+> inline environment into a Docker secret) remains the hardening step in *Proposed hardening*.
 
 **Rotation procedure (owner + operator):**
 
@@ -241,3 +261,31 @@ Sensitive configuration files must strictly enforce permissions `0600` (read/wri
 | kavure | `/srv/data/homeassistant/config/secrets.yaml` | `0600` |
 | ybyra | `/home/ubuntu/homelab/sumaenima/.env` | `0600` |
 | ybytu | `/home/ubuntu/homelab/changedetection/data/secret.txt` | `0600` |
+
+---
+
+## ⚠️ The `.sops.yaml` mirror in the `MNEMOCINE` git repo is **frozen** (2026-10-13, HB-072)
+
+`/mnt/NVME_PCI/homelab/mnemocine/.sops.yaml` (repo `ceduardorodrig/MNEMOCINE`, fed from the vault by
+the `docs(homelab): auto-sync documentation updates` job) holds a **second copy of the encryption
+rules**. Two facts make it dangerous:
+
+1. **The auto-sync copies only `*.md`** — verified in the commit stat: 44 files, all `.md`. So this
+   `.sops.yaml` has been **frozen since the initial public release**, and it still carried **one**
+   age recipient (`age1fgqzpez…`) while the vault copy gained the kavure key on 2026-10-13.
+2. **`sops` discovers `.sops.yaml` from the current working directory.** An encrypt run started in
+   that repo would re-encrypt `secrets.enc.env` for psicopompo's key **only**, silently dropping
+   kavure and undoing the whole recovery net (HB-064 / G1) — with **no error and no warning**.
+
+**Fixed 2026-10-13:** the mirror now matches the source of truth (2 recipients) and carries a header
+saying *do not edit it here*. Repo commit `f4fffe7`. No secret was ever in that file — age
+recipients are **public** keys (and the repo's `.env.template` holds variable **names** only).
+
+**Source of truth:** the **vault** copy, `mnemocine/.sops.yaml`. Always run the re-encrypt from
+inside `mnemocine/` so the vault's rules are the ones `sops` picks up, and **never** pass `--age`
+(it overrides the file).
+
+**Still open (HB-072):** the sync should either include non-`.md` governance files, or this mirror
+should be **removed** so it can never mislead — a stale copy of a *security* rule is worse than none.
+Until then: after any recipient change, **verify both copies** (and the store's
+`sops_age__list_N__map_recipient` count) instead of assuming the mirror followed.

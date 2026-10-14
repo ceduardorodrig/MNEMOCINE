@@ -1,6 +1,6 @@
 ---
 tags: [homelab, network, env, docker]
-pending: [HB-047, HB-054]
+pending: []
 ---
 
 # Canonical Port Catalog & Attack Surface Matrix (Mnemocine Homelab)
@@ -50,7 +50,7 @@ graph TD
 | `9777/udp` | `0.0.0.0` (ufw-scoped — see §4) | **Punktfunk Native** | QUIC control & streaming for LAN/tailnet clients | [`../services/punktfunk.md`](../services/punktfunk.md) |
 | `47990/tcp` | `0.0.0.0` (ufw-scoped — see §4) | **Punktfunk Management API** | HTTPS management API (mTLS/bearer auth) | [`../services/punktfunk.md`](../services/punktfunk.md) |
 | `47992,47993/tcp` | `0.0.0.0` (ufw-scoped — see §4) | **Punktfunk Web Console** | Authentication-gated admin console + plugin interface bindings | [`../services/punktfunk.md`](../services/punktfunk.md) |
-| `11470,12470/tcp` | `0.0.0.0` | **Stremio local server** | Embedded Node streaming/transcoding server of the Stremio desktop client (fixed ports 11470 + 12470). **⚠️ defect** — a desktop app must bind `127.0.0.1`; UFW default-deny currently masks the exposure | [`../services/stremio/stremio-manifest.md`](../services/stremio/stremio-manifest.md) |
+| `11470,12470/tcp` | `0.0.0.0` | **Stremio local server** | Embedded Node streaming/transcoding server of the Stremio desktop client (fixed ports 11470 + 12470). **§4 accepted exception (2026-10-13, HB-047)** — the desktop app has a **hardcoded bind** with no configuration knob, so it cannot be re-bound; psicopompo's UFW is tailnet-only (default-deny), so the socket is not LAN/public reachable | [`../services/stremio/stremio-manifest.md`](../services/stremio/stremio-manifest.md) |
 | `8384/tcp` | `127.0.0.1` + `100.82.51.112` | **Syncthing Web** | Web administration UI for vault synchronization | [`../backups/`](../backups/) |
 | `22000/tcp,udp` | LAN + `tailscale0` | **Syncthing Protocol** | Mutual TLS encrypted synchronization transport | [`../backups/`](../backups/) |
 | `2049/tcp` | `100.82.51.112` / `tailscale0` | **NFSv4 Server** | Encrypted shared NAS storage for `/mnt/BACKUP` (WireGuard) | [`nfs.md`](nfs.md) |
@@ -59,7 +59,7 @@ graph TD
 | `61208/tcp` | `127.0.0.1` + `100.82.51.112` | **Glances** | System telemetry (CPU, RAM, GPU, thermal metrics) | [`service-topology.md`](service-topology.md) |
 | `9100/tcp` | `100.82.51.112` / `tailscale0` | **Node Exporter** | Prometheus host performance exporter | [`../services/`](../services/) |
 | `9080/tcp` | `127.0.0.1` (Localhost) | **Promtail** | Loki log shipping agent (HTTP health endpoint) | [`../services/`](../services/) |
-| `9096/tcp` | `127.0.0.1` + `tailscale serve` | **hl-wol-relay** | Wake-on-LAN daemon target to wake **kavure**; bound to loopback | [`../services/wol-relay.md`](../services/wol-relay.md) |
+| `9096/tcp` | `0.0.0.0` (UFW-scoped — see §4) | **hl-wol-relay** | Wake-on-LAN daemon target to wake **kavure** & receive emergency shutdown from Kururu/Kavure. **Re-bound 2026-10-14 (HB-074)** — native bind `0.0.0.0` replaces `tailscale serve`; UFW restricted to `192.168.3.55`, `192.168.3.41` and `tailscale0` | [`../services/wol-relay.md`](../services/wol-relay.md) |
 | `9092/tcp` | `0.0.0.0` (Swarm Ingress) | **Swarm Ingress Mesh** | Multi-host dynamic ingress load balancing | [`../services/`](../services/) |
 | `7946/tcp,udp` | `0.0.0.0` (ufw-scoped to `tailscale0` — see §4) | **Docker Swarm Gossip** | Distributed control plane clustering heartbeat | [`../services/`](../services/) |
 | `4789/udp` | `0.0.0.0` (ufw-scoped to `tailscale0` — see §4) | **Docker VXLAN Overlay** | Encapsulated overlay network packet routing | [`../services/`](../services/) |
@@ -80,7 +80,7 @@ graph TD
 | `7946/tcp,udp` | `0.0.0.0` (UFW-scoped to `tailscale0` — see §4) | **Swarm Gossip** | Node discovery and health gossip across Swarm nodes; inherent `0.0.0.0`. **UFW active since 2026-10-13** (HB-047) → LAN blocked, tailnet-only | [`../services/`](../services/) |
 | `4789/udp` | `0.0.0.0` (UFW-scoped to `tailscale0` — see §4) | **Swarm VXLAN** | Inter-container overlay packet transport; inherent `0.0.0.0`. **UFW active since 2026-10-13** (HB-047) → LAN blocked, tailnet-only | [`../services/`](../services/) |
 | `9092/tcp` | `0.0.0.0` (Swarm Ingress; UFW-scoped to `tailscale0`) | **backup-sentinel & Ingress** | Backup integrity healthcheck and cluster ingress routing endpoint. **UFW active since 2026-10-13** (HB-047) → LAN blocked, tailnet-only | [`../services/`](../services/) |
-| `9100/tcp` | `0.0.0.0` | **Node Exporter** | Host OS performance metrics exporter. **⚠️ defect** (bind) — container runs `network_mode: host` with no `--web.listen-address`; **UFW active since 2026-10-13** (HB-047) → LAN blocked, tailnet-only | [`../services/`](../services/) |
+| `9100/tcp` | `127.0.0.1` + `100.124.146.77` | **Node Exporter** | Host OS performance metrics exporter. **Re-bound 2026-10-13 (HB-047)** — `network_mode: host` now passes `--web.listen-address=127.0.0.1:9100` **and** `--web.listen-address=100.124.146.77:9100` (was all interfaces); UFW tailnet-only. Prometheus still scrapes itself → target `up` | [`../services/`](../services/) |
 | `61208/tcp` | `100.124.146.77` / `tailscale0` | **Glances** | Host hardware resource telemetry | [`service-topology.md`](service-topology.md) |
 | `2375/tcp` | `127.0.0.1` + `100.124.146.77` / `tailscale0` | **docker-socket-proxy** | Restricted Docker API socket queried by Homepage | [`../services/homepage.md`](../services/homepage.md) |
 | `3000/tcp` | `127.0.0.1` + `100.124.146.77` / `tailscale0` | **AioStreams** | Stream aggregation server (tailnet + public Funnel :10000) | [`../services/aiostreams.md`](../services/aiostreams.md) |
@@ -94,19 +94,19 @@ graph TD
 | `8083/tcp` | `100.124.146.77` / `tailscale0` | **Calibre Web** | eBook collection catalog and reader | [`../services/calibre-web.md`](../services/calibre-web.md) |
 | `8123/tcp` | `0.0.0.0` (host networking — see §4) | **Home Assistant** | Home automation core and IoT sensor orchestration. **UFW active since 2026-10-13** (HB-047) → LAN blocked, tailnet-only (the §3.1 mDNS/SSDP discovery stays) | [`../services/home-assistant.md`](../services/home-assistant.md) |
 | `18554/tcp` | `127.0.0.1` | **go2rtc (embedded)** | Home Assistant embedded go2rtc WebRTC server (cameras not yet configured) | [`../services/home-assistant.md`](../services/home-assistant.md) |
-| `18555/tcp` | `0.0.0.0` | **go2rtc API** | Home Assistant embedded go2rtc HTTP/API endpoint. **⚠️ defect** (bind) — should bind tailnet; **UFW active since 2026-10-13** (HB-047) → LAN blocked, tailnet-only | [`../services/home-assistant.md`](../services/home-assistant.md) |
+| `18555/tcp` | `0.0.0.0` (hardcoded HA-managed bind — see §4) | **go2rtc WebRTC** | Home Assistant embedded go2rtc **WebRTC** TCP listener. **§4 accepted exception (2026-10-13, HB-047)** — the HA go2rtc integration generates `webrtc: listen: ":18555/tcp"` in a `/tmp` config and offers **no user override** (a `/config/go2rtc.yaml` is ignored); cannot be re-bound without patching HA. UFW tailnet-only masks it; no camera configured | [`../services/home-assistant.md`](../services/home-assistant.md) |
 | `8444/tcp` | `100.124.146.77` / `tailscale0` | **Crafty Controller** | Web management panel for dedicated Minecraft server | [`../services/crafty.md`](../services/crafty.md) |
 | `9091/tcp` | `100.124.146.77` / `tailscale0` | **Prometheus** | Time-series metrics storage and monitoring daemon | [`../services/`](../services/) |
 | `9093/tcp` | `100.124.146.77` / `tailscale0` | **Alertmanager** | Alert routing and notification engine | [`../services/`](../services/) |
 | `53/tcp,udp` | `127.0.0.1` + `100.124.146.77` / `tailscale0` | **Pi-hole** | Filtering DNS — second peer in the parallel Tailscale race (migrated from kuaray; host networking, `FTLCONF_dns_interface=tailscale0`) | [`dns.md`](dns.md) |
-| `80/tcp` | `0.0.0.0` | **Pi-hole Web UI (HTTP)** | Pi-hole v6 CivetWeb admin console (`webserver.port=80o`). **⚠️ defect** (bind) — admin UI bound on all interfaces; **UFW active since 2026-10-13** (HB-047) → LAN blocked, tailnet-only | [`../services/pihole.md`](../services/pihole.md) |
-| `443/tcp` | `0.0.0.0` | **Pi-hole Web UI (HTTPS)** | Pi-hole v6 CivetWeb TLS admin console (`webserver.port=443os`). **⚠️ defect** (bind); **UFW active since 2026-10-13** (HB-047) → LAN blocked, tailnet-only | [`../services/pihole.md`](../services/pihole.md) |
+| `80/tcp` | `127.0.0.1` + `100.124.146.77` | **Pi-hole Web UI (HTTP)** | Pi-hole v6 CivetWeb admin console. **Re-bound 2026-10-13 (HB-047)** — `FTLCONF_webserver_port="100.124.146.77:80o,127.0.0.1:80o,…"` (was `80o,[::]:80o` on all interfaces); loopback kept for the container healthcheck; UFW tailnet-only | [`../services/pihole.md`](../services/pihole.md) |
+| `443/tcp` | `127.0.0.1` + `100.124.146.77` | **Pi-hole Web UI (HTTPS)** | Pi-hole v6 CivetWeb TLS admin console. **Re-bound 2026-10-13 (HB-047)** — `FTLCONF_webserver_port` binds the tailnet IP + loopback for TLS (was `443os,[::]:443os`); UFW tailnet-only | [`../services/pihole.md`](../services/pihole.md) |
 | `5053/tcp` | `127.0.0.1` + `100.124.146.77` | **unbound** | Native recursive DNSSEC resolver (upstream for Pi-hole + AdGuard) | [`../services/unbound.md`](../services/unbound.md) |
-| `9097/tcp` | `0.0.0.0` | **hl-unbound-status** | Native Rust HTTP health endpoint for the Homepage unbound tile. **⚠️ defect** (bind) — should bind tailnet; **UFW active since 2026-10-13** (HB-047) → LAN blocked, tailnet-only | [`../services/unbound.md`](../services/unbound.md) |
-| `9095/tcp` | `0.0.0.0` | **hl-minecraft-status** | Native Rust HTTP status endpoint for the Homepage Minecraft tile. **⚠️ defect** (bind) — should bind tailnet; **UFW active since 2026-10-13** (HB-047) → LAN blocked, tailnet-only | [`../services/minecraft-status.md`](../services/minecraft-status.md) |
+| `9097/tcp` | `100.124.146.77` / `tailscale0` | **hl-unbound-status** | Native Rust HTTP health endpoint for the Homepage unbound tile. **Re-bound 2026-10-13 (HB-047)** — `Environment=UNBOUND_STATUS_ADDR=100.124.146.77:9097` in the unit (binary default was `0.0.0.0`); UFW tailnet-only | [`../services/unbound.md`](../services/unbound.md) |
+| `9095/tcp` | `100.124.146.77` / `tailscale0` | **hl-minecraft-status** | Native Rust HTTP status endpoint for the Homepage Minecraft tile. **Re-bound 2026-10-13 (HB-047)** — `Environment=MC_STATUS_ADDR=100.124.146.77:9095` (binary default `0.0.0.0`); UFW tailnet-only | [`../services/minecraft-status.md`](../services/minecraft-status.md) |
+| `9098/tcp` | `100.124.146.77` / `tailscale0` | **hl-zomboid-health** | Native Rust HTTP status endpoint for the Homepage Project Zomboid tile (TCP probe of the game's RCON `27015`). **Re-bound 2026-10-13 (HB-047)** — `Environment=ZOMBOID_HEALTH_ADDR=100.124.146.77:9098` (binary default `0.0.0.0`); UFW tailnet-only | [`../services/zomboid-health.md`](../services/zomboid-health.md) |
 | `10000/tcp` | `100.124.146.77` / `tailscale0` | **Tailscale Funnel ingress** | Public TLS Funnel fronting AioStreams/HA on kavure | [`tailscale.md`](tailscale.md) |
-| `111/tcp,udp` | `0.0.0.0` | **rpcbind** | RPC port mapper for NFS client mounts. **⚠️ defect** (bind) — `0.0.0.0` bind; **UFW active since 2026-10-13** (HB-047) → LAN blocked, tailnet-only | [`nfs.md`](nfs.md) |
-| `9096/tcp` | `127.0.0.1` + `tailscale serve` | **hl-wol-relay** | Wake-on-LAN relay target to wake **psicopompo** | [`../services/wol-relay.md`](../services/wol-relay.md) |
+| `9096/tcp` | `0.0.0.0` (UFW-scoped — see §4) | **hl-wol-relay** | Wake-on-LAN relay target to wake **psicopompo** & receive emergency shutdown from Kururu. **Re-bound 2026-10-14 (HB-074)** — native bind `0.0.0.0` replaces `tailscale serve`; UFW restricted to `192.168.3.55`, `192.168.3.100` and `tailscale0` | [`../services/wol-relay.md`](../services/wol-relay.md) |
 | `25565/tcp` | `tailscale0` (was LAN + `tailscale0`) | **Minecraft Dominium** | Dedicated Minecraft server game port. **UFW active since 2026-10-13** (HB-047) → LAN blocked, tailnet-only (owner decision: no LAN players — reached by tailnet shared users only) | [`../services/crafty.md`](../services/crafty.md) |
 | `40000/udp` | `0.0.0.0`, `[::]` (`tailscaled`) | **Tailscale Peer Relay** | High-throughput direct peer-to-peer WireGuard relay | [`tailscale.md`](tailscale.md) |
 
@@ -121,8 +121,8 @@ graph TD
 
 | Port / Proto | Bind Interface | Service | Technical Justification | Canonical Reference |
 |---|---|---|---|---|
-| `80/tcp` | `0.0.0.0` (Public WAN — see §4) | **Nginx Reverse Proxy** | Public HTTP listener (permanent redirect to HTTPS) | [`topology.md`](topology.md) |
-| `443/tcp` | `0.0.0.0` (Public WAN — see §4) | **Nginx Reverse Proxy** | TLS termination (Certbot / Let's Encrypt) and reverse proxy routing | [`topology.md`](topology.md) |
+| `80/tcp` | `0.0.0.0` (Public WAN — see §4) | **`sae-edge_proxy`** (containerized nginx) | Public HTTP listener of the `sae-edge` Swarm stack — the container publishes `80` through `docker-proxy` (image `nginx-sumaenima`). **Drift corrected 2026-10-13 (HB-052):** this is a **containerized** proxy, **not** a native nginx + Certbot | [`../services/steniobot.md`](../services/steniobot.md) |
+| `443/tcp` | — (**not bound on `ybyra`**) | **— (no local listener)** | **No `443` listener on `ybyra`** (verified 2026-10-13): the public **TLS** edge is the **Tailscale Funnel** (`sumaenima`/`miracena`/`kavure`), not a local nginx/Certbot. Doc drift registered for HB-052 | [`tailscale.md`](tailscale.md) |
 | `2375/tcp` | `100.66.224.34` / `tailscale0` | **docker-socket-proxy** | Edge Docker metrics collector for Homepage over Tailnet | [`../services/homepage.md`](../services/homepage.md) |
 | `9100/tcp` | `0.0.0.0` (host nftables → tailnet only — see §4) | **Node Exporter** | Edge host OS metrics scraped by Prometheus (host firewall rejects non-tailnet inbound) | [`../services/`](../services/) |
 | `61208/tcp` | `100.66.224.34` / `tailscale0` | **Glances** | Edge node resource telemetry | [`service-topology.md`](service-topology.md) |
@@ -136,18 +136,18 @@ graph TD
 
 | Port / Proto | Bind Interface | Service | Technical Justification | Canonical Reference |
 |---|---|---|---|---|
-| `53/udp,tcp` | `0.0.0.0` | **AdGuard Home** | Network-wide filtering DNS — active peer in the parallel Tailscale race. **⚠️ defect** — `bind_hosts: 0.0.0.0` + docker-published (DNAT bypasses the host firewall) | [`dns.md`](dns.md) |
-| `3000/tcp` | `0.0.0.0` | **AdGuard Web** | Web administration console and query audit log. **⚠️ defect** — docker-published on all interfaces | [`dns.md`](dns.md) |
+| `53/udp,tcp` | `100.115.253.109` + `127.0.0.1` | **AdGuard Home** | Network-wide filtering DNS — active peer in the parallel Tailscale race. **Re-bound 2026-10-13 (HB-013 root fix)** — publishes on the tailnet IP + loopback; the in-container `bind_hosts` stays `0.0.0.0` (`docker-proxy` forwards host `IP:53` → container `172.22.0.2:53`), freeing `127.0.0.53` for the `systemd-resolved` stub | [`dns.md`](dns.md) |
+| `3000/tcp` | `100.115.253.109` | **AdGuard Web** | Web administration console and query audit log. **Re-bound 2026-10-13 (HB-047)** — compose publishes `100.115.253.109:3000:3000` (was all interfaces); nft INPUT tailnet-only | [`dns.md`](dns.md) |
 | `3001/tcp` | `0.0.0.0` (host nftables → tailnet only — see §4) | **Homepage** | Central homelab service navigation dashboard | [`../services/homepage.md`](../services/homepage.md) |
 | `3002/tcp` | `0.0.0.0` (host nftables → tailnet only — see §4) | **Uptime Kuma** | Multi-node uptime monitor and incident alerting | [`service-topology.md`](service-topology.md) |
-| `8082/tcp` | `0.0.0.0` | **ChangeDetection** | Web page update monitoring and alert engine. **⚠️ defect** — docker-published on all interfaces | [`service-topology.md`](service-topology.md) |
-| `8083/tcp` | `0.0.0.0` | **Ntfy** | Lightweight mobile push notification gateway. **⚠️ defect** — docker-published on all interfaces | [`service-topology.md`](service-topology.md) |
+| `8082/tcp` | `100.115.253.109` | **ChangeDetection** | Web page update monitoring and alert engine. **Re-bound 2026-10-13 (HB-047)** — compose publishes `100.115.253.109:8082:5000` (was all interfaces); nft INPUT tailnet-only | [`service-topology.md`](service-topology.md) |
+| `8083/tcp` | `100.115.253.109` | **Ntfy** | Lightweight mobile push notification gateway. **Re-bound 2026-10-13 (HB-047)** — compose publishes `100.115.253.109:8083:80` (was all interfaces); nft INPUT tailnet-only | [`service-topology.md`](service-topology.md) |
 | `9100/tcp` | `0.0.0.0` (host nftables → tailnet only — see §4) | **Node Exporter** | Host OS performance telemetry exporter | [`../services/`](../services/) |
 | `61208/tcp` | `100.115.253.109` / `tailscale0` | **Glances** | Cloud host resource monitoring | [`service-topology.md`](service-topology.md) |
 | `40000/udp` | `0.0.0.0`, `[::]` (`tailscaled`) | **Tailscale Peer Relay** | High-throughput direct peer-to-peer WireGuard relay | [`tailscale.md`](tailscale.md) |
-| `9096/tcp` | `0.0.0.0` | **hl-wol-dispatcher** | Smart WoL Dispatcher with automatic failover. **⚠️ defect** — [`../services/wol-relay.md`](../services/wol-relay.md) mandates a Tailnet-IP bind, and the nft rule allows `:9096` on every interface | [`../services/wol-relay.md`](../services/wol-relay.md) |
+| `9096/tcp` | `100.115.253.109` | **hl-wol-dispatcher** | Smart WoL Dispatcher with automatic failover. **Re-bound 2026-10-13 (HB-047)** — `EnvironmentFile=/etc/wol-relay.env` sets `WOL_LISTEN_ADDR=100.115.253.109` (binary default `0.0.0.0`); the nft `:9096` allow is now moot (no wildcard socket) | [`../services/wol-relay.md`](../services/wol-relay.md) |
 | `2375/tcp` | `100.115.253.109` / `tailscale0` | **docker-socket-proxy** | Restricted Docker API socket queried by Homepage | [`../services/homepage.md`](../services/homepage.md) |
-| `111/tcp,udp` | `0.0.0.0` | **rpcbind** | RPC port mapper for NFS client mounts. **⚠️ defect** — not in the nftables allow list | [`nfs.md`](nfs.md) |
+| `111/tcp,udp` | `127.0.0.1` + `[::1]` | **rpcbind** | RPC port mapper for NFS client mounts. **Re-bound 2026-10-13 (HB-047)** — systemd `rpcbind.socket` drop-in limits it to loopback (the two `nfs4` mounts stayed up); nft INPUT tailnet-only | [`nfs.md`](nfs.md) |
 
 ---
 
@@ -164,19 +164,19 @@ graph TD
 | `8180,8445/tcp` | `100.94.209.99` / `tailscale0` | **Miracena NPM HTTP/HTTPS** | Nginx Proxy Manager ingress for the Miracena stack | [`../servers/kuaray.md`](../servers/kuaray.md) |
 | `8384/tcp` | `127.0.0.1` + `100.94.209.99` / `tailscale0` | **Syncthing Web** | Web admin interface for backup repository sync | [`../backups/`](../backups/) |
 | `22000/tcp,udp` | LAN + `tailscale0` | **Syncthing Protocol** | Mutual TLS encrypted peer sync transport | [`../backups/`](../backups/) |
-| `9100/tcp` | `0.0.0.0` | **Node Exporter** | Host performance metrics exporter. **⚠️ defect** (bind) — no `--web.listen-address`; **UFW active since 2026-10-13** (HB-047) → LAN blocked, tailnet-only | [`../services/`](../services/) |
+| `9100/tcp` | `127.0.0.1` + `100.94.209.99` | **Node Exporter** | Host performance metrics exporter. **Re-bound 2026-10-13 (HB-047)** — `--web.listen-address` now set to loopback **and** the tailnet IP (was `0.0.0.0`); UFW tailnet-only | [`../services/`](../services/) |
 | `61208/tcp` | `100.94.209.99` / `tailscale0` | **Glances** | Host hardware and disk storage telemetry | [`service-topology.md`](service-topology.md) |
-| `9696/tcp` | `0.0.0.0` | **Prowlarr** | Centralized torrent indexer proxy manager. **⚠️ defect** — compose publishes `9696:9696` (all interfaces); LAN blocked by UFW since 2026-10-13 (HB-047) → tailnet-only | [`../servers/kuaray.md`](../servers/kuaray.md) |
-| `8686/tcp` | `0.0.0.0` | **Lidarr** | Music collection management daemon. **⚠️ defect** — compose publishes `8686:8686`; LAN blocked by UFW since 2026-10-13 (HB-047) → tailnet-only | [`../services/lidarr.md`](../services/lidarr.md) |
-| `8191/tcp` | `0.0.0.0` | **Flaresolverr** | Cloudflare verification bypass daemon. **⚠️ defect** — compose publishes `8191:8191`; LAN blocked by UFW since 2026-10-13 (HB-047) → tailnet-only | [`../services/flaresolverr.md`](../services/flaresolverr.md) |
-| `9091/tcp` | `0.0.0.0` | **Transmission RPC** | Web management API for torrent client. **⚠️ defect** — compose publishes `9091:9091`; LAN blocked by UFW since 2026-10-13 (HB-047) → tailnet-only | [`../servers/kuaray.md`](../servers/kuaray.md) |
-| `5030/tcp` | `0.0.0.0` | **slskd** | Headless Soulseek P2P client daemon. **⚠️ defect** — compose publishes `5030:5030`; LAN blocked by UFW since 2026-10-13 (HB-047) → tailnet-only | [`../services/soularr-slskd.md`](../services/soularr-slskd.md) |
-| `8265/tcp` | `0.0.0.0` | **Soularr** | Automation bridge connecting Soulseek to Lidarr. **⚠️ defect** — compose publishes `8265:8265`; LAN blocked by UFW since 2026-10-13 (HB-047) → tailnet-only | [`../services/soularr-slskd.md`](../services/soularr-slskd.md) |
-| `3030/tcp` | `0.0.0.0` | **Vert** | Media content proxy web UI. **⚠️ defect** — compose publishes `3030:80`; LAN blocked by UFW since 2026-10-13 (HB-047) → tailnet-only | [`../services/vert.md`](../services/vert.md) |
-| `51413/tcp` | `tailscale0` (was LAN + `tailscale0`) | **Transmission Peer** | BitTorrent peer transfer port; LAN blocked by UFW since 2026-10-13 (HB-047) → tailnet-only | [`../servers/kuaray.md`](../servers/kuaray.md) |
+| `9696/tcp` | `100.94.209.99` | **Prowlarr** | Centralized torrent indexer proxy manager. **Re-bound 2026-10-13 (HB-047)** — compose now publishes `100.94.209.99:9696:9696` (was all interfaces); UFW tailnet-only | [`../servers/kuaray.md`](../servers/kuaray.md) |
+| `8686/tcp` | `100.94.209.99` | **Lidarr** | Music collection management daemon. **Re-bound 2026-10-13 (HB-047)** — compose publishes `100.94.209.99:8686:8686` (was all interfaces); UFW tailnet-only | [`../services/lidarr.md`](../services/lidarr.md) |
+| `8191/tcp` | `100.94.209.99` | **Flaresolverr** | Cloudflare verification bypass daemon. **Re-bound 2026-10-13 (HB-047)** — compose publishes `100.94.209.99:8191:8191` (was all interfaces); UFW tailnet-only | [`../services/flaresolverr.md`](../services/flaresolverr.md) |
+| `9091/tcp` | `100.94.209.99` | **Transmission RPC** | Web management API for torrent client. **Re-bound 2026-10-13 (HB-047)** — compose publishes `100.94.209.99:9091:9091` (was all interfaces); UFW tailnet-only | [`../servers/kuaray.md`](../servers/kuaray.md) |
+| `5030/tcp` | `100.94.209.99` | **slskd** | Headless Soulseek P2P client daemon. **Re-bound 2026-10-13 (HB-047)** — compose publishes `100.94.209.99:5030:5030` (was all interfaces); UFW tailnet-only | [`../services/soularr-slskd.md`](../services/soularr-slskd.md) |
+| `8265/tcp` | `100.94.209.99` | **Soularr** | Automation bridge connecting Soulseek to Lidarr. **Re-bound 2026-10-13 (HB-047)** — compose publishes `100.94.209.99:8265:8265` (was all interfaces); UFW tailnet-only | [`../services/soularr-slskd.md`](../services/soularr-slskd.md) |
+| `3030/tcp` | `100.94.209.99` | **Vert** | Media content proxy web UI. **Re-bound 2026-10-13 (HB-047)** — compose publishes `100.94.209.99:3030:80` (was all interfaces); UFW tailnet-only | [`../services/vert.md`](../services/vert.md) |
+| `51413/tcp` | `0.0.0.0` (ufw-scoped — see §4) | **Transmission Peer** | BitTorrent peer transfer port; §4-accepted wildcard bind, LAN blocked by UFW since 2026-10-13 (HB-047) → tailnet-only | [`../servers/kuaray.md`](../servers/kuaray.md) |
 | `139,445/tcp` | LAN | **Samba (smbd)** | Local SMB file sharing for home clients | [`../servers/kuaray.md`](../servers/kuaray.md) |
-| `3389/tcp` | `0.0.0.0` | **xrdp** | Remote desktop (RDP) server. **UFW active since 2026-10-13** (HB-047); §3.1 LAN exception kept (LAN + tailnet) | [`../servers/kuaray.md`](../servers/kuaray.md) |
-| `111/tcp,udp` | `0.0.0.0` | **rpcbind** | RPC port mapper for NFS client mounts. **⚠️ defect** — `0.0.0.0` bind; **UFW active since 2026-10-13** (HB-047) → LAN blocked, tailnet-only | [`nfs.md`](nfs.md) |
+| `3389/tcp` | `0.0.0.0` | **xrdp** | Remote desktop (RDP) server. **Kept LAN-legit (§3.1/§4)** — needs LAN RDP clients; UFW allows `192.168.3.0/24` + `tailscale0` (HB-047) | [`../servers/kuaray.md`](../servers/kuaray.md) |
+| `111/tcp,udp` | `127.0.0.1` + `[::1]` | **rpcbind** | RPC port mapper for NFS client mounts. **Re-bound 2026-10-13 (HB-047)** — systemd `rpcbind.socket` drop-in limits it to loopback (the node is an NFSv4 **client** only — no remote rpcbind needed); UFW tailnet-only | [`nfs.md`](nfs.md) |
 
 ---
 
@@ -206,12 +206,14 @@ Not every `0.0.0.0` listening socket represents a vulnerability. The following e
 | `8123/tcp` | **Home Assistant** | Operates with `network_mode: host` — **mandatory** for local LAN IoT discovery (mDNS, SSDP, Zeroconf). Restricting interfaces breaks home automation discovery protocols |
 | `25565/tcp` | **Minecraft Dominium** | Game port. **UFW active since 2026-10-13 (HB-047) on kavure → `tailscale0` only** — the owner confirmed there are **no LAN players**; the games are reached by **tailnet shared users only** (proof: tailnet `100.124.146.77:25565` reaches the container, LAN `192.168.3.41:25565` is dropped) |
 | `9777/udp`, `47990/tcp`, `47992/47993/tcp` | **Punktfunk** | Low-latency LAN/tailnet game & desktop streaming — native clients (Android/Linux/Moonlight) discover and reach the host directly; the binds are scoped by `ufw` rules (`punktfunk-native`, `punktfunk-web`), so the socket is not reachable beyond the LAN + Tailscale peers |
-| `80/tcp`, `443/tcp` | **Ybyra Nginx Reverse Proxy** | The **designated public edge** (Zone 4): the only node authorized to answer on the open Internet, terminating TLS (Certbot) and routing to the tailnet |
+| `80/tcp`, `443/tcp` | **Ybyra public edge** (`sae-edge_proxy`) | The **designated public HTTP edge** (Zone 4): the `sae-edge_proxy` container publishes `80` on `0.0.0.0` via `docker-proxy` (image `nginx-sumaenima`). **Correction 2026-10-13 (HB-052):** there is **no `443` listener on `ybyra`** — the public TLS edge is the **Tailscale Funnel** (`sumaenima`/`miracena`/`kavure`), not a local nginx/Certbot |
 | `2377/tcp`, `4789/udp`, `7946/tcp,udp`, `9092/tcp` | **Docker Swarm control plane & ingress mesh** | `dockerd` binds the raft port (`2377`), gossip (`7946`), VXLAN (`4789`) and the ingress mesh (`9092`) on `0.0.0.0` by design — there is **no per-interface bind**. Exposure is controlled at the **firewall layer** (psicopompo UFW whitelists `7946`/`4789` to the tailnet; ybyra nft rejects non-tailnet inbound; **kavure UFW active since 2026-10-13 (HB-047)** → LAN blocked, tailnet-only) |
 | `111/tcp,udp`, `9100/tcp` | **Ybyra host services** (rpcbind, Node Exporter) | Bound `0.0.0.0` but the host `nftables` INPUT chain accepts **only** `tailscale0`, `22` and the peer-relay UDP port, rejecting everything else — effectively tailnet-only |
 | `3001/tcp`, `3002/tcp`, `9100/tcp` | **Ybytu host services** (Homepage, Uptime Kuma, Node Exporter) | Host-network containers/binary bound `0.0.0.0`; the host `nftables` INPUT chain accepts **only** `tailscale0` plus an explicit allow list (`9096`, `8334`, `22000`, `8384`, `40000`) — these three are not in it, so they are reachable on the tailnet only |
 | `1716/tcp,udp`, `20048/tcp,udp`, `22000/tcp,udp` | **Psicopompo LAN/tailnet services** (KDE Connect, NFS `rpc.mountd`, Syncthing) | Bound `0.0.0.0` but **never internet-reachable** — psicopompo's UFW INPUT policy is `DROP`. KDE Connect is LAN discovery (UDP broadcast), `rpc.mountd` serves LAN-side NFS clients, Syncthing is the vault sync transport (LAN + `tailscale0`) |
-| `139/tcp`, `445/tcp`, `51413/tcp,udp`, `22000/tcp,udp` | **Kuaray LAN/tailnet services** (Samba, Transmission peer, Syncthing) | Bound `0.0.0.0` for household LAN clients (SMB shares, the BitTorrent peer port) and the tailnet sync transport. **Resolved 2026-10-13 (HB-047 step 2/3):** `kuaray` now runs **UFW active** (tailnet-only) — `22000`, `139`, `445` are explicitly kept for the LAN (§3.1), while `51413` and every published container port are now **tailnet-only** (LAN→container dropped, verified from another LAN host) |
+| `139/tcp`, `445/tcp`, `3389/tcp`, `51413/tcp,udp`, `22000/tcp,udp` | **Kuaray LAN/tailnet services** (Samba, xrdp, Transmission peer, Syncthing) | Bound `0.0.0.0` for household LAN clients (SMB shares, **LAN RDP via xrdp**, the BitTorrent peer port) and the tailnet sync transport. **Resolved 2026-10-13 (HB-047 step 2/3):** `kuaray` now runs **UFW active** (tailnet-only) — `22000`, `139`, `445`, `3389` are explicitly kept for the LAN (§3.1), while `51413` and every published container port are now **tailnet-only** (LAN→container dropped, verified from another LAN host). **`3389` was reviewed under HB-047 (2026-10-13) and deliberately NOT re-bound** — xrdp serves physical-LAN desktops (verified reachable from psicopompo on `192.168.3.200:3389`) |
+| `11470/tcp`, `12470/tcp` | **Stremio desktop local server** (psicopompo) | The embedded Node streaming/transcoding server of the Stremio **desktop client** binds fixed ports `11470`/`12470` with **no configuration knob** — it cannot be re-bound to loopback. psicopompo's UFW is tailnet-only (`deny incoming`), so the socket is not LAN/public reachable. Reviewed under HB-047 (2026-10-13); accepted as an unavoidable fixed bind |
+| `18555/tcp` | **Home Assistant embedded go2rtc WebRTC** (kavure) | The HA `go2rtc` integration **generates** `webrtc: listen: ":18555/tcp"` into a `/tmp` config (`homeassistant/components/go2rtc/server.py`) and exposes **no override** — a user `/config/go2rtc.yaml` is ignored, and `debug_ui` only *adds* the API on `:11984` (worse). `network_mode: host` is mandatory for IoT discovery. Reviewed under HB-047 (2026-10-13); accepted as an unavoidable fixed bind (kavure's UFW is tailnet-only, and no camera is configured) |
 
 > **Host scope (engine rule, 2026-10-13).** §4 is a **host-agnostic** table, but a row here excuses a bind **only where the host's own §2 entry is not marked `⚠️ defect`**. Before remediation, that is why the Docker Swarm row above did **not** clear kavure's `2377`/`7946`: its §2 rows were defects (no host firewall). Since **2026-10-13 (HB-047 step 3/3)** kavure runs **UFW active (tailnet-only)**, so its Swarm rows are no longer defects and the exception now applies — it still covers the *mechanism* (`dockerd` binds without a per-interface option). `stenio --ports` parses this table and enforces the rule — the exception set is **read from the document**, never hardcoded.
 
@@ -220,6 +222,192 @@ Not every `0.0.0.0` listening socket represents a vulnerability. The following e
 ---
 
 ## 5. Changelog
+
+### 2026-10-13 — Socket re-bind to the tailnet IP / loopback, `kavure` + `ybytu` (HB-047, final leg)
+
+The **complementary half** (stop the `0.0.0.0` binds so the firewall is a *second* line) on the two
+hosts left open by the previous pass. One service at a time — backup → edit → recreate/restart
+**only that service** → verify over the tailnet from another node → next. Nothing §4 justifies was
+touched (the Swarm `2377/7946/4789`, the ingress `9092`, the `network_mode: host` services, and the
+LAN-legit host services stay).
+
+**`kavure` (100.124.146.77) — Swarm manager, subnet router & exit node (highest blast radius):**
+
+| Service | Port | Before | After |
+|---|---|---|---|
+| hl-unbound-status | `9097` | `0.0.0.0:9097` (binary default) | `Environment=UNBOUND_STATUS_ADDR=100.124.146.77:9097` |
+| hl-zomboid-health | `9098` | `0.0.0.0:9098` | `Environment=ZOMBOID_HEALTH_ADDR=100.124.146.77:9098` |
+| hl-minecraft-status | `9095` | `0.0.0.0:9095` | `Environment=MC_STATUS_ADDR=100.124.146.77:9095` |
+| Pi-hole Web UI | `80`/`443` | `80o,443os,[::]:80o,[::]:443os` (all interfaces) | `FTLCONF_webserver_port=100.124.146.77:80o,100.124.146.77:443os,127.0.0.1:80o,127.0.0.1:443os` |
+| Node Exporter | `9100` | `network_mode: host`, no bind flag (`*:9100`) | `--web.listen-address=127.0.0.1:9100` + `--web.listen-address=100.124.146.77:9100` |
+| rpcbind | `111` | `0.0.0.0:111` + `[::]:111` (systemd socket) | `127.0.0.1:111` + `[::1]:111` (socket drop-in) |
+
+- **Status endpoints:** the three native Rust binaries read a bind **env var** (already in the
+  source — `UNBOUND_STATUS_ADDR` / `MC_STATUS_ADDR` / `ZOMBOID_HEALTH_ADDR`, default `0.0.0.0`), so
+  the fix is an `Environment=` line + `daemon-reload` + `restart` — **no rebuild**. The consumers
+  are the Homepage tiles on `ybytu` (`http://kavure:9095/9097/9098` → MagicDNS → tailnet).
+- **Node Exporter:** mirrors kuaray's exact pattern (two `--web.listen-address`); the loopback
+  listener keeps the container healthcheck (`http://127.0.0.1:9100/metrics`), the tailnet one keeps
+  Prometheus' scrape (`100.124.146.77:9100`).
+- **Pi-hole:** the `o`/`s` flags and the loopback listeners are preserved — the container healthcheck
+  hits `127.0.0.1/admin/` and the owner browses the admin console over the tailnet.
+- **go2rtc (`18555`) — NOT re-bindable:** the HA `go2rtc` integration generates
+  `webrtc: listen: ":18555/tcp"` into a `/tmp` config it manages; a user `/config/go2rtc.yaml` is
+  ignored and `debug_ui` only *adds* the API on `:11984`. Moved to a **§4 accepted exception**
+  (UFW tailnet-only; no camera configured).
+- **Verification (tailnet, from psicopompo):** `9095`→503, `9097`→200 (`up`), `9098`→503 (`down` —
+  the game is down, the endpoint answers), `80/admin`→302, `443/admin`→302, `9100/metrics`→200;
+  **LAN (`192.168.3.41`) all closed**. Prometheus: every `job=node` target `up` (incl. kavure).
+  Swarm: `docker node ls` = 3/3 `Ready`, kavure still `Leader`; `sae-edge_*` `Running`.
+- **Backups / rollback:** units → `*.bak-20261013-rebind`; composes (`/srv/data/node-exporter`,
+  `/srv/data/pihole`) → `compose.yml.bak-20261013-rebind`. Revert = restore the file +
+  `docker compose up -d <svc>` (or `systemctl daemon-reload && systemctl restart <unit>`); rpcbind
+  rollback = `rm -rf /etc/systemd/system/rpcbind.socket.d/10-loopback-only.conf && systemctl
+  daemon-reload && systemctl restart rpcbind.socket rpcbind.service`.
+
+**`ybytu` (100.115.253.109) — cloud edge (DNS / AdGuard / Funnel):**
+
+| Service | Port | Before | After |
+|---|---|---|---|
+| AdGuard Web | `3000` | `3000:3000` (`0.0.0.0`) | `100.115.253.109:3000:3000` |
+| ChangeDetection | `8082` | `8082:5000` | `100.115.253.109:8082:5000` |
+| Ntfy | `8083` | `8083:80` | `100.115.253.109:8083:80` |
+| hl-wol-dispatcher | `9096` | `0.0.0.0:9096` (no env file) | `EnvironmentFile=-/etc/wol-relay.env` → `WOL_LISTEN_ADDR=100.115.253.109` |
+| rpcbind | `111` | `0.0.0.0:111` + `[::]:111` | `127.0.0.1:111` + `[::1]:111` (socket drop-in) |
+
+- **WoL dispatcher:** the binary binds `WOL_LISTEN_ADDR` (default `0.0.0.0`); the unit now loads
+  `/etc/wol-relay.env` (kavure's pattern — kavure's `--daemon` already sits on loopback + `tailscale
+  serve`). The **recovery path** stays reachable: `http://ybytu:9096/health` → 200.
+- **Verification (tailnet, from psicopompo):** AdGuard `3000`→302, ChangeDetection `8082`→200,
+  Ntfy `8083`→200, WoL dispatcher `9096/health`→200 (`kururu`/`psicopompo`/`kavure` all true); the
+  two `nfs4` mounts stayed up after the rpcbind restart.
+- **Left alone (justified):** `3001` (Homepage), `3002` (Uptime Kuma), `9100` (Node Exporter) — §4
+  host services masked by the host nftables; the `:9096` nft `accept` is now moot (no wildcard
+  socket).
+- **Backups / rollback:** composes (`adguardhome`, `changedetection`, `ntfy`) →
+  `compose.yml.bak-20261013-rebind`; unit → `hl-wol-dispatcher.service.bak-20261013-rebind`.
+  Revert = restore the file + `docker compose up -d <svc>` (or restore the unit + `daemon-reload` +
+  `restart`).
+
+> **Before → after (live scan):** `stenio --ports` went from the §2.2/§2.4 defect set (kavure
+> `9097/9098/9095/443/80/111/9100`; ybytu `3000/8082/8083/9096/111`) to a single `⚠️ UNAUTHORIZED
+> BIND` — kavure's `18555`, now a documented §4 exception.
+
+### 2026-10-13 — Socket re-bind to the tailnet IP / loopback (HB-047, defense-in-depth half)
+
+With the host firewalls already tailnet-only (steps 1–3 above), this step is the **complementary
+half**: stop the `0.0.0.0` binds so the firewall becomes a **second** line, not the only one.
+One service at a time — backup → edit `compose.yml` (or the systemd unit) → recreate **only that
+service** → verify over the tailnet from another node → next. Nothing §4 justifies was touched
+(the Swarm `2377/7946/4789`, the ingress `9092`, `network_mode: host` services, and the LAN-legit
+host services stay).
+
+**`kuaray` (100.94.209.99) — 8 container sockets + rpcbind re-bound; 2 reviewed and kept:**
+
+| Service | Port | Before | After |
+|---|---|---|---|
+| Prowlarr | `9696` | `9696:9696` (`0.0.0.0`) | `100.94.209.99:9696:9696` |
+| Lidarr | `8686` | `8686:8686` | `100.94.209.99:8686:8686` |
+| Flaresolverr | `8191` | `8191:8191` | `100.94.209.99:8191:8191` |
+| Transmission RPC | `9091` | `9091:9091` | `100.94.209.99:9091:9091` |
+| slskd | `5030` | `5030:5030` | `100.94.209.99:5030:5030` |
+| Soularr | `8265` | `8265:8265` | `100.94.209.99:8265:8265` |
+| Vert | `3030` | `3030:80` | `100.94.209.99:3030:80` |
+| Node Exporter | `9100` | `network_mode: host`, no bind flag (`*:9100`) | `--web.listen-address=127.0.0.1:9100` + `100.94.209.99:9100` |
+| rpcbind | `111` | `0.0.0.0:111` + `[::]:111` (systemd socket) | `127.0.0.1:111` + `[::1]:111` (socket drop-in) |
+
+- **Pattern:** the ecosystem's existing `IP:PORT:PORT` publish form (already used by
+  `dockerproxy` → `100.94.209.99:2375:2375` and Glances' `-B 100.94.209.99`).
+- **rpcbind:** the man page states that under systemd socket activation `-h` is **ignored** and
+  the `rpcbind.socket` `ListenStream`/`ListenDatagram` must be edited instead. A drop-in
+  `/etc/systemd/system/rpcbind.socket.d/10-loopback-only.conf` resets the listen list to
+  `/run/rpcbind.sock` + `127.0.0.1:111` + `[::1]:111` (the daemon otherwise re-creates the IPv6
+  universal address `[::]`). Safe because **all four** `fstab` mounts are `nfs4` (NFSv4 needs no
+  remote rpcbind) — verified the mounts stayed up and a NAS read succeeded after the restart.
+- **Reviewed and kept:** `51413` (Transmission peer — §4) and `3389` (xrdp — LAN-legit, §3.1/§4;
+  re-verified reachable from psicopompo on `192.168.3.200:3389`). `22000`, `139`, `445` unchanged.
+- **Verification per service (tailnet, from psicopompo):** Prowlarr `/ping` → 200, Lidarr `/ping`
+  → 200, Flaresolverr `/health` → 200, Transmission `/transmission/rpc` → 401 (auth = up), slskd
+  `/health` → 200, Soularr `/` → 200, Vert `/` → 200, Node Exporter `/metrics` → 200. Each
+  `docker inspect` health = `healthy` and each bind shows **only** `100.94.209.99` (or loopback).
+- **Backups / rollback:** each compose was copied to `compose.yml.bak-20261013-rebind` before the
+  edit; revert = restore that file + `docker compose up -d <svc>`. rpcbind rollback =
+  `sudo rm -rf /etc/systemd/system/rpcbind.socket.d/10-loopback-only.conf && sudo systemctl daemon-reload && sudo systemctl restart rpcbind.socket rpcbind.service`.
+
+**`psicopompo` (100.82.51.112) — no live `0.0.0.0` defect; one fixed-bind app accepted:**
+
+- Live scan shows **no** unauthorized wildcard bind: every `0.0.0.0`/`*` listener is either §4
+  (KDE Connect `1716`, `rpc.mountd` `20048`, Syncthing `22000`, Swarm `7946`/`9092`, Punktfunk
+  `47990/47992/47993`) or an ephemeral desktop client. The re-bind half was already done here
+  (steniorec, ComfyUI, hl-infer, registry, Syncthing web all on loopback + tailnet IP).
+- **Stremio** (`11470`/`12470`) is a **desktop app with a hardcoded bind** — not re-bindable; it
+  was **idle** during the audit and is now a §4 accepted exception (UFW tailnet-only masks it).
+
+**Not done in this step (coordinated by the parent):** `kavure` and `ybytu` were **not touched** in
+this pass (the parent had a concurrent subagent on those hosts — Homepage/zomboid-health). Their
+`⚠️ defect` rows (§2.2 kavure `9097/9098/9095/443/80/111/9100/18555`; §2.4 ybytu
+`3000/8082/8083/9096/111`) were **closed in the entry above** (HB-047 final leg).
+
+**⚠️ Regression found while verifying (pre-existing, not caused by this re-bind):** since the
+`kuaray` firewall step (2/3, 2026-10-13) the host `INPUT` policy is `DROP` with **no rule for the
+Docker subnets**, so a **container on kuaray cannot reach its own host's tailnet IP** (the packet
+is local-delivery → `INPUT`, arriving on `docker0`, not `tailscale0`). The `*arr` stack uses the
+host tailnet IP for inter-service calls (`prowlarr` → `http://100.94.209.99:8686`; `soularr` →
+`100.94.209.99:8686`/`:5030`), so those calls now **time out** (`curl` from inside the container
+→ connection timeout; reproduced on `soularr` and `prowlarr`). This is **independent of the bind
+address** (the listener was already unreachable behind the firewall). **Fixed the same day — see
+the next entry.**
+
+### 2026-10-13 — Container→host regression fixed (HB-047, the intra-host `INPUT` path)
+
+The regression above was **not** a bind problem: a container reaching a service on **its own host**
+is **local delivery** and lands on the host's `INPUT` chain, which UFW owns (the `DOCKER-USER`
+block only filters **forwarded** traffic). Two shapes hit it, and `INPUT DROP` with no rule for the
+Docker subnets dropped both:
+
+1. **Host services** (`network_mode: host`, no DNAT) — on `kavure`, Prometheus scrapes its **own**
+   Node Exporter at `100.124.146.77:9100` → target `down`.
+2. **Default-bridge (`docker0`) published ports** — Docker's `nat/DOCKER` rules carry a
+   `! -i docker0` guard, so a `docker0` container's packet to the host's published port is **not
+   DNAT'd** and stays a local-delivery packet. The whole `*arr` stack is on the **default bridge**,
+   so `prowlarr → 100.94.209.99:8686`, `soularr → 100.94.209.99:8686/:5030` (and
+   `lidarr → :9696`/`:9091`, `prowlarr → :8191`) timed out. Containers on a **user-defined** bridge
+   (e.g. the Miracena stack) are **not** affected — their packets *are* DNAT'd and take the
+   `FORWARD` path.
+
+**Fix — a scoped `INPUT` allow (runbook §3.2), one rule per consumed port:**
+
+| Host | Rule (`ufw allow from 172.16.0.0/12 to any port <P> proto tcp`) | Ports |
+|---|---|---|
+| `kuaray` | `*arr` cross-service ports | `8686`, `9696`, `8191`, `9091`, `5030` |
+| `kavure` | Prometheus → own Node Exporter | `9100` |
+| `psicopompo` | — none needed (no container→host dependency) | — |
+
+- **Source `172.16.0.0/12`** = the Docker private range the `DOCKER-USER` block already trusts; it
+  covers `docker0` and every `br-*`. It never matches the LAN, so the LAN stays closed.
+- **Scoped by port, deliberately not blanket.** A blanket `allow in on docker0` would expose the
+  Docker socket proxy (`2375`) to every container — a container→Docker escalation. Verified after
+  the fix: `soularr → 100.94.209.99:2375` and `:3389`/`:445`/`:139`/`:22000` (LAN-only host
+  services) stay **`000`**, while `:8686`/`:9696`/`:8191`/`:9091`/`:5030` answer.
+- **Verification (live, 2026-10-13):** `kuaray` — `soularr → :8686`=200, `:5030`=200;
+  `prowlarr → :9696`=200, `:8191`=200, `:8686`=200; `lidarr → :9091`=401 (auth up). `kavure` —
+  Prometheus target `job=node instance=kavure` = **`up`**. Tailnet preserved (from psicopompo:
+  kuaray `8686/9696/5030`=200, `9091`=401; kavure `9100/9091`=200). LAN→container still `000`;
+  `[UFW DOCKER BLOCK]` kernel log shows only LAN/public sources. `3389/445/22000` stay open.
+- **Option not taken — user-defined network + service names (the Docker-idiomatic
+  *container↔container* pattern):** it would also dodge the `! -i docker0` guard, but it **cannot**
+  fix shape 1 (a `network_mode: host` service has no name to resolve), it requires editing live app
+  config/DBs, and it fixes only one stack. The scoped `INPUT` rule fixes both shapes uniformly.
+- **Backups / rollback:** `kuaray` → `/etc/ufw.bak.2026-10-13-kuaray-container-host/`;
+  `kavure` → `/etc/ufw.bak.2026-10-13-kavure-container-host/` (+ `ufw status numbered` dumps under
+  `/root/`). Rollback = `sudo ufw delete allow from 172.16.0.0/12 to any port <P> proto tcp` (or
+  restore the snapshot + `ufw reload`).
+
+> **Lesson.** Enabling `INPUT DROP` closes the LAN/public edge but **silently breaks the
+> containers' intra-host traffic** — the host `INPUT` must be taught the Docker subnets (scoped to
+> the consumed ports) too. The `DOCKER-USER` block alone is **not** enough; "tailnet-only" is a
+> property of the *host's* reachability, and a container calling its own host is neither LAN nor
+> tailnet. See [`../guides/ufw-lan-runbook.md`](../guides/ufw-lan-runbook.md) §0.3/§3.2.
 
 ### 2026-10-13 — Host-firewall hardening, `psicopompo` (HB-047, rollout step 1/3)
 

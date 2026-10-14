@@ -82,7 +82,7 @@ tags: [homelab, backup, storage]
 ### Pending Action Items
 1. **Off-site backup (3-2-1 Rule):** Google Drive 5TB synchronization via rclone (configurations + vault + repositories)
 2. **Monthly recovery drills** and quarterly `restic check --read-data` executions — see `backup-rituals.md`
-3. **Off-host cold backup of age encryption keys** (`age-keys-backup.txt`) stored in KeePassXC / offline USB
+3. **Off-host cold backup of the age keys** — **pending** (the key is **not** in KeePassXC today). Since 2026-10-13 the store also decrypts with the **kavure** age key (2nd recipient), which already covers a **single-host** loss; the cold copy (KeePassXC / offline USB / paper / hardware key) is what covers losing **both** hosts — see [`recovery/psicopompo-loss.md`](../recovery/psicopompo-loss.md) §2 G1 · HB-064
 4. **Push telemetry monitoring in Uptime Kuma** tracking backup health stamps
 5. **End-to-end recovery playbooks** testing full restorations for Zomboid, Minecraft, sae-core, and host configurations
 

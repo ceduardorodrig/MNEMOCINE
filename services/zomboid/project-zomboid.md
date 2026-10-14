@@ -110,25 +110,36 @@ Kavure utilizes compressed in-memory swap (**zram**) exclusively, avoiding disk-
 
 ## Dashboard Status (Homepage)
 
-The dedicated server has **no HTTP status endpoint**, so the Homepage tile **cannot** use a
-`siteMonitor` yet and **must not** use a Docker chip on the manager:
+The tile uses a **`siteMonitor`** on the native **`zomboid-health`** endpoint — the true game state, not the
+manager's.
 
-- The game runs as a **native child process of `zomboid-panel`** (the panel's active server has
-  `isRemote:false` → provider `native`; the panel has **no docker socket mount**), so there is **no
-  container that reflects the game's state** — a chip on `zomboid-panel` would show false uptime
-  (the manager stays up while the game is down).
-- The panel's API is **auth-gated** (`/api/servers/status` → `401`; `/api/health` reflects only the
-  panel), so it cannot feed a Homepage `siteMonitor`.
+**Where the game actually runs (corrected 13/10/2026).** The dedicated server runs in the **`pz-server`
+container** (`danixu86/project-zomboid-dedicated-server`), started by `zomboid-start` (`docker compose up -d`)
+and stopped/removed by `zomboid-stop` (`docker compose down`). It publishes `27015/tcp` (Source RCON) and
+`16261-16262/udp`. The `zomboid-panel` manager is a **separate container** (on the shared `zomboid_default`
+network) that only **RCONs** to `pz-server` — it has no docker socket and does **not** start the game.
 
-**Pending (13/10/2026):** deploy a lightweight native **`zomboid-health`** endpoint mirroring
-[`minecraft-status`](minecraft-status.md) (RCON TCP `27015` probe → `200` up / `503` down; candidate
-port `:9098`), then set the tile to `siteMonitor: http://kavure:9098`. The name avoids the existing
-**`zomboid-status`** CLI helper (`/usr/local/bin/zomboid-status`, which prints container + port
-state) — an HTTP service binary of that name would overwrite it. Until then the tile carries
-**no status chip** (the invalid `pz-server` Docker chip was removed 13/10 — see
-[`homepage.md`](homepage.md) changelog).
+> ⚠️ **Earlier claim corrected:** a 13/10 audit concluded the game was a "native child process of
+> `zomboid-panel`" (from the panel's `isRemote:false` / `provider:native` db flag). That was **wrong**: the
+> `zomboid-stop` log shows `Container pz-server Stopping/Removed` with the pre-stop RCON `save` answered at
+> **`127.0.0.1:27015`** — a host-published port that only the container can own. The `isRemote` flag is a
+> panel-side artifact.
+
+Why not a Docker chip: when the game is stopped, `docker compose down` **removes** the `pz-server` container,
+so a chip would render "not found" rather than a red "down"; and a chip on `zomboid-panel` would be false
+uptime (the manager stays up while the game is down).
+
+**Resolved (13/10/2026) — `zomboid-health` deployed:** a native Rust endpoint on **kavure `:9098`**
+(`hl-zomboid-health.service`, binary `/usr/local/bin/zomboid-health`, source
+`MNEMOCINE-OPS/provisioning/zomboid-health/`) mirrors [`minecraft-status`](../minecraft-status.md): a TCP probe
+of the game's RCON port `27015` → **200 `up`** / **503 `down`**, HEAD without body (RFC 7231 §4.3.2). The
+Homepage tile uses **`siteMonitor: http://kavure:9098`**. The name avoids the existing **`zomboid-status`** CLI
+helper (`/usr/local/bin/zomboid-status`). Because the game has been **stopped since 26/08/2026**, the chip
+correctly reports **down** today. See [`zomboid-health`](../zomboid-health.md) and
+[`homepage.md`](../homepage.md).
 
 ## See Also
+- [`zomboid-health`](../zomboid-health.md) — native HTTP status endpoint for the Homepage tile
 - [`../../servers/kavure.md`](../../servers/kavure.md) — Kavure dedicated services node profile
 - [`zomboid-control-panel.md`](zomboid-control-panel.md) — Web administration interface
 - [`onboarding.md`](onboarding.md) — Player onboarding guide

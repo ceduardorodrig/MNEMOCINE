@@ -51,7 +51,7 @@ Documented in `config-backup.md`. To modify schedule times: Edit `/etc/systemd/s
 - **Unencrypted Local Backups:** Primary NAS backup storage is unencrypted by explicit user preference (preventing key-loss lockouts) — secrets are encrypted upstream via SOPS/age.
 - **Off-Site Storage:** ✅ **Active** (09/08) — Google Drive 5TB mirrored via rclone (`gdrive:BACKUP MNEMOCINE`, unencrypted remote mirror). See [`services/rclone.md`](../services/rclone.md).
 - **etckeeper Bare Repositories:** Replicated strictly to internal NAS (never pushed to GitHub).
-- **Age Encryption Keys & Master Secrets:** `age-keys-backup.txt` and plaintext `secrets.env` are NEVER stored on the NAS — preserved off-host in KeePassXC / offline USB media.
+- **Age Encryption Keys & Master Secrets:** `age-keys-backup.txt` and plaintext `secrets.env` are NEVER stored on the NAS. ⚠️ **The off-host cold copy is pending** — the key is **not** in KeePassXC/USB today. Since 2026-10-13 the store also decrypts with the **kavure** age key (2nd recipient), so a **single-host** loss is covered; the cold copy is what covers losing **both** hosts — see [`../recovery/psicopompo-loss.md`](../recovery/psicopompo-loss.md) §2 G1 · HB-064.
 
 ## Incident: Silent Backup Outages (28/08 — Caught by Observability)
 

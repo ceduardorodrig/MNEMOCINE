@@ -100,7 +100,7 @@ the cloud nodes, the OCI security list.
 |---|---|---|
 | `psicopompo` | **UFW active** + tailnet-aware `DOCKER-USER` block (**HB-047 step 1**, 2026-10-13) | Container-published ports are now **tailnet-only**; the `after.rules` block is in place **without** the `-s 192.168.0.0/16` trusted RETURN (the first draft carried it and closed nothing — see [`ufw-lan-runbook.md`](ufw-lan-runbook.md) §2). `DEFAULT_FORWARD_POLICY` was `ACCEPT` until **2026-10-13**, now **`DROP`** (owner's go-ahead, same day; the tailnet is unaffected — `ts-forward` accepts `tailscale0` first, and container egress rides the `DOCKER-USER`/`DOCKER-FORWARD` chains — verified: tailnet `:5000`/`:9095` open, Swarm 3/3 `Ready`, local `:9095` → `ok`). No OpenSSH listener. |
 | `kavure` | **UFW active** (`tailnet-only`, **HB-047 step 3**, applied & verified 2026-10-13) | Default deny incoming + `DEFAULT_FORWARD_POLICY="DROP"`; the tailnet-aware `DOCKER-USER` block is in place (no `192.168.0.0/16` RETURN), so every published container port (incl. the Swarm ingress `9092`) is **tailnet-only**. No LAN exceptions needed (Samba/xrdp live on `kuaray`). |
-| `kuaray` | **UFW active** (`tailnet-only`, 2026-10-13 — HB-047 step 2/3) | Standby mirror; its `0.0.0.0` service binds are now tailnet-only, with the §3.1 host services (Syncthing 22000, Samba 139/445, xrdp 3389) kept for the LAN. LAN SSH (`22`) is now closed — Tailscale SSH only. |
+| `kuaray` | **UFW active** (`tailnet-only`, 2026-10-13 — HB-047 step 2/3) | Standby mirror; its `0.0.0.0` service binds are now tailnet-only, with the §3.1 host services (Syncthing 22000, Samba 139/445, xrdp 3389) kept for the LAN. LAN SSH (`22`) is now closed — Tailscale SSH only. **Socket re-bind done 2026-10-13 (HB-047, defense-in-depth):** the 8 published container ports (`9696/8686/8191/9091/5030/8265/3030` + Node Exporter `9100`) and `rpcbind` (`111`) now bind the tailnet IP / loopback — see [`../network/ports.md`](../network/ports.md) §5. |
 | `ybytu` | **nftables** (host INPUT accepts `tailscale0` + an explicit allow list) | No `ufw` binary. |
 | `ybyra` | **nftables** (host INPUT accepts `tailscale0`, `22`, peer-relay UDP only) | No `ufw` binary. |
 
@@ -140,6 +140,12 @@ supported fix is the `DOCKER-USER` chain (e.g. via `ufw-docker`).
 - Under **Swarm**, the automated `ufw-docker-agent` global service would place a **privileged
   container on the public edge** — a worse trade than editing `after.rules` by hand. See the
   [`ufw-lan-runbook.md`](ufw-lan-runbook.md).
+- **Container → host is a *separate* path, and the host firewall *does* govern it.** A container
+  reaching a service on its **own host** is local delivery → `INPUT`, not `DOCKER-USER`; with
+  `INPUT DROP` this breaks every container→host call — a `network_mode: host` service (Node
+  Exporter) and a **default-bridge** published port (Docker's `! -i docker0` guard leaves it
+  un-DNAT'd). Fixed 2026-10-13 with a **scoped** `INPUT` allow — see
+  [`ufw-lan-runbook.md`](ufw-lan-runbook.md) §0.3/§3.2 and [`../network/ports.md`](../network/ports.md) §5.
 
 ## 3. Controls in place (2026-10-13)
 
@@ -161,11 +167,9 @@ Each gap is a tracked backlog item. The detail lives in the linked document.
 | Gap | Backlog | Severity | In one line |
 |---|---|---|---|
 | Tailnet **allow-all grant still present** — tags applied and the least-privilege rules deployed (Phases 1+2), but the rule is not yet deleted; Funnel still `member`+`edge`; **two grant gaps** (`tag:monitoring → tag:server`, `tag:server → tag:server`) | [**HB-049**](../backlog.md) | 🔴 | The ACL/tag redesign — **Phase 3 (the tighten) is the remaining work**; runbook: [`tailnet-acl-runbook.md`](tailnet-acl-runbook.md) |
-| **`hl-monitoring-backup.service` is FAILED** on `kavure` | [**HB-050**](../backlog.md) | 🟡 | The off-box Prometheus/Loki/Grafana backup is silently not running — a backup that does not run is a silent risk |
 | **Secret hygiene** | [**HB-051**](../backlog.md) | 🟡 | Plaintext `TS_AUTH_KEY` in a running service spec; a static token in a service doc; vestigial SSH keys that break the documented key fallback |
 | **Service catalogue + security baseline + Stênio reconciliation** | [**HB-052**](../backlog.md) | 🟡 | This document is part of it; the machine-readable catalogue and the reality-vs-declaration invariants remain |
-| **LAN binds + host firewalls** | [**HB-047**](../backlog.md) | 🔴 | Re-bind the `0.0.0.0` sockets and enable UFW on `kavure`/`kuaray`; runbook: [`ufw-lan-runbook.md`](ufw-lan-runbook.md). **Progress 2026-10-13:** the **host-firewall rollout is COMPLETE 3/3** (`psicopompo`, `kuaray`, `kavure` — all tailnet-only, `DEFAULT_FORWARD_POLICY="DROP"`); the **socket re-binds remain** — now **defense-in-depth**, not exposure (the firewall already removed the LAN reach) |
-| **`stenio --ports` blind spots** | [**HB-048**](../backlog.md) | 🟡 | The gate cannot see some defects (local truthfully-`0.0.0.0` binds; remote accepted exceptions) — an engine fix the owner must authorise |
+| **LAN binds + host firewalls** | [**HB-047**](../backlog.md) | 🔴 | Re-bind the `0.0.0.0` sockets and enable UFW on `kavure`/`kuaray`; runbook: [`ufw-lan-runbook.md`](ufw-lan-runbook.md). **Progress 2026-10-13:** the **host-firewall rollout is COMPLETE 3/3** (`psicopompo`, `kuaray`, `kavure` — all tailnet-only, `DEFAULT_FORWARD_POLICY="DROP"`). The **socket re-bind half** is done on **`kuaray`** (8 container ports + rpcbind → tailnet/loopback) and reviewed on **`psicopompo`** (no live defect; Stremio accepted as a fixed bind) — see [`../network/ports.md`](../network/ports.md) §5. **Remaining:** the `⚠️ defect` rows on **`kavure`** and **`ybytu`** (parent-coordinated). Now **defense-in-depth**, not exposure (the firewall already removed the LAN reach). |
 
 ## 5. What good looks like (Tailscale official best practices)
 

@@ -157,11 +157,107 @@ Noctalia natively honors `org.freedesktop.ScreenSaver.Inhibit` signals from Chro
 
 Enforced in `~/.config/hypr/config/windowrules.lua`:
 
-- **KeePassXC:** Floats centered at 960×702.
+- **KeePassXC:** Only the **main window** floats centered at 960×702 — the match requires the
+  DB prefix in the title (`title = "^.+ - KeePassXC$"`, e.g. `AlgoAqui.kdbx [Locked] - KeePassXC`).
+  ⚠️ **Bug fixed 2026-10-26:** the *Attach file* dropdown (`Add file...` → "New Text Document /
+  Load from Disk...") has the **exact** title `KeePassXC`. The old regex (`title = "KeePassXC$"`,
+  any suffix) matched it, so Hyprland stretched the popup to 960×702 **and** re-centered it over
+  the window while Qt's mouse grab stayed at the original coordinates — the two options became
+  unclickable. The size/center rules are now scoped to the main-window title, and popups carry a
+  trailing `persistent_size = false` (last match wins, per the 0.56 wiki) so the global
+  `float → persistent_size` rule cannot re-restore the bad size from its class+title memory.
+  Accepted trade-off: a fresh instance with **no DB open** (title also exactly `KeePassXC`) floats
+  at its natural size instead of being centered.
 - **Nautilus:** Floats centered at 55% width / 65% height (default GUI file manager, bound to `Super + E`).
 - **Yazi:** Floats centered at 45% width / 55% height (orphaned — no keybinding; launch via `Super + Space`).
-- **Swash, Calculator (`kcalc`), Ark:** Configured floating defaults.
+- **Swash, Calculator (`gnome-calculator`), Ark:** Configured floating defaults (the `.*[Cc]alc.*`
+  rule matches the `gnome-calculator` bound in `variables.lua`; the `org.kde.ark` rule is a
+  harmless fallback while KDE Gear stays installed).
 - **Minecraft & Prism Launcher:** Bound to workspace `name:gaming` with `content = "game"` to trigger GPU direct scanout.
+
+---
+
+## Default Applications — GNOME Utilities Policy (2026-10-26)
+
+The Hyprland/Noctalia session standardizes on **GNOME utilities** wherever a choice exists, while
+KDE/Plasma remains fully installed and functional as the fallback session (retention is by design;
+the appearance layer was fully unified in the *Unification Pass* below). **Owner exception: Okular**
+stays the PDF handler by
+owner preference; it was installed on 2026-10-26 because `~/.config/mimeapps.list` pointed to
+`org.kde.okular.desktop` while the package was absent (broken handler).
+
+`~/.config/mimeapps.list` defaults:
+
+| MIME type | Handler (desktop id) | App |
+|---|---|---|
+| `application/pdf` | `org.kde.okular.desktop` | **Okular** (KDE — owner exception) |
+| `image/{png,jpeg,webp,gif}` | `org.gnome.Loupe.desktop` | **Loupe** (GPU rendering + sandboxed *glycin* loaders; handles >256 MP images without stalling — replaced Gwenview as default) |
+| `zip` `7z` `bzip2` `tar` `gzip` `xz` | `org.gnome.FileRoller.desktop` | **File Roller** (fixes `zip` → `gale.desktop`, a mod manager) |
+| `text/plain` | `org.gnome.TextEditor.desktop` | **GNOME Text Editor** — unified with the `Super + T` binding (Zed removed from the default) |
+| `inode/directory` | `org.gnome.Nautilus.desktop` | Nautilus (unchanged) |
+| `text/html` + `http(s)` | `zen.desktop` | Zen (unchanged) |
+
+Operational notes:
+
+- **`mimeapps.list` is user-global:** these defaults also apply when logging into the Plasma
+  session — KDE apps keep working, they simply stop being the *default* openers.
+- **`TERMINAL=kitty`** added to `~/.config/uwsm/env` (canonical location per `man uwsm`, XDG
+  `uwsm/env`). Noctalia uses `$TERMINAL` for `Terminal=true` apps and previously depended on its
+  fallback discovery list (which includes Konsole). Effective from the **next login**.
+- Noctalia community template **`konsole` removed** by owner (2026-10-26) from
+  `~/.local/state/noctalia/settings.toml` (`theme.templates.community_ids` → `opencode`,
+  `papirus-icons`). The `kcolorscheme`/`qt` built-in templates remain — they generate the Qt
+  palette (`qt6ct → colors/noctalia.conf`) that keeps Qt/KeePassXC apps on the wallpaper scheme.
+- **Nothing was uninstalled:** `kcalc`, `konsole`, `spectacle`, `kdialog`, `gwenview`, `ark`,
+  `xdg-desktop-portal-kde`, `kdeconnect` and the Dolphin/KIO SFTP integration all stay — removing
+  KDE Gear risks breaking Plasma and shared dependencies (owner decision, 2026-10-26).
+- Packages installed 2026-10-26: `okular`, `loupe`, `file-roller` (both in `cachyos-extra-v3`).
+  Caveat: `threadweaver` (okular dep) was unavailable on the CachyOS v3 mirrors (HTTP 404 /
+  truncated file on `cdn77.cachyos.org` and `mirror5.krfoss.org`) and had to be pulled from the
+  official Arch `extra` repo at the same upstream version (`6.30.0-1`).
+
+### Unification Pass — Cursor, Icons, Font, Qt Widgets (2026-10-13)
+
+Second KDE→GNOME pruning round, this time on the **appearance layer**. Principle: each visual
+attribute has **one source per toolkit/layer**, all pointing at the same value.
+
+- **Cursor = McMojave (36px) everywhere.** Already correct: `~/.config/uwsm/env`
+  (`HYPRCURSOR_THEME`/`XCURSOR_THEME` + sizes), `~/.Xresources` (legacy X11/Steam apps),
+  `gsettings` (`org.gnome.desktop.interface`), greeter (`/var/lib/noctalia-greeter/greeter.toml`)
+  and `qt6ct.conf`. **Stale Bibata-Modern-Classic fixed** in: `gtk-3.0/settings.ini`,
+  `gtk-4.0/settings.ini`, `~/.config/xsettingsd/xsettingsd.conf` (legacy GTK2/X11) and
+  `~/.config/kcminputrc` (Plasma session) — all now `McMojave` + size 36.
+  The theme is a **manual install** (`/usr/share/icons/McMojave`, v1.0.0, no pacman owner —
+  unified Hyprcursor+XCursor build; source copy in `~/.local/share/icons/McMojave-cursors`):
+  updates are manual rebuilds, not pacman.
+- **Icons = Papirus-Dark everywhere.** Already correct: `gsettings`, `gtk-*.ini`, Noctalia
+  `papirus-icons` template. **Stale breeze-dark fixed** in: `qt6ct.conf` (`icon_theme`),
+  `xsettingsd.conf` (`Net/IconThemeName`), `kdeglobals` `[Icons] Theme=` and
+  `~/.config/kdedefaults/kdeglobals` (Plasma defaults override).
+- **Proportional font = Lexend 10 everywhere.** Applied in `gsettings` (`font-name`),
+  `gtk-*.ini` (`gtk-font-name`), `xsettingsd.conf` (`Gtk/FontName`), `qt6ct.conf` (`[Fonts]
+  general`, was 9) and `kdeglobals` `[General] font=` (key was missing). Noctalia already used
+  `font_family = "Lexend"`. Monospace stays **Hack** (Lexend has no mono variant). Package:
+  AUR `lexend-fonts-git`.
+- **Qt widgets → Adwaita style.** `qt6ct.conf`: `style=Klassy → style=adwaita` (AUR package
+  `adwaita-qt6 1.4.2`, plugin at `/usr/lib/qt6/plugins/styles/adwaita.so`). KeePassXC, Dolphin,
+  Okular and kcalc now draw buttons/menus in the GNOME style. The **palette remains
+  wallpaper-derived** (`qt6ct custom_palette` + `colors/noctalia.conf`, Sumænimá theme) — only
+  the widget style changed.
+- **Qt window decorations (titlebar/X): structurally inert under Hyprland.** The compositor
+  advertises `zxdg_decoration_manager_v1` (verified via `wayland-info`) → Qt negotiates
+  **server-side decoration** (Hyprland's border, no titlebar) and the CSD plugin is never loaded
+  (`QT_DEBUG_PLUGINS` stays empty). Empirical test: native-Wayland `kcalc` with
+  `QT_WAYLAND_DECORATION=adwaita` and `=bradient` → no titlebar in either case. CSD plugins
+  (`qadwaitadecorations-qt6`, `QT_WAYLAND_DECORATION`) only engage on compositors **without**
+  xdg-decoration (e.g. GNOME/Mutter). Consequence: Qt windows are titleless by Hyprland design —
+  close via `Super + Q`, right-click menu or the Noctalia kill-switch. GTK apps keep their own
+  headerbar with the close button (client-side, toolkit-drawn). Packages `qadwaitadecorations-qt6`
+  and `qt5-wayland-decorations` were installed for the test and **uninstalled the same day**
+  (2026-10-13, inert here). Caveat: `qt6-wayland` entered the system as their dependency but was
+  **kept deliberately** (`pacman -D --asexplicit`) — it enables native-Wayland Qt6 apps, finally
+  honoring the `QT_QPA_PLATFORM="wayland;xcb"` that `~/.config/uwsm/env` had requested since
+  2026-09-27 (before that it silently fell back to XWayland/xcb).
 
 ---
 
@@ -181,13 +277,16 @@ Global opacity set in `~/.config/hypr/config/decorations.lua`:
 
 ### GTK Icon Theme (Nautilus & GTK apps)
 
-The GTK icon theme is **`Papirus-Dark`** (modern third-party theme; deliberately distinct from the KDE `breeze-dark` used by Qt/Plasma apps). Configured in three places:
+The GTK icon theme is **`Papirus-Dark`** (modern third-party theme). Configured in three places:
 
 - `~/.config/gtk-3.0/settings.ini` → `gtk-icon-theme-name=Papirus-Dark`
 - `~/.config/gtk-4.0/settings.ini` → `gtk-icon-theme-name=Papirus-Dark`
 - `gsettings get org.gnome.desktop.interface icon-theme` → `'Papirus-Dark'`
 
-> **Dual-DE split (by design):** The Qt side (`~/.config/qt6ct/qt6ct.conf` → `icon_theme=breeze-dark`) and Plasma remain on the KDE `breeze-dark` theme. Only the GTK/Nautilus side uses Papirus. Preview and switch GTK themes live with `nwg-look`.
+> **Unified since 2026-10-13:** the former dual-DE icon split (GTK=Papirus-Dark vs Qt/Plasma=
+> breeze-dark) was retired — `qt6ct.conf`, `xsettingsd.conf`, `kdeglobals [Icons]` and
+> `kdedefaults/kdeglobals` now also use `Papirus-Dark`. See *Unification Pass* above for the
+> full inventory. Preview and switch GTK themes live with `nwg-look`.
 
 ---
 

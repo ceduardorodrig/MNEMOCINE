@@ -42,6 +42,10 @@ Unbound resolves **directly from DNS root servers** (Root → TLD → Authoritat
 | `serve-expired` | `yes` (TTL 86400) | Delivers cached records immediately while refreshing lookups asynchronously |
 | `incoming-num-tcp` | `64` | Multi-thread buffer ceiling absorbing concurrent page load bursts from AdGuard |
 | `outgoing-num-tcp` | `32` | Outbound recursive TCP pool |
+| `num-queries-per-thread` | `4096` | Expanded from default 1024 to prevent `requestlist.exceeded` drops during WAN latency spikes (added 2026-10-13) |
+| `outgoing-range` | `8192` | Outbound socket/port pool scaled proportionally to prevent file descriptor starvation |
+| `infra-host-ttl` | `60` | Reduces penalty time for unresponsive nameservers from default 15 min to 60s (rapid post-WAN recovery, added 2026-10-13) |
+| `infra-keep-probing` | `yes` | Proactively probes penalized nameservers one-at-a-time to discover when they recover immediately |
 | `tcp-idle-timeout` | `120000` | Extends connection idle timeout to 2 minutes, preventing EOF resets on AdGuard connection pools |
 | `msg-cache-size` / `rrset-cache-size` | `128m` / `256m` | Dedicated RAM allocation leveraging kavure's 6 GB available headroom |
 

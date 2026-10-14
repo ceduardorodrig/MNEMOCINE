@@ -51,6 +51,37 @@ device's user identity**; it makes the device **stop matching `autogroup:self`**
 all tags"); and a tagged node **connects out as its tag** — which is why `psicopompo` (itself
 `tag:server`) lost SSH until the `tag:server → tag:server` rule was added.
 
+## Device visibility in the mobile app (why some users' devices are missing)
+
+The Tailscale app's **Network Devices** list groups what it shows **by the owning user** plus a
+single combined **"Tagged Devices"** group ([tailscale/tailscale#3183](https://github.com/tailscale/tailscale/issues/3183),
+maintainer comment), and it lists only devices **in that node's netmap**. Netmap trimming is
+**documented behaviour**: your node sees the devices it may connect to, the devices that may connect
+to it, **its own user's** devices, and usable exit nodes — nothing else
+([*What devices can connect to or know mine?*](https://tailscale.com/docs/concepts/device-visibility)).
+So a phone that showed only **"Eduardo Rodrigues"** + the tagged group was **expected**, not a bug:
+the least-privilege tighten (HB-049, phase 3, 2026-10-13) removed the allow-all grant, so `ann`'s
+and `iza`'s devices had no permitted path to/from the owner's phone and were trimmed from the app's
+netmap.
+
+> ✅ **Resolved 2026-10-13 (D11 / [HB-063](../backlog.md), ACL PR [#14](https://github.com/ceduardorodrig/MNEMOCINE-ACL/pull/14)).**
+> The owner decided the family should live in **one big LAN** (*"quero a gente vivendo em uma grande
+> LAN"*) and the flat **`autogroup:member → autogroup:member`** grant was added — **members now see
+> and reach each other's devices again** and the app no longer trims them. The **tagged servers stay
+> OUT** of it (applying a tag removes the user identity, so a tagged node matches **neither** side of
+> `autogroup:member`); their access remains the purpose-scoped `member → tag:server` catalogue.
+> Verified live: on the tagged `psicopompo` the `netmap` `PacketFilter` is byte-identical to the
+> pre-change filter **except** the removed dead `:8766`. Sources: [*What devices can connect to or
+> know mine?*](https://tailscale.com/docs/concepts/device-visibility) (netmap trimming) and
+> [policy syntax](https://tailscale.com/kb/1337/policy-syntax) (`autogroup:member` is valid as
+> **both** `src` and `dst`). See
+> [`../guides/design-decisions-2026-10.md`](../guides/design-decisions-2026-10.md) §D11 ·
+> [`../guides/acl-lockout-audit.md`](../guides/acl-lockout-audit.md) §10.
+
+The **admin console** Machines page (and the API) still lists **every** tailnet device
+([filter](https://tailscale.com/docs/features/access-control/device-management/how-to/filter) ·
+[export](https://tailscale.com/docs/features/access-control/device-management/how-to/export-list)).
+
 ## Access Standard (Tailscale SSH)
 
 **Primary administration access method: Tailscale SSH** — leverages end-to-end WireGuard authentication within the tailnet without exposing TCP port 22 to the public internet.
@@ -215,19 +246,29 @@ this section records **where it stands**.
   and reach `kavure` only at its **tailnet IP** (`100.124.146.77`). That is why the
   `autogroup:shared` grant covers exactly the game ports (`25565`/`24454`/`2456-2458`/`16261-16262`)
   and why `25565` is a **tailnet**, not a LAN, exception.
-- **Phase 3 — tighten — ⚠️ PENDING (the last one).** The allow-all grant is **still present**. Phase
-  3 must: (1) **delete** `{ "src": ["*"], "dst": ["*"], "ip": ["*"] }`; (2) **fix two grants the
-  audit found to be gaps** — `tag:monitoring → tag:server` (today it is only `→ tag:monitoring`)
-  and **add `tag:server → tag:server`** (today it does not exist; without it NFS, Swarm, Loki, the
-  registry and `hl-infer` fall); (3) enable the **`deny` pins** with a **concrete member e-mail**
-  (`autogroup` is not a valid test `src`); (4) restrict the Funnel `nodeAttrs` to **`tag:edge`** only
-  (today `autogroup:member` still allows any member to open a public Funnel); (5) regenerate
-  `TS_AUTH_KEY` with `tag:edge` (HB-051 / runbook §8). Full detail:
-  [`../guides/tailnet-acl-runbook.md`](../guides/tailnet-acl-runbook.md) §6.
+- **Phase 3 — tighten — ✅ MERGED & DEPLOYED (2026-10-13).** The allow-all grant is **gone**; every
+  load-bearing path is now an explicit, purpose-scoped grant. Landed across three PRs:
+  [#7](https://github.com/ceduardorodrig/MNEMOCINE-ACL/pull/7) (Funnel `nodeAttrs` → **`tag:edge`**
+  only), [#8](https://github.com/ceduardorodrig/MNEMOCINE-ACL/pull/8) (the `tag:monitoring →
+  tag:server` scrape and the `tag:server → tag:server` plane — NFS `2049`, Swarm `2377/7946/4789`,
+  Loki `3100`, registry `5000`, `hl-infer` `9095`) and
+  [#9](https://github.com/ceduardorodrig/MNEMOCINE-ACL/pull/9) (delete `{ "src": ["*"], "dst": ["*"],
+  "ip": ["*"] }` + the `deny` pins with a concrete member e-mail). CI (`acls`) green, `action:
+  apply` succeeded.
+- **Post-Phase-3 fix — the peer relay lost its tagged sources — ✅ MERGED & DEPLOYED
+  (2026-10-13).** PR [#10](https://github.com/ceduardorodrig/MNEMOCINE-ACL/pull/10)
+  (`acl/relay-tagged-src`). The relay grant (`cap/relay`) still had `src: ["autogroup:member"]`, but
+  tagging had **removed the infra devices from `autogroup:member`** — so `ybyra` (and the whole
+  tagged fleet) silently **dropped the peer relay and fell back to DERP**
+  (`tailscale status` → `ybyra … relay "sao"`; `cap/relay` absent from psicopompo's `AllCaps`).
+  Fix: `src: ["autogroup:member", "autogroup:tagged"]` — **`dst` unchanged**. Verified live after
+  the apply: `ybyra` now shows `peer-relay 64.181.168.251:40000:vni:1219` (relaying through
+  **ybytu**). See the *Peer Relays* section below.
 
-> `stenio --reconcile` reports the allow-all grant as `POLICY-UNDERIVABLE` — expected until Phase 3.
-> The policy's own Phase-1 comments still say *"no device carries a tag yet"*; that text is now
-> stale (devices **are** tagged) and can be cleaned up with the Phase 3 PR.
+> `stenio --reconcile` still reports `POLICY-UNDERIVABLE` for the remaining `ip: ["*"]` grants
+> (exit node, subnet, `autogroup:self`, server↔server) — expected: those are control planes on a
+> trusted, WireGuard-encrypted mesh, not user-facing ports. The Phase-1 policy comments that said
+> *"no device carries a tag yet"* are gone from the current policy.
 
 ## Exit Nodes
 
@@ -290,6 +331,36 @@ Following subnet router deployment on kavure, local Linux nodes (`psicopompo`, `
 > **Technical Decision (2026-10-09): Maintain `--accept-routes=false` on Local LAN Machines.**  
 > Devices physically connected to the home switch already reside directly within `192.168.3.0/24`. Enabling `--accept-routes=true` on them causes kernel routing rules (`ip rule 5270 lookup 52`) to intercept local LAN packets and hairpin them needlessly through Kavure's tunnel interface. The health warning is advisory and benign; keeping it disabled on local nodes maintains peak physical network throughput.
 
+## DNS management (MagicDNS) on Linux hosts
+
+Tailscale picks its Linux DNS backend at **every `tailscaled` start** from the content of
+`/etc/resolv.conf` (`resolvOwner()` in `net/dns/manager_linux.go`), then uses one of:
+`systemd-resolved` (D-Bus, preferred), `NetworkManager`, `debian-resolvconf`, `openresolv`, or
+`direct` (Tailscale rewrites `/etc/resolv.conf` itself). MagicDNS answers on
+`100.100.100.100` (`fd7a:115c:a1e0::53`) regardless.
+
+| Host | `/etc/resolv.conf` | Mode | Why |
+|---|---|---|---|
+| `psicopompo` | symlink → `/run/systemd/resolve/stub-resolv.conf` | **`systemd-resolved`** | stub listener active (`127.0.0.53`) |
+| `kuaray` | symlink → `/run/systemd/resolve/stub-resolv.conf` | **`systemd-resolved`** | stub listener active |
+| `kavure` | symlink → `/run/systemd/resolve/stub-resolv.conf` | **`systemd-resolved`** | stub listener active |
+| `ybyra` | symlink → `/run/systemd/resolve/stub-resolv.conf` | **`systemd-resolved`** | stub listener active |
+| `ybytu` | symlink → `/run/systemd/resolve/stub-resolv.conf` | **`systemd-resolved`** | AdGuard no longer binds `0.0.0.0:53` (tailnet IP + loopback only) → stub active (**fixed 2026-10-13**) |
+| `kururu` | — (Alpine/musl, no systemd) | **unmapped** | no admin path from the audit session; see the map §4.2 |
+
+> ⚠️ **`resolvconf` shim trap (upstream [`tailscale/tailscale#19062`](https://github.com/tailscale/tailscale/issues/19062)).**
+> On Ubuntu/Debian the `systemd-resolved` package ships `/usr/sbin/resolvconf` as a symlink to
+> `resolvectl`. If `resolv.conf` carries a `resolvconf` marker — **including Tailscale's own**
+> `.../s/resolvconf-overwrite` header — `resolvOwner()` returns `resolvconf`, `resolvconfStyle()`
+> classifies the shim as `openresolv`, and the openresolv manager calls `resolvconf -a tailscale`,
+> which the shim rejects (`Failed to resolve interface "tailscale"`). `homelab_tailscale_health`
+> drops to `0` and it **recurs on every boot** for hosts in `direct` mode. **Fixed 2026-10-13:**
+> `ybytu` now runs the same stub topology as the rest of the fleet (`/etc/resolv.conf` →
+> `stub-resolv.conf`), so `resolvOwner()` returns `systemd-resolved` and the regression cannot
+> recur — the `10-resolvconf-misdetect.conf` workaround was never installed and is no longer
+> needed. See [`../servers/ybytu.md`](../servers/ybytu.md) and
+> [`../guides/dns-consistency-map.md`](../guides/dns-consistency-map.md) §4.1.
+
 ## Public Funnels & Tunnels
 
 Tailscale Funnels expose designated local ports publicly via TLS without requiring inbound router port forwarding.
@@ -332,10 +403,17 @@ sudo ss -ulpn | grep 40000
 ```
 
 ### ACL Capability Grant (`policy.hujson`)
+
+The `src` must include **both** the members **and** the tagged nodes. Tagging removes a device from
+`autogroup:member` (a device has a user identity *or* a tag, never both — see the *Tagging* section),
+so an `autogroup:member`-only `src` **silently dropped the whole tagged fleet off the relay**.
+`autogroup:tagged` is the documented complement of `autogroup:member`. The `dst` stays pinned to the
+two relay nodes.
+
 ```jsonc
 "grants": [
   {
-    "src": ["autogroup:member"],
+    "src": ["autogroup:member", "autogroup:tagged"],
     "dst": ["100.115.253.109", "100.124.146.77"],
     "app": {
       "tailscale.com/cap/relay": []
@@ -343,6 +421,17 @@ sudo ss -ulpn | grep 40000
   }
 ]
 ```
+
+> ⚠️ **Regression fixed 2026-10-13 (PR [#10](https://github.com/ceduardorodrig/MNEMOCINE-ACL/pull/10)).**
+> With `src: ["autogroup:member"]` only, `ybyra` (`tag:server`, `tag:edge`) lost the relay and rode
+> DERP (`relay "sao"`). The capability is **application-level** (`cap/relay`): it is delivered as a
+> `PacketFilter` **`Caps`** entry (`tailscale.com/cap/relay-target`), **not** as an `ip:port` rule —
+> which is why a `tests` assertion **cannot pin it** (tests only check network `accept`/`deny`; a
+> test `src` *may* be a tag, but the relay has no `ip` to assert). It is therefore verified **live**.
+> After the fix: `tailscale status` → `ybyra … active; peer-relay 64.181.168.251:40000:vni:1219`, and
+> `tailscale ping ybyra` → `via peer-relay(64.181.168.251:40000:vni:1219)` (was `DERP(sao)`).
+> `64.181.168.251` is **ybytu**'s public endpoint (`:40000`). Members keep the capability unchanged
+> (the `src` still lists `autogroup:member`; the CI tests pin the member path with a concrete e-mail).
 
 To verify active relay traffic:
 ```bash
