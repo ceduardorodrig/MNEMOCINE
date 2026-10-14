@@ -6,6 +6,24 @@ tags: [homelab, network, dns, tailscale]
 
 Domain name resolution architecture across the homelab ecosystem.
 
+> **Whole-fleet consistency audit (2026-10-13):** the per-host resolver topology, the
+> libc-vs-resolved filtering test, the unification **and its implementation** live in
+> [`../guides/dns-consistency-map.md`](../guides/dns-consistency-map.md). Since **2026-10-13**
+> all five reachable hosts run the **same** host-resolver topology: `systemd-resolved` in
+> **stub mode** + Tailscale on the **`systemd-resolved`** backend. `kururu` is still unmapped
+> (no administrative path — see the map §4.2).
+
+> **Invariant (2026-10-13) — this is an invariant, not a preference.** Every tailnet device MUST
+> keep resolving through the tailnet's own resolvers (`100.100.100.100` MagicDNS → Pi-hole on
+> `kavure` + AdGuard on `ybytu`, racing in parallel, both forwarding to the local `unbound` with
+> DNSSEC). A change that could cut that path — an **ACL**, **UFW**, a **resolver's bind**, or the
+> **AdGuard/Pi-hole containers** — is a **regression**: verify it live and keep the ACL `tests`
+> pinning `100.124.146.77:53` and `100.115.253.109:53` (grant **8**; evidence in
+> [`../guides/acl-lockout-audit.md`](../guides/acl-lockout-audit.md) §4.1/§5b). The whole-fleet map
+> is [`../guides/dns-consistency-map.md`](../guides/dns-consistency-map.md); the rule is also
+> written for agents in
+> [`../../governance/multi-agent-workflow.md`](../../governance/multi-agent-workflow.md).
+
 ## Overview
 
 Two DNS filtering servers serve the entire tailnet via Tailscale:
@@ -95,6 +113,13 @@ Since **2026-10-08**, egress from kavure is **fully local recursive** (native `u
 > The previous anonymized chain (Anonymized DNSCrypt routing through US-East CryptoStorm relays) introduced **353 ms cold latency** per query due to transatlantic round-trips with **no South American relay nodes available**, severely degrading interactive browsing responsiveness.  
 > Chosen design: **fluent browsing latency prioritized over absolute anonymity**. Unbound eliminates all commercial upstream resolvers (self-hosted recursion with native DNSSEC validation) while accepting generic authoritative lookups visible to the ISP. Detailed benchmark data and image comparisons: [`services/unbound.md`](../services/unbound.md).
 
+> **Fleet parity (2026-10-13):** the *Hosts (systemd-resolved)* row above is now true for **every**
+> reachable host. `ybyra` previously had an **empty** `[Resolve]` (no `DNS=`, no `DNSOverTLS=`) and
+> resolved only via `tailscale0` + Oracle metadata DNS; the canonical fallback was added. `ybytu`
+> was moved off its parallel `direct` topology (AdGuard on `0.0.0.0:53`) onto the fleet standard
+> (`systemd-resolved` stub + tailnet backend) — full evidence in
+> [`../guides/dns-consistency-map.md`](../guides/dns-consistency-map.md) §4.1.
+
 ### Resilience & Failover Proofs (Re-verified 2026-10-08)
 
 | Simulated Failure Scenario | System Behavior & Measured Result |
@@ -144,25 +169,32 @@ Since **2026-10-08**, egress from kavure is **fully local recursive** (native `u
 | Component | Configuration |
 |---|---|
 | Server Software | **AdGuard Home** (Docker container `adguardhome`) |
-| Service Ports | Port `53` (DNS) · Admin console `http://ybytu.chimaera-heptatonic.ts.net:3000` |
+| Service Ports | DNS `53` — **published on the tailnet IP (`100.115.253.109:53`) + loopback (`127.0.0.1:53`) only** since 2026-10-13 (was `0.0.0.0:53`, which blocked the stub); Admin console `http://ybytu.chimaera-heptatonic.ts.net:3000` |
 | Upstream Target | `tcp://100.124.146.77:5053` → **kavure recursive unbound endpoint** · DoT fallback `tls://9.9.9.9` / `tls://1.1.1.1` |
 | Operational Role | **Parallel peer resolver & automatic failover target** for Pi-hole and direct client endpoints |
+| Host Resolver | **`systemd-resolved` stub** (`/etc/resolv.conf` → `stub-resolv.conf`, `127.0.0.53`) + Tailscale **`systemd-resolved`** backend; global fallback `9.9.9.9`/`1.1.1.1` with `DNSOverTLS=opportunistic` |
 | Memory Tuning | Memory limit 954 MB RAM — querylog set to `7d` retention with `size_memory: 200` since 2026-10-06 (preventing past 4 GB OOM issues) |
 
 ### Kuaray
 | Component | Configuration |
 |---|---|
-| Resolver | Tailscale MagicDNS (`100.100.100.100`) |
+| Resolver | **`systemd-resolved` stub** (`/etc/resolv.conf` → `stub-resolv.conf`) + Tailscale **`systemd-resolved`** backend (`100.100.100.100`, `~.`); global fallback `9.9.9.9`/`1.1.1.1` (`DNSOverTLS=opportunistic`) |
 | Local DNS Server | **None** — Pi-hole was historically hosted on this node and migrated to kavure on 2026-08-09 |
 
 ### Ybyra
 | Component | Configuration |
 |---|---|
-| Resolver | Oracle Metadata DNS (`169.254.169.254`) + Tailscale MagicDNS |
+| Resolver | **`systemd-resolved` stub** (`/etc/resolv.conf` → `stub-resolv.conf`) + Tailscale **`systemd-resolved`** backend (`100.100.100.100`, `~.`); Oracle Metadata DNS (`169.254.169.254`, domain `vcn…oraclevcn.com`) |
+| Global Fallback | `9.9.9.9` / `1.1.1.1` with `DNSOverTLS=opportunistic` — **added 2026-10-13** (the `[Resolve]` section was empty) |
 | Local DNS Server | None |
 
 > **MagicDNS Route Fix (2026-09-21):**  
 > `tailscale set --accept-dns=true` was previously defaulting to `CorpDNS: false` (preventing MagicDNS injection into systemd-resolved, causing `getent` lookups to fail despite working `dig @100.100.100.100` tests). After enabling CorpDNS: `resolvectl status tailscale0` reports `Current Scopes: DNS` with `DNS Domain: chimaera-heptatonic.ts.net`, restoring local hostname resolution.
+
+### Kururu
+| Component | Configuration |
+|---|---|
+| Resolver | **Unmapped** — L3-reachable (`tailscale ping` OK) but **no administrative path** from the audit session (no Tailscale SSH; Dropbear rejects the passphrase-protected audit key). It is **Alpine/musl with no systemd**, so the stub recipe does **not** apply verbatim; when reachable, the portable target is `CorpDNS=true` + a non-trampled `/etc/resolv.conf`. See [`../guides/dns-consistency-map.md`](../guides/dns-consistency-map.md) §4.2 |
 
 ## Domain Namespace Routing
 

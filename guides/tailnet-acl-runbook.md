@@ -116,7 +116,7 @@ can break: allow-all is a superset of everything below.
         "tcp:80", "tcp:443", "tcp:3000", "tcp:3001", "tcp:3002", "tcp:3003",
         "tcp:4533", "tcp:5053", "tcp:5678", "tcp:8000", "tcp:8080", "tcp:8082",
         "tcp:8083", "tcp:8123", "tcp:8188", "tcp:8384", "tcp:8444", "tcp:8686",
-        "tcp:8766", "tcp:9090", "tcp:9091", "tcp:9093", "tcp:9095", "tcp:9096",
+        "tcp:9090", "tcp:9091", "tcp:9093", "tcp:9095", "tcp:9096",
         "tcp:9097", "tcp:9696", "tcp:18554", "tcp:18555", "tcp:25565", "tcp:61208",
         "udp:53", "udp:25565",
       ],
@@ -254,6 +254,17 @@ Steps:
 
 > **Before testing, confirm the apply finished** (see Phase 2's operational lesson) — a test run
 > against a not-yet-deployed policy reads as a false failure.
+
+> **Post-Phase-3 regression — the peer relay lost its tagged sources (2026-10-13, PR
+> [#10](https://github.com/ceduardorodrig/MNEMOCINE-ACL/pull/10)).** The audit that followed Phase 3
+> found a **third casualty of tagging** that Phase 3 did not cover: the **peer relay** grant
+> (`tailscale.com/cap/relay`) still had `src: ["autogroup:member"]`, and tagging had removed the infra
+> devices from that autogroup — so `ybyra` (and the whole tagged fleet) **silently fell back to DERP**
+> (`tailscale status` → `relay "sao"`). Fix: `src: ["autogroup:member", "autogroup:tagged"]` (`dst`
+> unchanged). `autogroup:tagged` is the documented complement of `autogroup:member`. Note the
+> capability is **application-level**: it cannot be pinned by a `tests` assertion (tests only check
+> network `accept`/`deny`), so it is verified **live** (`tailscale status` → `peer-relay`). See
+> [`../network/tailscale.md`](../network/tailscale.md) → *Peer Relays*.
 
 ## 7. Verification
 

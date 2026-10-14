@@ -1,16 +1,6 @@
-# sops — regras de criptografia (chave age)
+# sops — regras de criptografia (chaves age)
 # Decriptar: sops --decrypt <arquivo>   (usa a chave privada em ~/.config/sops/age/keys.txt)
 # Editar:    sops <arquivo>             (abre editor + re-encripta)
-#
-# ⚠️ ESPELHO CONGELADO — NÃO USE ESTE ARQUIVO, NÃO O EDITE AQUI.
-#    A FONE DA VERDADE é /mnt/NVME_PCI/agentic-ai/mnemocine/.sops.yaml (no vault,
-#    sincronizado por Syncthing). Este repositório recebe só `*.md` do auto-sync
-#    (`docs(homelab): auto-sync documentation updates`), portanto este `.sops.yaml`
-#    NUNCA é atualizado sozinho — ele ficou congelado desde o "initial public release".
-#    Ele estava DEFASADO (um único recipient) e faria qualquer `sops --encrypt` rodado
-#    daqui re-encriptar o store só para a chave do psicopompo, DERRUBANDO o segundo
-#    recipient (kavure) em silêncio — exatamente a rede de segurança do plano de
-#    recuperação. Corrigido à mão em 2026-10-13 (HB-072).
 #
 # DOIS recipients age desde 2026-10-13 (plano de recuperação — Rota A):
 #   1. psicopompo  age1fgqzpez…  — chave primária (host que cria/re-encripta o store).
@@ -21,7 +11,7 @@
 #
 # NUNCA passe `--age` na linha de comando: isso IGNORA este arquivo e substituiria os
 # recipients por um só, derrubando o kavure. Deixe o .sops.yaml dirigir (sops detecta-o
-# pelo CWD; rode o re-encrypt de dentro de mnemocine/, no VAULT).
+# pelo CWD; rode o re-encrypt de dentro de mnemocine/).
 creation_rules:
   - path_regex: \.env$
     encrypted_regex: "^(.*)$"

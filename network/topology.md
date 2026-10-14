@@ -1,6 +1,5 @@
 ---
 tags: [homelab, network, tailscale, docker, storage, env]
-pending: [HB-002]
 ---
 
 # Network Topology
@@ -87,6 +86,7 @@ Internet → ISP Router (192.168.3.1) ⇄ IT-BLUE LE-4203 Switch ⇄ { psicopomp
 | Metric | Measured Value |
 |---|---|
 | psicopompo `eno1` Negotiation | **1000 Mb/s, Full Duplex** |
+| psicopompo `eno1` Ring Buffer | **4096 RX / 4096 TX** (scaled from factory 256; persisted in NM) |
 | kavure `enp1s0` Negotiation | **1000 Mb/s, Full Duplex** |
 | LAN Ping Latency (`ping 192.168.3.41`) | **0.17 – 0.28 ms** |
 | Raw LAN Upload Throughput (1 GiB test payload) | **111 MiB/s ≈ 912 Mbps** |

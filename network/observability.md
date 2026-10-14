@@ -108,6 +108,12 @@ Read the failing probe; the segment that fails points at the culprit:
   (`derp.Recv ... connection reset by peer`, ~13 s) — a **tailnet** fault, not LAN/WAN.
 - Router syslog proved the **WAN session never dropped** in those windows → the losses were
   **degradation**, not a full outage.
+- **2026-10-12/13** — `homelab_tailscale_health=0` on `ybytu` and `kuaray`. Root cause: the
+  Tailscale Linux DNS manager misdetection (upstream
+  [`#19062`](https://github.com/tailscale/tailscale/issues/19062)) — the `resolvectl` `resolvconf`
+  shim is classified as `openresolv`, and Tailscale's own `resolvconf-overwrite` marker makes it
+  recur every boot. Detail: [`../servers/ybytu.md`](../servers/ybytu.md),
+  [`../servers/kuaray.md`](../servers/kuaray.md), [`tailscale.md`](tailscale.md).
 
 ## See Also
 

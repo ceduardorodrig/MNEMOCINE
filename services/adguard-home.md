@@ -7,7 +7,7 @@ tags: [homelab, service, adguard, dns]
 DNS filtering server blocking advertisements, tracking domains, and telemetry telemetry — **containerized on ybytu**.
 
 **Host Node:** ybytu  
-**DNS Port:** `53` (TCP/UDP, bound to `0.0.0.0` within Docker)  
+**DNS Port:** `53` (TCP/UDP) — published on the **tailnet IP (`100.115.253.109:53`) + loopback (`127.0.0.1:53`)** since 2026-10-13; previously `0.0.0.0:53`, which occupied `127.0.0.53` and implicitly disabled the `systemd-resolved` stub (HB-013)  
 **Admin Port:** `3000`  
 **Web Console:** `http://ybytu.chimaera-heptatonic.ts.net:3000`  
 
@@ -26,6 +26,13 @@ Runs **exclusively as a Docker container**. There is no bare-metal host daemon:
 
 Serves in **parallel** alongside [`Pi-hole`](pihole.md) (architecture detailed in [`network/dns.md`](../network/dns.md)):
 Tailscale MagicDNS forwards incoming queries to both resolvers **concurrently**, consuming whichever response arrives first. AdGuard is an **active resolving peer, not merely a passive failover target**: empirical measurements show AdGuard wins resolution races whenever it holds a cached record that Pi-hole misses.
+
+> **Bind change (2026-10-13).** The container publishes DNS on the **tailnet IP + loopback only**
+> (see *DNS Port* above). The race reaches AdGuard at `100.115.253.109:53` (unchanged); the change
+> simply stops the host-level `0.0.0.0:53` publish, freeing `127.0.0.53` so `systemd-resolved`'s
+> stub listener can run (the HB-013 root fix). The in-container `dns.bind_hosts` stays `0.0.0.0`
+> because `docker-proxy` forwards host `IP:53` → container `172.22.0.2:53`. No consumer used the
+> old non-tailnet path (query log: only the docker-proxy hop, the tailnet IP and loopback).
 
 | Metric | Pi-hole (kavure) | AdGuard (ybytu) |
 |---|---|---|

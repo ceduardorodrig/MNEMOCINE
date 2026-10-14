@@ -1,6 +1,6 @@
 ---
 tags: [homelab, service, homepage, monitoring]
-pending: []
+pending: [HB-069]
 ---
 
 # Homepage
@@ -25,6 +25,15 @@ Central homelab dashboard — aggregates links, live metrics, and real-time heal
 
 Homepage utilizes YAML files located in `/app/config/` (host: `/home/ubuntu/homelab/homepage/config/`).
 
+> ⚠️ **Governance gap (13/10/2026) — the config has no repository copy.** `services.yaml`,
+> `docker.yaml`, `settings.yaml`, `bookmarks.yaml` and `widgets.yaml` live **only on ybytu** under
+> `/home/ubuntu/homelab/homepage/`: there is **no** copy in `MNEMOCINE-OPS`, `sumaenimahub` or
+> `/mnt/NVME_PCI/homelab`, and the compose is **not** mirrored by `config-backup` to the NAS. Every
+> backup is the local `services.yaml.bak-YYYYMMDD-<slug>` the operator takes before editing — the vault
+> then documents the change, but the machine-readable source is single-homed. The house rule
+> (`mnemocine/AGENTS.md` *Config-as-Code*) expects a versioned source; a change here is applied on the
+> host and then **documented** in this note. Mitigate it as tracked in **[HB-069](../backlog.md)**.
+
 Configuration files:
 - `docker.yaml` — Connected Docker daemon instances (automatic up/down container status)
 - `services.yaml` — Service definitions grouped by category
@@ -41,12 +50,32 @@ Homepage provides **two** distinct status indicators, and homelab governance enf
 | `server:` + `container:` | **Docker chip** — "healthy"/"unhealthy" (container healthcheck state) | **Every containerized service** on a host configured in `docker.yaml` |
 | `siteMonitor:` | **Latency in ms** (green/red) | **Non-containerized services** (native systemd) or **external/Swarm/Funnel** endpoints |
 
-- **Current state:** 60 services with Docker chips, 12 with `siteMonitor`, **0 with duplicate chips** (13/10/2026; the Project Zomboid Docker chip was removed — see changelog).
-- Designated for `siteMonitor` (due to lacking a stable, persistent container name): Sumænimá Portal, Sumænimá API/Backup/Umami (**Swarm** services — container names change per task recreation), Minecraft and Valheim (native game protocols), Punktfunk/Syncthing-Psicopompo (**bare-metal systemd**), **hl-infer** (native systemd, 12/10), **Project Zomboid** (native game protocol; **awaiting a `zomboid-health` endpoint** — 13/10), and **Wake-on-LAN** relays (`Power on Kavure/Psicopompo`).
+- **Current state:** 60 services with Docker chips, 14 with `siteMonitor`, **0 with duplicate chips** (13/10/2026, when the **Ybytu Syncthing** `siteMonitor` was added — the Project Zomboid Docker chip was removed and replaced by the `zomboid-health` `siteMonitor` — see changelog).
+- Designated for `siteMonitor` (due to lacking a stable, persistent container name): Sumænimá Portal, Sumænimá API/Backup/Umami (**Swarm** services — container names change per task recreation), Minecraft, Valheim and Project Zomboid (native game protocols), Punktfunk/Syncthing-Psicopompo (**bare-metal systemd**), **hl-infer** (native systemd, 12/10), and **Wake-on-LAN** relays (`Power on Kavure/Psicopompo`).
 
 > The Docker status chip reflects the container `healthcheck` — present on **all** production containers since 07/10 (see [`guides/docker-healthchecks.md`](../guides/docker-healthchecks.md)). This is the enforced default: it displays true internal operational health rather than mere port responsiveness.
 
 > ⚠️ **Validation of `services.yaml` (07/10/2026):** PyYAML **does not** flag **duplicate mapping keys** (silently preserving the last occurrence) — a standard `yaml.safe_load` passed while Homepage crashed with `YAMLException: duplicated mapping key`. **Always** validate with a strict duplicate key checker (or `yamllint`) before recreating the container.
+
+### Tile Descriptions (Convention — 13/10/2026)
+
+Every tile carries a **short, consistent** `description` — long text is truncated on the tile, so it adds
+noise without adding information. The rule:
+
+> **`description: <What it is> · <Host>`** — one short functional phrase, then the node it runs on.
+> **Sentence case**, ASCII, **no parentheticals and no "how"** (`Docker` / `native (systemd)` / `Swarm`).
+> Target length **≤ ~40 chars**. Ports, container names and the deployment mechanism live in the
+> per-service docs under `mnemocine/services/`, **not** on the tile.
+
+- **Applied (13/10/2026):** all **73** tiles normalized; **69** descriptions rewritten. The 4 already
+  compliant were `PaperMC · Kavure`, `Dashboards · Kavure`, `Headless CMS · Kuaray` and `Frontend SSR · Kuaray`.
+  The longest description dropped from **82 → 34** chars (`GPU inference gateway · Psicopompo`).
+- The "how" moved off the tile (kept in the per-service docs), e.g.
+  `hl-infer`: `GPU inference gateway (VRAM leases) · Psicopompo · native (systemd)` → `GPU inference gateway · Psicopompo`;
+  `ComfyUI`: `Diffusion image generation — on demand (GPU lease) · Psicopompo` → `Image generation · Psicopompo`.
+- The former `Docker · <host>` placeholder on runtime-infra tiles was replaced by the tile's actual
+  function: `Auto-update` (Watchtower), `Auto-heal` (Autoheal), `Host metrics` (Node Exporter),
+  `Log shipping` (Promtail), `System monitor` (Glances).
 
 ### Docker Instances (`docker.yaml`)
 
@@ -60,16 +89,21 @@ Homepage provides **two** distinct status indicators, and homelab governance enf
 
 Each service in `services.yaml` with `server:` + `container:` displays live status automatically. Containers in `Exited` states (e.g. on kuaray) appear offline without manual intervention.
 
-### Groups in `services.yaml` (12/10/2026)
+### Groups in `services.yaml` (13/10/2026)
 
-Active ordering (cloud infrastructure placed last); **7 groups / 73 tiles**:
-1. **Psicopompo (Workstation & NAS)** — Power on Kavure (WoL), Syncthing, Punktfunk, **hl-infer (12/10)**, **StênioREC (12/10)**, **ComfyUI (12/10)**, Glances + runtime infra (Watchtower, Autoheal, Node Exporter, Promtail)
-2. **Sumænimá (ΣÆ Produção)** — Portal, API, Backup, Umami Analytics, Docker Registry
+Active ordering (cloud infrastructure placed last); **7 groups / 74 tiles**:
+1. **Psicopompo (Workstation & NAS)** — Power on Kavure (WoL), Syncthing, Punktfunk, **hl-infer (12/10)**, **ComfyUI (12/10)**, Glances + runtime infra (Watchtower, Autoheal, Node Exporter, Promtail)
+2. **Sumænimá (ΣÆ Produção)** — Portal, API, Backup, Umami Analytics, **StênioREC (13/10)**, Docker Registry
 3. **Kavure (Serviços & Games)** — Power on Psicopompo (WoL), Project Zomboid, Zomboid Control Panel, Crafty Controller, Minecraft Server, Valheim Server, AioStreams, Comet, n8n Homelab, Grafana, Prometheus, **Loki (12/10)**, **Alertmanager (12/10)**, SearXNG, Pi-hole, Unbound, Home Assistant, Navidrome, Calibre Web + runtime infra
 4. **Miracena (Kuaray)** — Portal Miracena, WordPress, Directus, Nuxt 3, n8n, NPM Admin
 5. **Kuaray (Mídia & Staging)** — Syncthing, Transmission, Prowlarr, Lidarr, slskd, FlareSolverr, Soularr, Vert + runtime infra
 6. **Ybytu (Cloud Borda)** — AdGuard Home, Glances, Uptime Kuma, Changedetection, Ntfy + runtime infra
 7. **Ybyra (Cloud Borda)** — Glances + runtime infra
+
+> **13/10/2026 — `StênioREC` moved back to the Sumænimá column:** the tile had been moved to **Psicopompo**
+> on 12/10, but StênioREC is a **Sumænimá product GPU worker**, so it belongs under **Sumænimá (ΣÆ Produção)**.
+> Its `server: psicopompo` + `container: steniorec` chip is **truthful and unchanged** (verified live: the
+> standalone `steniorec` container, image `sumaenima-server:cuda`, up/healthy on psicopompo). Only the column moved.
 
 > **12/10/2026 — Groups corrected against the live config:** the list above was stale (it documented **5 groups** and placed the Miracena stack — WordPress/Directus/NPM/n8n — under **Kavure**, and a non-existent `Sumænimá (Primary Edge)` tile under Ybyra). The config actually has **7 groups**: the Miracena stack has its own group (**Miracena (Kuaray)**) and Ybyra carries only Glances + runtime infra. See the changelog entry below for the GPU/observability additions.
 
@@ -109,9 +143,8 @@ Active ordering (cloud infrastructure placed last); **7 groups / 73 tiles**:
 > `description: Fastify Core Swarm · Kavure`, but the API is **not Fastify** — `sae-core_api` is a
 > **Rust Axum** service (`sumaenima-server:cpu`, overlay-only on `sae-net:9090`). Verified against
 > [`services/steniobot.md`](steniobot.md) (`Rust Axum 0.8 backend`) and the deployed image.
-> The description in `homepage/config/services.yaml` on ybytu must be changed to
-> `Rust Axum Core Swarm · Kavure` at the next config edit (no host write was made here — this
-> vault is the record, the host is read-only to the doc pass). The `href`/`siteMonitor`
+> **Applied on the host (13/10/2026):** the tile now reads `description: REST/WS API · Kavure`
+> (normalized in the tile-standardization pass; see the convention above). The `href`/`siteMonitor`
 > (`https://sumaenima.chimaera-heptatonic.ts.net/api/health`) are correct and unchanged.
 
 > **13/10/2026 — `Project Zomboid` tile: invalid Docker chip removed (HB-038):** The tile carried
@@ -136,8 +169,34 @@ Active ordering (cloud infrastructure placed last); **7 groups / 73 tiles**:
 > Backup: `services.yaml.bak-20261013-zomboid`; strict duplicate-key check + Homepage `js-yaml` pass;
 > reloaded via `GET /api/revalidate` (`{"revalidated":true}`).
 
+> ⚠️ **Correction to the entry above (13/10/2026, same day):** the claim that the PZ dedicated server runs as a
+> "native child process of `zomboid-panel`" was **wrong**. Evidence: `zomboid-start` is `docker compose up -d`
+> (it starts the **`pz-server` container**), `zomboid-stop` is `docker compose down` (it removes it), and the
+> `zomboid-stop` log shows `Container pz-server Stopping/Removed` with the pre-stop RCON `save` answered at
+> **`127.0.0.1:27015`** — a host-published port that only the container owns. The `zomboid-panel` `isRemote:false`
+> flag is a **panel-side artifact**: the panel has no docker socket, does not start the container, and only
+> **RCONs** to `pz-server` over the shared `zomboid_default` network. The `pz-server` container exists **whenever
+> the game runs**; it was absent on 13/10 only because the game had been `docker compose down`'d on **26/08**.
+> See [`zomboid/project-zomboid.md`](zomboid/project-zomboid.md).
+
+> **13/10/2026 — Tile descriptions standardized + `StênioREC` back to the Sumænimá column + `Project Zomboid` gets a real chip (`zomboid-health`):**
+> **1. `StênioREC` group corrected** — moved back to the **Sumænimá (ΣÆ Produção)** column (verified live on
+> psicopompo: standalone container `steniorec`, `sumaenima-server:cuda`, up/healthy; `server`/`container` chip
+> target truthful and unchanged — only the column moved).
+> **2. All 73 tile descriptions normalized** to `<What it is> · <Host>` (see the convention above; 69 rewritten,
+> longest 82 → 34 chars).
+> **3. `Project Zomboid` now has a truthful chip.** A native Rust **`zomboid-health`** endpoint was deployed on
+> **kavure `:9098`** (mirroring `minecraft-status`: TCP probe of the game's RCON `27015` → `200 up` / `503 down`,
+> HEAD without body) and the tile uses **`siteMonitor: http://kavure:9098`** (no Docker chip). The game has been
+> **stopped since 26/08/2026**, so the chip correctly reports **down** today — the whole point is that it cannot
+> lie. Source: `MNEMOCINE-OPS/provisioning/zomboid-health/` + `provisioning/systemd/hl-zomboid-health.service`.
+> Backup: `services.yaml.bak-20261013-std`; strict duplicate-key check + Homepage `js-yaml` pass; reloaded via
+> `GET /api/revalidate` (`{"revalidated":true}`).
+
 
 > **09/10/2026 — Tile descriptions standardized to English (Tier A):** all `description:` values translated from PT-BR to EN (e.g. `Automação Homelab` → `Homelab Automation`, `Automação & Workflows` → `Automation & Workflows`, `Monitoramento Uptime` → `Uptime Monitoring`, `Servidor Push` → `Push Server`). Backup: `services.yaml.bak-20261009-en`; reloaded via `GET /api/revalidate`.
+
+> **13/10/2026 — `Syncthing · Ybytu` tile added (keeps the edge honest):** ybytu was **re-commissioned** as a Syncthing peer for one purpose — an off-site (datacenter) copy of the KeePass DB, so losing `psicopompo` does not lose the secret store — but it receives **only** `AlgoAqui.kdbx` (`.stignore` = `!/AlgoAqui.kdbx` + `*`; the unencrypted identity documents in that folder never reach the host; see [`syncthing.md`](syncthing.md)). Added to the **Ybytu (Cloud Borda)** group: `icon: syncthing`, `description: File sync · Ybytu`, `siteMonitor: http://127.0.0.1:8384` — loopback on purpose, because the container runs in `network_mode: host` and the probe reaches the local GUI (verified `200` from inside the container). **No `href`**, per Rule 7 as corrected above (the chip renders without one in the current image). **Tiles 73 → 74**, `siteMonitor` 13 → 14. Backup: `services.yaml.bak-20261013-syncthing-ybytu`; strict duplicate-key + Homepage `js-yaml` pass; verified in the served HTML (icon, description, `service-site-monitor` element) and via `GET /api/services`. Deployment notes recorded: **the `services.yaml` and the compose live only on ybytu** (`/home/ubuntu/homelab/homepage/`) — **not** in a repo and **not** mirrored to the NAS, which is a Config-as-Code gap (see the governance note below).
 
 ### Status Standard (CONVENTION — Enforced for all additions)
 
@@ -151,12 +210,12 @@ Active ordering (cloud infrastructure placed last); **7 groups / 73 tiles**:
 1. **HTTP → `siteMonitor`** (latency chip in ms). This is the preferred default.
 2. **Non-HTTP → Docker badge** (`server` + `container`). E.g.: Valheim Server (`valheim-server`).
    - **Game servers with custom binary protocols (e.g. Minecraft)** → To maintain a **compact chip + true in-game state**, deploy a **lightweight HTTP status endpoint** on the host and configure `siteMonitor: <url>`. On kavure: `minecraft-status` service (port `9095`, Minecraft SLP probe on `25565` → 200 up / 503 down). Avoid the `crafty-controller` badge (the manager stays up even when the server crashes) and avoid the `minecraft` widget (renders an oversized 3-field card outside UI conventions).
-   - **⚠️ The Docker chip must point at the container that actually runs the game.** A chip on the *manager* is a false-uptime signal (it stays up while the game is down). The **Project Zomboid** tile's `pz-server` chip was **removed (13/10)** — that container does not exist (the game runs as a native child of `zomboid-panel`); the tile awaits a `zomboid-health` endpoint + `siteMonitor` (see changelog).
+   - **⚠️ The Docker chip must point at the container that actually runs the game.** A chip on the *manager* is a false-uptime signal (it stays up while the game is down). The **Project Zomboid** tile's `pz-server` chip was **removed (13/10)** in favour of a **`siteMonitor`**: the game runs in the `pz-server` container, which is **removed** (`docker compose down`) whenever the game is stopped, so a chip would read "not found" rather than a red "down". The **`zomboid-health`** endpoint (`kavure:9098`, RCON `27015` probe) reports the true state — see changelog and [`zomboid/project-zomboid.md`](zomboid/project-zomboid.md).
 3. **⚠️ Avoid `customapi` widget** — Renders an oversized card panel rather than a compact status chip and fails easily on API schema changes. Only use when no standard alternative exists and visually validated.
 4. **Environment variables**: For credentials/tokens in gethomepage, define them in the config directory `.env` with the **`HOMEPAGE_VAR_` prefix** (e.g. `HOMEPAGE_VAR_CRAFTY_API_KEY=...`) and reference via `{{HOMEPAGE_VAR_CRAFTY_API_KEY}}`. Without the prefix, variables remain unset.
 5. **Swarm services** (sae-core/sae-edge): Badge mapped via service name + `swarm: true` on the `docker.yaml` instance (dockerproxy with `SERVICES=1`).
 6. **⚠️ Local services on Ybytu (same host as Homepage):** NEVER use the Tailscale IP (`100.115.253.109`) in `siteMonitor` for containers running in `network_mode: host` or lacking DNAT port forwarding. When Homepage ran in bridge mode, it could not reach the host's Tailscale IP (`EHOSTUNREACH` via iptables `icmp-host-prohibited`, throwing 500 errors). Monitor local ybytu containers via Docker Socket (`server: ybytu`, `container: <name>`), retaining the public/tailnet URL in `href` for browser navigation. **(Update 08/10/2026:** The bridge `EHOSTUNREACH` constraint was superseded: Homepage now runs in **`network_mode: host`** and internal probes reach both `127.0.0.1:9096` and `ybytu:9096` cleanly. Docker Socket monitoring remains the recommended default; MagicDNS `siteMonitor` references also function correctly.**)**
-7. **⚠️ `siteMonitor` requires an `href` to render:** Homepage **silently drops** `siteMonitor` if an entry lacks an `href` (verified 08/10/2026 in rendered HTML — the `service-site-monitor` element only appears when `href` is present). Every entry requiring a status chip must provide a valid `href`; if the service lacks a dedicated UI, point `href` to the health endpoint itself (e.g. *Unbound* tile: `href` and `siteMonitor` both target `http://kavure:9097`).
+7. **⚠️ `siteMonitor` and `href` — version-dependent, do not trust the old "silently dropped" rule.** On 08/10/2026 (Homepage v?) the chip was dropped without an `href`. **Re-verified 13/10/2026 on the running image `ghcr.io/gethomepage/homepage:latest` (Next.js 16.3.8, on ybytu): the `service-site-monitor` element DOES render with `siteMonitor` alone and no `href`** — proven in the served HTML for the new **Syncthing · Ybytu** tile. So an entry that lacks a UI may legitimately carry a `siteMonitor` with no `href`. Keep adding a valid `href` whenever one exists (browser navigation); do **not** invent a dead `href` just to make a chip appear.
 
 > **08/10/2026 — `href` Corrections:** 6 service links for **ybytu** had `http://127.0.0.1:PORT`, opening on the **client machine** rather than ybytu. Migrated to `http://ybytu:PORT` (MagicDNS hostname). Impacted: AdGuard admin (`:3000`), Uptime Kuma (`:3002`), ChangeDetection (`:8082`), Ntfy (`:8083`), and WoL relays (`:9096`). Backup: `services.yaml.bak-20261008-href`.  
 >  

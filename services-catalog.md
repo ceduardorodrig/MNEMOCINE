@@ -78,7 +78,7 @@ Dedicated services node and **Swarm manager** (`sae-core` + `sae-edge` standby).
 | comet | Usenet/torrent indexer addon | container | `100.124.146.77:8000` | metadata/indexing for streaming | aiostreams / Stremio | edu |
 | n8n | Homelab workflow automation engine | container | `100.124.146.77:5678` | self-hosted automation (distinct from Miracena n8n) | owner workflows | edu |
 | n8n-postgres | PostgreSQL for Homelab n8n | container | internal `5432` | n8n state | n8n | edu |
-| zomboid-panel | Project Zomboid web admin (**hosts `pz-server` as a child process**) | container | `100.124.146.77:3001` | manage the PZ dedicated server | owner / players | edu |
+| zomboid-panel | Project Zomboid web admin (RCON-only manager; the game runs in the separate `pz-server` container) | container | `100.124.146.77:3001` | manage the PZ dedicated server | owner / players | edu |
 | crafty-controller | Crafty Controller 4 (Minecraft manager; runs Dominium Fabric) | container | `100.124.146.77:8444`, `0.0.0.0:25565`, `24454/udp` | Minecraft server management | Minecraft players | edu |
 | valheim-server | Valheim dedicated server | container | `0.0.0.0:2456-2458/udp` | multiplayer Valheim | players | edu |
 | homeassistant | Home automation hub (host net) | container | `0.0.0.0:8123` | IoT orchestration + mDNS/SSDP discovery | owner automations | edu |
@@ -104,6 +104,7 @@ Dedicated services node and **Swarm manager** (`sae-core` + `sae-edge` standby).
 | unbound | Native recursive DNSSEC resolver | native (systemd) | `127.0.0.1` + `100.124.146.77:5053` | upstream resolver for Pi-hole + AdGuard | pihole (kavure); adguardhome (ybytu) | edu |
 | hl-unbound-status | Rust HTTP health endpoint for the Unbound tile | native (systemd) | `0.0.0.0:9097` | lets Homepage show native-unbound health | Homepage "Unbound" tile | edu |
 | hl-minecraft-status | Rust Minecraft SLP status probe | native (systemd) | `0.0.0.0:9095` | true in-game availability for the Minecraft tile | Homepage "Minecraft Server" tile | edu |
+| hl-zomboid-health | Rust Project Zomboid status probe (game RCON `27015`) | native (systemd) | `0.0.0.0:9098` | true game availability for the Zomboid tile | Homepage "Project Zomboid" tile | edu |
 | hl-wol-relay | Wake-on-LAN relay (wakes psicopompo) | native (systemd) | `127.0.0.1:9096` + `tailscale serve` | remote power-on of the peer | Homepage WoL / ybytu dispatcher | edu |
 | hl-nic-power-tuning | Disables NIC power saving (EEE off) at boot | native (systemd oneshot) | — | LAN stability mitigation (2026-10-10) — Realtek `enp1s0` (`ethtool --set-eee enp1s0 eee off`) | kavure LAN/tailnet links | edu |
 | scryfall-mirror | Scryfall bulk-data + art cache — **not a daemon**: the export lives on **psicopompo** (`/mnt/SSD_SATA/scryfall-mirror`); kavure only mounts it and drives the daily sync | `nfs mount` (+ `hl-scryfall-*` timers) | — (NFSv4 mount of psicopompo) | feeds Arandu TCG data offline | Arandu / arandu-sync | edu |
@@ -151,7 +152,7 @@ Cloud utility node (OCI Always Free): exit node, DNS failover, dashboard, notifi
 | service | what it does (1 line) | how | port(s) + bind | why it exists | who depends on it | owner |
 |---|---|---|---|---|---|---|
 | homepage | Central homelab dashboard (host net) | container | `0.0.0.0:3001` (nft → tailnet) | single pane of glass over every host | owner | edu |
-| adguardhome | Filtering DNS + admin console | container | `0.0.0.0:53`, `0.0.0.0:3000` | network-wide ad-blocking DNS | all DNS clients; Homepage tile | edu |
+| adguardhome | Filtering DNS + admin console | container | `100.115.253.109:53` + `127.0.0.1:53`, `0.0.0.0:3000` | network-wide ad-blocking DNS | all DNS clients; Homepage tile | edu |
 | uptime-kuma | Uptime monitoring + status pages (host net) | container | `0.0.0.0:3002` (nft → tailnet) | external HTTP/port probes + incident alerts | owner | edu |
 | changedetection | Web page change monitor | container (Compose) | `0.0.0.0:8082` | watch portals/notices/job boards | owner | edu |
 | ntfy | Self-hosted push notification gateway | container | `0.0.0.0:8083` | deliver systemd/backup/alert push to phones | Alertmanager (kavure); host webhooks | edu |
@@ -217,11 +218,12 @@ Grouping them here is deliberate: an untracked service is the one nobody notices
 
 | Tile | Points at | Reality |
 |---|---|---|
-| **Project Zomboid** (Kavure group) | `server: kavure` + `container: pz-server` | There is **no `pz-server` container**. The PZ dedicated server runs as a **child process of `zomboid-panel`** (no Docker socket mount), so the Docker chip can never resolve. The Zomboid Control Panel tile (`zomboid-panel`) is the correct target; the server's true liveness is not exposed as a container. |
+| **Project Zomboid** (Kavure group) | ~~`server: kavure` + `container: pz-server`~~ → `siteMonitor: http://kavure:9098` | **Resolved 2026-10-13.** The tile used a Docker chip on `pz-server`, which rendered "not found" because the game was stopped: `zomboid-stop` (`docker compose down`) **removes** the `pz-server` container. The game **does** run in that container when up (it publishes RCON `27015` + UDP `16261-16262`) — the earlier "child process of `zomboid-panel`" reading was wrong. The chip was replaced by a `siteMonitor` on the native **`zomboid-health`** endpoint (`kavure:9098`, RCON `27015` probe → 200/503). See [`services/zomboid-health.md`](services/zomboid-health.md). |
 
-> **Description drift (not a missing target):** the **"Sumænimá API"** tile is labelled
-> `Fastify Core Swarm · Kavure`, but `sae-core_api` is a **Rust Axum** service. Corrected in
-> [`services/homepage.md`](services/homepage.md) (2026-10-13).
+> **Description drift (resolved 2026-10-13):** the **"Sumænimá API"** tile read
+> `Fastify Core Swarm · Kavure`, but `sae-core_api` is a **Rust Axum** service. The host description was
+> normalized to `REST/WS API · Kavure` in the 13/10 tile-standardization pass (see
+> [`services/homepage.md`](services/homepage.md)).
 
 ## How to keep this current
 

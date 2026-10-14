@@ -85,9 +85,9 @@ pending: [HB-013]
 - Link verified at stable **100 Mb/s Full Duplex** on `192.168.3.200/24`. LAN latency dropped from ~22 ms (Wi-Fi) to 0.28 ms.
 - **EEE disabled (2026-10-10):** Energy-Efficient Ethernet was `enabled - inactive`; now forced `off` by `hl-nic-power-tuning.service` (systemd oneshot, `ethtool --set-eee enp7s0 eee off`, runs at boot) — removing the last NIC power-saving state as a possible source of intermittent link stalls. Context: [`network/topology.md`](../network/topology.md#lan-stability--nic--switch-investigation-2026-10-10).
 
-### Tailscale DNS health — HB-013 (2026-10-12)
+### Tailscale DNS health — HB-013 (2026-10-12, persistence confirmed 2026-10-13)
 
-Tailscale reported `resolvconf … Failed to resolve interface "tailscale": No such device`. Root cause: **`systemd-resolved` was installed but disabled**, so `tailscaled` fell back to the broken `resolvconf` path. **Fix:** `systemctl enable --now systemd-resolved` + `/etc/resolv.conf` → `/run/systemd/resolve/stub-resolv.conf` + restart `tailscaled`. Health cleared; MagicDNS ok. Detected by `homelab_tailscale_health` (see [`../network/observability.md`](../network/observability.md)). ⚠️ Verify it persists across reboot.
+Tailscale reported `resolvconf … Failed to resolve interface "tailscale": No such device`. Root cause: **`systemd-resolved` was installed but disabled**, so at boot `tailscaled` fell back to the broken `resolvconf` path (log: `dns: [rc=resolvconf resolvconf=openresolv ret=openresolv]`). **Fix (durable):** `systemctl enable --now systemd-resolved` + `/etc/resolv.conf` → `/run/systemd/resolve/stub-resolv.conf` (stub listener active) + restart `tailscaled`. The host now runs in **`systemd-resolved`** mode (`resolv.conf mode: stub`, `nameserver 127.0.0.53`), so the DNS manager is re-detected correctly on every boot. `ybytu` was brought onto the **same** stub topology on 2026-10-13 (its AdGuard no longer holds `0.0.0.0:53`) — see [`ybytu.md`](ybytu.md). Detected by `homelab_tailscale_health` (see [`../network/observability.md`](../network/observability.md)).
 
 ## See Also
 

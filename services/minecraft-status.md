@@ -7,7 +7,7 @@ tags: [homelab, service, crafty, gaming]
 **Native HTTP endpoint** reporting whether the Minecraft server process responds to Server List Ping (SLP). Provides the **Homepage** dashboard status chip (and HTTP monitors) with the *true state of the game server* — rather than container engine lifecycle state.
 
 **Server:** kavure  
-**Port:** `9095` (HTTP, `0.0.0.0`)  
+**Port:** `100.124.146.77:9095` (HTTP, kavure tailnet IP — re-bound from `0.0.0.0` on 2026-10-13, HB-047)  
 **Service:** `hl-minecraft-status.service` (systemd, native) · binary `/usr/local/bin/minecraft-status`  
 **Source:** `MNEMOCINE-OPS/provisioning/minecraft-status/` (Rust, zero dependencies)  
 
@@ -43,7 +43,7 @@ Solution: A minimal HTTP status endpoint + `siteMonitor` → compact status chip
 
 ```bash
 systemctl status hl-minecraft-status
-curl -s -w " [%{http_code}]" http://127.0.0.1:9095/    # up|down + 200|503
+curl -s -w " [%{http_code}]" http://100.124.146.77:9095/    # up|down + 200|503
 journalctl -u hl-minecraft-status -n 30 --no-pager
 ```
 

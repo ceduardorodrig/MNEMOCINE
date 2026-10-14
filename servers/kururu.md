@@ -1,5 +1,6 @@
 ---
 tags: [homelab, server, kururu]
+pending: [HB-060]
 ---
 
 # Kururu — Dedicated Headless Node
@@ -59,6 +60,20 @@ tailscale ssh root@kururu
 `kururu` is an **untagged** tailnet device (verified live 2026-10-13). It stays untagged because it is a **probe / Wake-on-LAN node — not a service host**.
 
 > **If you host a service on `kururu`** — a Docker service, any listener, a subnet route, or a Funnel that other tailnet devices must reach — **tag it `tag:server`** (plus any role tag it takes on) **in the same change that introduces the service.** Until then, leave it untagged. The general rule and the tag procedure are in [`guides/tailnet-tagging.md`](../guides/tailnet-tagging.md) §1 and §6.
+
+## DNS (unmapped, 2026-10-13)
+
+`kururu` is **L3-reachable** (`tailscale ping` → `pong … 4 ms`; Dropbear listening on
+`192.168.3.55:22`) but the whole-fleet DNS audit has **no administrative path** to it: it runs
+**no Tailscale SSH server** (unlike the other nodes) and its Dropbear rejects the audit key (the
+only local key is **passphrase-protected** and no agent is loaded). Its resolver topology is
+therefore **unmapped** (tracked as **HB-060**).
+
+> **When it becomes reachable:** the fleet's `systemd-resolved` **stub** recipe does **not** apply
+> verbatim — `kururu` is **Alpine/musl with no systemd**. The portable target is `CorpDNS=true`
+> (Tailscale DNS enabled) with `/etc/resolv.conf` **not** a Tailscale-trampled static file, so the
+> libc path and MagicDNS both resolve. Rationale:
+> [`../guides/dns-consistency-map.md`](../guides/dns-consistency-map.md) §4.2.
 
 ## See Also
 

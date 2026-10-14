@@ -1,6 +1,6 @@
 ---
 tags: [homelab, governance, stenio, tooling, rust, tutorial]
-pending: [HB-019]
+pending: []
 ---
 
 # Operational Tooling — Single Source of Truth in Repository
@@ -130,7 +130,7 @@ runs `/usr/local/bin/minecraft-status`; `hl-wol-relay.service` runs `/usr/local/
 Renaming a unit is therefore **runtime-transparent** to the executable and to consumers that
 reach it by port (Homepage `siteMonitor`, Prometheus targets).
 
-> **Static enforcement** is being added by `HOMELAB-NAMING-SERVICE` (HB-020); the dynamic
+> **Static enforcement** is shipped by `HOMELAB-NAMING-SERVICE` (2026-10-13); the dynamic
 > counterpart is `stenio --reconcile` (the catalogue in [`../services-catalog.md`](../services-catalog.md)
 > is the declaration it checks reality against).
 

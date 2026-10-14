@@ -125,6 +125,16 @@ Documented Tailscale behaviour, confirmed on this tailnet:
 > matches `autogroup:member`). Tighten the target to `tag:edge` only once the last untagged
 > Funnel is gone.
 
+> **Trap 7 — tagging can silently drop an `app`-capability grant (the peer relay).** Any grant whose
+> `src` is `autogroup:member` stops matching a device the moment it is tagged. That is how `ybyra`
+> (and the whole tagged fleet) lost the **peer relay** (`tailscale.com/cap/relay`) and fell back to
+> DERP on 2026-10-13 — the grant still said `src: ["autogroup:member"]`. Whenever you tag a device,
+> re-check **every** grant it depends on whose `src` is `autogroup:member`; the fix for the relay was
+> `src: ["autogroup:member", "autogroup:tagged"]` (PR
+> [#10](https://github.com/ceduardorodrig/MNEMOCINE-ACL/pull/10)). Unlike an `ip` grant, an **`app`
+> capability is not covered by a `tests` assertion** — verify it live (`tailscale status` →
+> `peer-relay`). See [`../network/tailscale.md`](../network/tailscale.md) → *Peer Relays*.
+
 ## 5. Key expiry — verified state (2026-10-13)
 
 ```bash
