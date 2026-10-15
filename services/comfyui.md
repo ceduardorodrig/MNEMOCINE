@@ -27,8 +27,8 @@ It is a **registered consumer** ([`network/gpu-consumers.txt`](../network/gpu-co
 > 1. A **caller** must lease (`kind: image_gen`) before triggering a generation — and pass the
 >    **`process: "python"`** hint, because the driver reports ComfyUI's process as `python`, not as
 >    `comfyui`.
-> 2. Interactive use by a human is a policy question still open in HB-036 (an `other`-kind lease,
->    which ignores the batch windows, is the likely answer).
+> 2. **Interactive use by a human is ALLOWED outside the batch windows** — decided by the owner
+> 2026-10-14 via an `other`-kind lease, verified live at 11:16 (admitted, released, ledger clean).
 
 The recipe (verified live):
 
@@ -144,3 +144,26 @@ less would over-commit the device. Batch windows and the owner reserve still app
 - `COMFYUI_EXTRA_ARGS=--disable-partner-nodes` — no outbound paid Comfy API calls, no model auto-downloads.
 - The UI is reachable over the tailnet only, and interactive use **outside the batch windows** would
   need an `other`-kind lease (lowest priority, window-free) — a policy decision (HB-036).
+
+---
+
+## Status 2026-10-14 (HB-036 re-scoped)
+
+**(a) Weights + on-demand runtime — ✅ verified.** `sd_xl_base_1.0.safetensors` (6.9 GB) is in
+`models/checkpoints/` since 2026-10-13 15:03, and the container runs on demand
+(`restart: unless-stopped`) without a permanent VRAM claim — the ledger stays honest when it is idle.
+
+**(b) Interactive use — ✅ DECIDED by the owner on 2026-10-14: an `other`-kind lease is allowed, outside
+the batch windows.** The gateway serves `other` whenever the measured VRAM allows (it ignores the
+batch windows), so a human may work at any hour. Verified live at **11:16** — outside every batch
+window (06–07, 12–13, 18–19, 00–01) — with `kind: other`, `required_bytes: 6 GiB`,
+`process: "python"`: state **`admitted`** (`job-000001`), then released, and the ledger returned to
+`{"unmanaged":0,"leases":[]}` (the ComfyUI process back to 88 MB idle). Rationale for the record:
+ComfyUI is a *tool for a person*, not only a pipeline stage, and the VRAM ledger — not a fixed
+schedule — is what actually protects the GPU: the gateway admits a job only when the measured free
+VRAM fits it. The cost, accepted knowingly: a human lease can delay the autopilot's `image_gen`
+jobs, since `other` has the lowest priority but is still admitted when VRAM fits.
+
+**(c) ComfyUI as an image source for the autopilot — ⚠️ open, and adjacent to HB-032/HB-037.** Wiring
+generated imagery into the publishing path is the same integration surface as the per-persona
+`visual` block, so the two should land together rather than as two divergent designs.

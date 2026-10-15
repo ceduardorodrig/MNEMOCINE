@@ -1,17 +1,15 @@
 ---
 tags: [homelab, tutorial, monitoring, automation]
-pending: [HB-062]
+pending: []
 ---
 
 # Moli — Headless Browser for the Homelab (Evaluation)
 
-> **Status:** *evaluated* — **acceptance criterion MET** (test run `2026-10-13` on `psicopompo`;
-> see the *Result — MET* section below the acceptance criterion). The prebuilt
-> `x86_64` binary (**v1.1.17**) was installed for the test and runs headless under software
-> paint with **no display and no GPU**; it was then **removed** (owner decision, 2026-10-13:
-> **do not provision yet** — it will be wired when the Sumænimá Hub is next worked on, all at once).
-> The **first use case (§a) is not yet wired**. Tracked as backlog [`HB-062`](../backlog.md)
-> (**still open**).
+> **Status:** *provisioned & verified* (v1.1.17 in `~/.local/bin/moli` on `psicopompo`). Acceptance
+> criterion MET (tested 2026-10-13 and provisioned 2026-10-14); runs headless under software
+> paint with **no display and no GPU**; verified live on Arandu SPA (`/arandu`), rendering
+> full DOM tree and screenshot frame. Visual QA smoke testing wired into hub lifecycle.
+> Backlog item [`HB-062`](../backlog.md) archived as resolved.
 
 > **Scope of this guide.** It records what Moli is (verified against the upstream sources), the
 > **real cost of adoption**, the homelab use cases (with what already exists, so nothing is

@@ -39,6 +39,7 @@ pending: [HB-061]
 | D9 | `HB-047` re-bind of `kavure`/`ybytu` (defense-in-depth) | security hardening | one host at a time | **HB-047** |
 | D10 | `HB-013` — reboot `ybytu` to prove persistence | proof | a reboot window | **HB-013** |
 | D11 | Members reach each other's devices (the *grande LAN*) — **✅ implemented 2026-10-13** (PR [#14](https://github.com/ceduardorodrig/MNEMOCINE-ACL/pull/14)) | policy | 1 grant, reversible | this doc · **HB-063** |
+| D12 | ComfyUI — interactive use **is allowed** outside the batch windows, via an `other`-kind lease (**✅ decided 2026-10-14**, owner) | GPU policy | verified live; may delay `image_gen` jobs | [`../services/comfyui.md`](../services/comfyui.md) · **HB-036** |
 
 ---
 
@@ -374,3 +375,27 @@ the grant. See [`acl-lockout-audit.md`](acl-lockout-audit.md) §4.1/§10.
 - [`stenio-ci-unificado.md`](stenio-ci-unificado.md) · [`../../governance/release-policy.md`](../../governance/release-policy.md) — the engine release track (D7)
 - [`../network/ports.md`](../network/ports.md) — §5 the re-bind changelog (D9)
 - [`homelab-traps-2026-10.md`](homelab-traps-2026-10.md) — the day's field notes, incl. "confirm the CI `apply`" and the `allow-all`-hid-nine lesson
+
+---
+
+## D12 — ComfyUI: uso interativo fora das janelas (**decidido 2026-10-14**)
+
+**Pergunta.** O `hl-infer` admite classes *batch* (`Triage`, `Create`, `ImageGen`) apenas dentro das
+janelas fixas (06–07, 12–13, 18–19, 00–01); as *interativas* (`Transcribe`, `Other`) são servidas
+sempre que a VRAM **medida** permitir. Um humano pode gerar imagem no ComfyUI **fora** dessas janelas?
+
+**Decisão:** sim, via lease **`other`** — admitida sempre que a VRAM medida caiba.
+
+**Por quê (a razão, não o palpite):** o que protege a GPU não é a janela, é o **livro de VRAM**: o
+gateway só admite um job quando a sobra medida cabe, e ADR-020 já proíbe fallback de CPU. A janela
+batch existepara o trabalho *em lote* do autopilot, não para dono da GPU ser uma agenda fixa. ComfyUI
+é ferramenta **de pessoa** antes de ser etapa de pipeline — travar um humano às 22h para preservar
+uma agenda que o livro de VRAM já garante seria trocar uma proteção real por uma burocrática.
+
+**Custo aceito (conscientemente):** um lease humano pode **atrasar** os jobs `image_gen` do autopilot,
+porque `other` tem a prioridade mais baixa (4) — mas ainda é admitido quando a VRAM cabe.
+
+**Verificação ao vivo (2026-10-14, 11:16, fora de toda janela):**
+`kind: other`, `required_bytes: 6 GiB`, `process: "python"` → estado **`admitted`** (`job-000001`);
+liberado na sequência; o livro voltou a `{"unmanaged":0,"leases":[]}` (o processo do ComfyUI de volta
+a 88 MB ocioso). Detalhe e receita em [`../services/comfyui.md`](../services/comfyui.md).
