@@ -133,8 +133,8 @@ These are legitimately reachable from the physical LAN and must be explicitly al
 | Port | Service | Why it stays on the LAN |
 |---|---|---|
 | `22000/tcp,udp` | Syncthing | Peer sync on LAN **and** tailnet. |
-| `139,445/tcp` | Samba/SMB | Home file sharing. |
-| `3389/tcp` | xrdp | Remote desktop on the LAN. |
+| ~~`139,445/tcp`~~ | ~~Samba/SMB~~ | **Deactivated 2026-10-15** (no fleet dependencies; UFW rule purged). |
+| ~~`3389/tcp`~~ | ~~xrdp~~ | **Deactivated 2026-10-15** (remote access unified via Tailscale SSH/SFTP; UFW rule purged). |
 | `9777/udp`, `47990`, `47992/47993/tcp` | Punktfunk | Native LAN/tailnet streaming discovery. |
 | `5353/udp`, `1900/udp` | Home Assistant mDNS/SSDP | IoT discovery — `network_mode: host`, cannot be restricted. |
 | ICMP (netwatch `lan_*`) | Path probes | The observability probes to the gateway/LAN. |

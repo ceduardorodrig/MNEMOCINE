@@ -138,8 +138,8 @@ Standby mirror / media + **Miracena** client stack. **Standalone Docker — not 
 | watchtower | Image auto-updater | container | — | keep images current | — | edu |
 | autoheal-autoheal-1 | Restart unhealthy containers | container | — | self-healing | all local containers | edu |
 | dockerproxy | Read-only Docker socket proxy | container | `127.0.0.1` + `100.94.209.99:2375` | Homepage live status | Homepage | edu |
-| smbd / nmbd | SMB file sharing | native | `139`, `445` | local file shares for home clients | LAN clients | edu |
-| xrdp | Remote desktop (RDP) server | native | `0.0.0.0:3389` | remote graphical session | owner | edu |
+| ~~smbd / nmbd~~ | ~~SMB file sharing~~ | native | ~~`139`, `445`~~ | **Deactivated 2026-10-15** (no fleet dependencies; UFW rules purged) | — | edu |
+| ~~xrdp~~ | ~~Remote desktop (RDP) server~~ | native | ~~`0.0.0.0:3389`~~ | **Deactivated 2026-10-15** (remote access unified via Tailscale SSH/SFTP) | — | edu |
 | cups (+ cups-browsed) | Print server | native | — | printing from the node | owner | edu |
 | avahi-daemon | mDNS/DNS-SD discovery | native | `5353/udp` | LAN service discovery | LAN clients | edu |
 | rpcbind | RPC port mapper (NFS client) | native | `0.0.0.0:111` | mount NAS shares | local NFS mounts | edu |
@@ -209,7 +209,7 @@ Grouping them here is deliberate: an untracked service is the one nobody notices
 |---|---|---|
 | psicopompo | `ollama`, `libvirtd`+`dnsmasq`, `waydroid`, `nfsd`/`rpcbind`, `sumaenima-gpu`, `punktfunk-web`/`-scripting`, `dockerproxy`, `hl-sftp-mount`, `hl-rclone-mount`, `hl-docker-prune` | internal infrastructure / no owner-facing UI (Punktfunk tile covers the host only; the SFTP/rclone mounts are desktop-local) |
 | kavure | `go2rtc`, `searxng-valkey`, `monitoring-cadvisor`, `monitoring-alertmanager-ntfy`, `dockerproxy`, `sae-edge_*-standby`, `n8n-postgres`, `scryfall-mirror`, `hl-nic-power-tuning`, `hl-*` timers, `dnscrypt-proxy` (cold) | internal dependencies, dormant failover, or deliberately frozen |
-| kuaray | `dockerproxy`, `smbd`/`nmbd`, `xrdp`, `cups`, `avahi`, `rpcbind`, `hl-nic-power-tuning`, `miracena-postgres`/`-mariadb`/`-redis`/`-tunnel` | native LAN services or internal stack members |
+| kuaray | `dockerproxy`, `cups`, `avahi`, `rpcbind`, `hl-nic-power-tuning`, `miracena-postgres`/`-mariadb`/`-redis`/`-tunnel` | native LAN services or internal stack members (Samba and xrdp deactivated 2026-10-15) |
 | ybytu | `dockerproxy`, `hl-wol-dispatcher`, `vnstat`, `hl-tailscale-gro`, **`homepage` itself** | infrastructure/tooling without a dedicated UI |
 | ybyra | `dockerproxy`, `sae-edge_proxy`/`tunnel`/`umami`, `rpcbind` | the edge is represented by the "Portal Sumænimá" tile, not per-service |
 | kururu | **everything** (`kururu-wake`, `kururu-sentinel`, `kururu-display`, `kururu-host`, `dropbear`, `tailscaled`) | the node is not in the dashboard at all |

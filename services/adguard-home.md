@@ -78,6 +78,14 @@ tcp://100.124.146.77:5053    (kavure local recursive unbound instance)
 
 > **Why TCP Transport is Enforced:** The UDP upstream path in dnsproxy exhibited intermittent timeouts over cross-cloud links due to a known AdGuard Home UDP bug (issues #7628, #7346). Forwarding over `tcp://` provides consistent 100% resolution success.
 
+### WAN Outage Resilience Hardening (2026-10-15)
+
+Investigated and resolved a cascade failure where a residential link drop (01:40 BRT) took down mobile clients via Tailscale:
+1. **`upstream_timeout: 1s` (Tuned down from default `10s`):** When Kavure goes offline, TCP SYN packets blackhole rather than RST. A 10s wait causes smartphone resolvers (2-3s timeout) to abort with "no internet". Lowering timeout to 1s ensures AdGuard seamlessly hands queries to encrypted DoT fallbacks in ~1.1s total, staying within mobile OS thresholds.
+2. **Autoheal Suppression (`autoheal: "false"`):** The container is excluded from blind `autoheal` loops (`AUTOHEAL_CONTAINER_LABEL=all`). When upstream fails, transient healthcheck timeouts no longer cause autoheal to reboot AdGuard every 3 minutes.
+3. **Outbound Docker Routing & Persistent IPTables:** Purged stale `172.17.0.2` DNAT rules left over from earlier container recreation. Added generic outbound rules (`DOCKER-USER` acceptance + `POSTROUTING` MASQUERADE for `172.16.0.0/12`) in `/etc/iptables/rules.v4` on ybytu, preventing Oracle Cloud host firewall from dropping dynamic container bridge packets.
+4. **Verified Live:** Simulated Kavure packet drop (`OUTPUT -d 100.124.146.77 -p tcp --dport 5053 -j DROP`) confirmed resolution smoothly degrades to DoT in ~95–245 ms without service interruption or container crashes.
+
 ## Query Logging & Retention Tuning
 
 - Configuration: `querylog.interval: 7d`, `size_memory: 200` entries.

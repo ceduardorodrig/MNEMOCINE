@@ -147,6 +147,7 @@ graph TD
 | `40000/udp` | `0.0.0.0`, `[::]` (`tailscaled`) | **Tailscale Peer Relay** | High-throughput direct peer-to-peer WireGuard relay | [`tailscale.md`](tailscale.md) |
 | `9096/tcp` | `100.115.253.109` | **hl-wol-dispatcher** | Smart WoL Dispatcher with automatic failover. **Re-bound 2026-10-13 (HB-047)** — `EnvironmentFile=/etc/wol-relay.env` sets `WOL_LISTEN_ADDR=100.115.253.109` (binary default `0.0.0.0`); the nft `:9096` allow is now moot (no wildcard socket) | [`../services/wol-relay.md`](../services/wol-relay.md) |
 | `2375/tcp` | `100.115.253.109` / `tailscale0` | **docker-socket-proxy** | Restricted Docker API socket queried by Homepage | [`../services/homepage.md`](../services/homepage.md) |
+| `22000/tcp,udp` | `100.115.253.109` / `tailscale0` | **Syncthing Protocol** | Mutual TLS encrypted peer sync transport (KeePass cold DB mirror — HB-064) | [`../services/syncthing.md`](../services/syncthing.md) |
 | `111/tcp,udp` | `127.0.0.1` + `[::1]` | **rpcbind** | RPC port mapper for NFS client mounts. **Re-bound 2026-10-13 (HB-047)** — systemd `rpcbind.socket` drop-in limits it to loopback (the two `nfs4` mounts stayed up); nft INPUT tailnet-only | [`nfs.md`](nfs.md) |
 
 ---
@@ -174,8 +175,6 @@ graph TD
 | `8265/tcp` | `100.94.209.99` | **Soularr** | Automation bridge connecting Soulseek to Lidarr. **Re-bound 2026-10-13 (HB-047)** — compose publishes `100.94.209.99:8265:8265` (was all interfaces); UFW tailnet-only | [`../services/soularr-slskd.md`](../services/soularr-slskd.md) |
 | `3030/tcp` | `100.94.209.99` | **Vert** | Media content proxy web UI. **Re-bound 2026-10-13 (HB-047)** — compose publishes `100.94.209.99:3030:80` (was all interfaces); UFW tailnet-only | [`../services/vert.md`](../services/vert.md) |
 | `51413/tcp` | `0.0.0.0` (ufw-scoped — see §4) | **Transmission Peer** | BitTorrent peer transfer port; §4-accepted wildcard bind, LAN blocked by UFW since 2026-10-13 (HB-047) → tailnet-only | [`../servers/kuaray.md`](../servers/kuaray.md) |
-| `139,445/tcp` | LAN | **Samba (smbd)** | Local SMB file sharing for home clients | [`../servers/kuaray.md`](../servers/kuaray.md) |
-| `3389/tcp` | `0.0.0.0` | **xrdp** | Remote desktop (RDP) server. **Kept LAN-legit (§3.1/§4)** — needs LAN RDP clients; UFW allows `192.168.3.0/24` + `tailscale0` (HB-047) | [`../servers/kuaray.md`](../servers/kuaray.md) |
 | `111/tcp,udp` | `127.0.0.1` + `[::1]` | **rpcbind** | RPC port mapper for NFS client mounts. **Re-bound 2026-10-13 (HB-047)** — systemd `rpcbind.socket` drop-in limits it to loopback (the node is an NFSv4 **client** only — no remote rpcbind needed); UFW tailnet-only | [`nfs.md`](nfs.md) |
 
 ---
@@ -211,7 +210,8 @@ Not every `0.0.0.0` listening socket represents a vulnerability. The following e
 | `111/tcp,udp`, `9100/tcp` | **Ybyra host services** (rpcbind, Node Exporter) | Bound `0.0.0.0` but the host `nftables` INPUT chain accepts **only** `tailscale0`, `22` and the peer-relay UDP port, rejecting everything else — effectively tailnet-only |
 | `3001/tcp`, `3002/tcp`, `9100/tcp` | **Ybytu host services** (Homepage, Uptime Kuma, Node Exporter) | Host-network containers/binary bound `0.0.0.0`; the host `nftables` INPUT chain accepts **only** `tailscale0` plus an explicit allow list (`9096`, `8334`, `22000`, `8384`, `40000`) — these three are not in it, so they are reachable on the tailnet only |
 | `1716/tcp,udp`, `20048/tcp,udp`, `22000/tcp,udp` | **Psicopompo LAN/tailnet services** (KDE Connect, NFS `rpc.mountd`, Syncthing) | Bound `0.0.0.0` but **never internet-reachable** — psicopompo's UFW INPUT policy is `DROP`. KDE Connect is LAN discovery (UDP broadcast), `rpc.mountd` serves LAN-side NFS clients, Syncthing is the vault sync transport (LAN + `tailscale0`) |
-| `139/tcp`, `445/tcp`, `3389/tcp`, `51413/tcp,udp`, `22000/tcp,udp` | **Kuaray LAN/tailnet services** (Samba, xrdp, Transmission peer, Syncthing) | Bound `0.0.0.0` for household LAN clients (SMB shares, **LAN RDP via xrdp**, the BitTorrent peer port) and the tailnet sync transport. **Resolved 2026-10-13 (HB-047 step 2/3):** `kuaray` now runs **UFW active** (tailnet-only) — `22000`, `139`, `445`, `3389` are explicitly kept for the LAN (§3.1), while `51413` and every published container port are now **tailnet-only** (LAN→container dropped, verified from another LAN host). **`3389` was reviewed under HB-047 (2026-10-13) and deliberately NOT re-bound** — xrdp serves physical-LAN desktops (verified reachable from psicopompo on `192.168.3.200:3389`) |
+| `9096/tcp` | **hl-wol-relay** (psicopompo / kavure) | Redundant WoL daemon and emergency shutdown receiver on x86 nodes. Listens on `0.0.0.0` to receive local physical-LAN packets from Kururu (`192.168.3.55`) and peer x86 nodes in soft-off/booting states prior to Tailscale mesh readiness. Inbound traffic is strictly restricted by host UFW to trusted node IPs (`192.168.3.55`, `192.168.3.41`/`192.168.3.100`) and `tailscale0` (HB-074) |
+| `51413/tcp,udp`, `22000/tcp,udp` | **Kuaray LAN/tailnet services** (Transmission peer, Syncthing) | Bound `0.0.0.0` for BitTorrent peer transfers and tailnet sync transport. Samba (`139`, `445`) and xrdp (`3389`) were deactivated and their UFW rules purged on 2026-10-15 |
 | `11470/tcp`, `12470/tcp` | **Stremio desktop local server** (psicopompo) | The embedded Node streaming/transcoding server of the Stremio **desktop client** binds fixed ports `11470`/`12470` with **no configuration knob** — it cannot be re-bound to loopback. psicopompo's UFW is tailnet-only (`deny incoming`), so the socket is not LAN/public reachable. Reviewed under HB-047 (2026-10-13); accepted as an unavoidable fixed bind |
 | `18555/tcp` | **Home Assistant embedded go2rtc WebRTC** (kavure) | The HA `go2rtc` integration **generates** `webrtc: listen: ":18555/tcp"` into a `/tmp` config (`homeassistant/components/go2rtc/server.py`) and exposes **no override** — a user `/config/go2rtc.yaml` is ignored, and `debug_ui` only *adds* the API on `:11984` (worse). `network_mode: host` is mandatory for IoT discovery. Reviewed under HB-047 (2026-10-13); accepted as an unavoidable fixed bind (kavure's UFW is tailnet-only, and no camera is configured) |
 
@@ -222,6 +222,17 @@ Not every `0.0.0.0` listening socket represents a vulnerability. The following e
 ---
 
 ## 5. Changelog
+
+### 2026-10-15 — Deactivation of Samba & XRDP on Kuaray; WoL Relay (9096) and Ybytu Syncthing (22000) Reconciliation
+
+- **Kuaray Attack Surface Reduction:**
+  - Services `smbd`, `nmbd`, `xrdp` and `xrdp-sesman` were stopped and disabled permanently (`systemctl disable --now`).
+  - UFW rules allowing `139/tcp`, `445/tcp` and `3389/tcp` from `192.168.3.0/24` were purged.
+  - Sockets `139`, `445`, `3350` and `3389` no longer listen on any interface (`ss -tlnp` confirmed).
+  - RAM savings: ~1 GiB of RAM freed on Kuaray (used memory decreased from 3.4 GiB to 2.4 GiB).
+- **Audit & Gate Reconciliation:**
+  - Added §4 exception for `9096/tcp` (`hl-wol-relay`): daemon listens on `0.0.0.0` on x86 nodes (`psicopompo` and `kavure`) to process local physical-LAN magic packets and shutdown commands from Kururu (`192.168.3.55`) before Tailscale mesh initialization, scoped strictly via UFW.
+  - Added `22000/tcp,udp` to Ybytu table (§2.4) documenting the Syncthing peer transport for the cold KeePass DB mirror (`AlgoAqui.kdbx` — HB-064).
 
 ### 2026-10-13 — Socket re-bind to the tailnet IP / loopback, `kavure` + `ybytu` (HB-047, final leg)
 

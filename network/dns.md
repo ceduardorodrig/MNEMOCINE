@@ -124,7 +124,8 @@ Since **2026-10-08**, egress from kavure is **fully local recursive** (native `u
 
 | Simulated Failure Scenario | System Behavior & Measured Result |
 |---|---|
-| **kavure `unbound` daemon stopped (2026-10-08)** | Queries forwarded via `100.100.100.100` resolved cleanly in **131 / 87 ms** (AdGuard smoothly fell back to its encrypted DoT upstreams) → **zero internet outage**. Unbound restored and normalized ✅ |
+| **kavure `unbound` daemon stopped (2026-10-08)** | Queries forwarded via `100.100.100.100` resolved cleanly in **131 / 87 ms** (immediate TCP RST triggers instant DoT fallback) → **zero internet outage**. Unbound restored and normalized ✅ |
+| **Residential WAN drop / Kavure packet blackhole (2026-10-15)** | With `upstream_timeout: 1s` + `autoheal: "false"` on ybytu, AdGuard ceases dialing after 1s and degrades to DoT in **~95–245 ms**, preventing mobile client timeout (2-3s) and autoheal restart loops ✅ |
 | kavure `dnscrypt-proxy` stopped (historical test 2026-10-06) | Pi-hole stopped responding; tailnet queries via `100.100.100.100` continued resolving within 60 ms via AdGuard DoT fallback → zero outage |
 | ybytu `dnscrypt-proxy` stopped | AdGuard degraded gracefully to secondary fallback within ~197 ms |
 | Pi-hole configured with `strict-order` + flat upstream fallback | **Failed to failover** (6 consecutive upstream timeouts) → architecture permanently rejected |

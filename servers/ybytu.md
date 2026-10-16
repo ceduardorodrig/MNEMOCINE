@@ -69,7 +69,7 @@ All workloads execute as Docker containers managed via Docker Compose:
   `docker-proxy` forwards host `IP:53` → container `172.22.0.2:53`.
 - **Primary Upstream:** `tcp://100.124.146.77:5053` (Native recursive `unbound` resolver on kavure, queried over Tailscale).
   - *Note on TCP Transport:* AdGuard Home uses TCP to avoid known UDP packet drop bugs ([AdguardTeam/AdGuardHome#7628](https://github.com/AdguardTeam/AdGuardHome/issues/7628)).
-- **Encrypted Fallback:** `tls://9.9.9.9` and `tls://1.1.1.1` (DNS-over-TLS). If kavure becomes temporarily unreachable, AdGuard seamlessly falls back to encrypted public resolvers with zero service interruption.
+- **Encrypted Fallback:** `tls://9.9.9.9` and `tls://1.1.1.1` (DNS-over-TLS). Tuned `upstream_timeout: 1s` (2026-10-15) and labeled container `autoheal: "false"` so if residential WAN goes down, lookups failover to DoT in <250 ms without client timeout or autoheal restart loops.
 - **Log Retention Policy:** `querylog.interval` is bounded to 7 days with memory buffer set to 200 queries, preventing memory exhaustion on this 1 GB instance.
 
 ### Tailscale DNS health — HB-013 (2026-10-12, root-caused and fixed 2026-10-13)

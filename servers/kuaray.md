@@ -70,7 +70,7 @@ pending: [HB-013]
 > the container runs `network_mode: host` and binds **`127.0.0.1:8384`** plus the **Tailscale IP**
 > (`100.94.209.99%tailscale0:8384`) — never `0.0.0.0` (see [`services/syncthing.md`](../services/syncthing.md)
 > and [`network/ports.md`](../network/ports.md) §2.5). The `glances` and `dockerproxy` rows also
-> carried no bind: both are host-net and bind loopback + the Tailscale IP.
+> **Remediation (2026-10-15):** Native host daemons for **Samba** (`smbd`, `nmbd`) and **XRDP** (`xrdp`, `xrdp-sesman`) were permanently disabled (`systemctl disable --now`) and their corresponding UFW rules (`139`, `445`, `3389`) purged. Neither service had active dependencies in the fleet (remote filesystem access is unified under Tailscale SSH and native SFTP; storage is managed via NFSv4 and Syncthing). This freed ~1 GiB of RAM on Kuaray.
 
 ## Storage Architecture & HDD Remediation
 
