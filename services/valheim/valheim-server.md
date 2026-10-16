@@ -12,7 +12,7 @@ Dedicated server deployment for Valheim 1.0 (Deep North) powered by BepInEx and 
 **World Name:** `Fimbulvetr`  
 **Tailscale IP:** `100.124.146.77`  
 
-> **Operational Status:** Running Valheim 1.0.17 / **network version 40** via `mbround18/valheim:3` with BepInEx and server-side mods. The server runs in private mode (`public=false`), accessible exclusively through the encrypted Tailnet. Automated backups run every 30 minutes with off-box sync to the primary NAS over NFS. World portal modifier set to casual mode (teleportation of ores permitted).
+> **Operational Status:** Running Valheim 1.0.20 / **network version 41** (updated 2026-10-15) via `mbround18/valheim:3` with BepInEx and server-side mods. The server runs in private mode (`public=false`), accessible exclusively through the encrypted Tailnet. Automated backups run every 30 minutes with off-box sync to the primary NAS over NFS. World portal modifier set to casual mode (teleportation of ores permitted).
 
 ## Container Specification
 
