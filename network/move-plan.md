@@ -58,10 +58,16 @@ Ao instalar a nova internet, o técnico deixará um modem/roteador Wi-Fi padrão
 2. Vá em **DHCP Static Lease / Reserva de Endereço IP**.
 3. Adicione os 4 itens da **Tabela de MACs da Seção 2**.
 
-### Passo 4 — Configuração da Rede Wi-Fi (Preservação de IoT)
-1. Configure o **SSID (Nome da Rede)** exatamente com o **mesmo nome** usado na casa anterior.
-2. Configure a **Senha** exatamente com a **mesma senha** WPA2/WPA3 anterior.
-3. *Resultado:* Lâmpadas inteligentes (Tuya/SmartLife), sensores ESP32, tablets, consoles e celulares reconectarão automaticamente sem necessidade de resetar nada.
+### Passo 4 — Configuração da Rede Wi-Fi (Preservação de IoT & Estratégia de Senhas)
+1. **Preservação Inicial Instantânea:**
+   * Configure o **SSID (Nome da Rede)** exatamente com o **mesmo nome** usado na casa anterior.
+   * Configure a **Senha** exatamente com a **mesma senha** WPA2/WPA3 anterior (mesmo que seja simples).
+   * *Resultado:* Lâmpadas inteligentes (Tuya/SmartLife), sensores ESP32, tablets, consoles e celulares reconectarão automaticamente sem necessidade de resetar nada.
+2. **Mitigação de Senha Fraca sem Dor de Cabeça (Estratégia de Dois SSIDs):**
+   * *O dilema:* Em chácaras/áreas rurais, senha de Wi-Fi fraca não sofre ameaça física de proximidade; em áreas urbanas ou condomínios, ela é um vetor de risco. Porém, trocar a senha do Wi-Fi obrigaria a subir em escadas e re-parear dezenas de lâmpadas Tuya/Sonoff uma por uma.
+   * *A solução (Dois SSIDs):*
+     * **SSID 1 — `MinhaRede-IoT` (2.4 GHz exclusivo):** Mantém o nome e a senha antiga/fraca. Exclusivo para lâmpadas, tomadas e sensores. Com **Client Isolation (Isolamento de Clientes)** ativado no roteador, esses aparelhos não conseguem conversar com computadores pessoais ou com o Homelab (apenas com a nuvem/Home Assistant).
+     * **SSID 2 — `MinhaRede` (5 GHz / 6 GHz):** Senha ultra-forte (WPA3 / frase longa). Exclusivo para celulares, notebooks e computadores da casa. Como humanos só digitam a senha uma vez (ou escaneiam QR Code), você ganha segurança máxima sem precisar tocar em uma única lâmpada.
 
 ### Passo 5 — Blindagem de Segurança Obrigatória no Modem da Operadora
 1. **Desativar UPnP (Universal Plug and Play):** Vá em *Avançado / Segurança / UPnP* e marque **Disabled (Desativado)**. Isso impede que aplicativos na rede peçam abertura de portas na WAN sem você saber.
