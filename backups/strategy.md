@@ -12,7 +12,7 @@ tags: [homelab, backup, storage]
 | ybytu | ✅ Configs (05:00→08:00 UTC) | `config-backup` + etckeeper | `/mnt/BACKUP/configs-homelab/ybytu` |
 | ybyra | ✅ Configs | `config-backup` + etckeeper | `/mnt/BACKUP/configs-homelab/ybyra` |
 | kuaray | ✅ Configs (reconstructed 08/08) | `config-backup` + etckeeper | `/mnt/BACKUP/configs-homelab/kuaray` |
-| kavure | ✅ Game Servers (off-box) + Configs + **Monitoring (13/09)** + **n8n (09/10)** | NFS off-box (Zomboid/Minecraft/Valheim/Sumænimá Borg) + `config-backup` + etckeeper | `/mnt/BACKUP/*-server-kavure` + `/configs-homelab/kavure` + `/mnt/BACKUP/monitoring-server-kavure` + `/mnt/BACKUP/n8n-server-kavure` |
+| kavure | ✅ Game Servers (off-box) + Configs + **Monitoring (13/09)** + **n8n (09/10)** + **autopilot state (19/10)** | NFS off-box (Zomboid/Minecraft/Valheim/Sumænimá Borg) + `config-backup` (now also `~/homelab/sumaenima-socialmedia-autopilot`, `target/` excluded) + etckeeper | `/mnt/BACKUP/*-server-kavure` + `/configs-homelab/kavure` + `/configs-homelab/kavure/sumaenima-socialmedia-autopilot` (2.6 MB) + `/mnt/BACKUP/monitoring-server-kavure` + `/mnt/BACKUP/n8n-server-kavure` |
 
 > **Canonical Configuration Backup** (established 09/08/2026): All cluster nodes mirror configuration states to the central NAS (`/mnt/BACKUP/configs-homelab/`) via `config-backup` (05:00–06:00 window), versioned via **git → private GitHub `mnemocine` repository**, **restic** (retention: 14d/8w/6m), and **snapper**. See [`config-backup.md`](config-backup.md).  
 > The `agentic-ai` workspace is mirrored nightly to `/mnt/BACKUP/agentic-ai-server-psicopompo`.
@@ -49,7 +49,7 @@ tags: [homelab, backup, storage]
 - Docker volumes (Crafty — **pending complete migration** to kavure; StênioBOT/Umami already migrated)
 - Docker configurations (compose files, environment templates)
 - Obsidian Vault (synchronized via Syncthing + nightly snapshot)
-- **Desktop Configurations (21/09/2026):** `~/.config/hypr`, `~/.config/noctalia`, `~/.config/environment.d`, `~/.config/steam-launch-options`, `~/.local/state/noctalia`. Mirrored via `config-backup` → `/mnt/BACKUP/configs-homelab/psicopompo/` (git + restic + snapper).
+- **Desktop Configurations (21/09/2026):** `~/.config/hypr`, `~/.config/noctalia`, `~/.config/environment.d`, `~/.config/steam-launch-options`, `~/.local/state/noctalia`. Mirrored via `config-backup` → `/mnt/BACKUP/configs-homelab/psicopompo/` (git → GitHub `MNEMOCINE-CONFIGS` + restic + Google Drive). ⚠️ **snapper does NOT cover `~/.config` — verified 19/10/2026:** it lives on the `@home` subvolume (`nvme1n1p2[/@home]`) while the snapper configs cover `/` (`root`), `/mnt/NVME_PCI` (`nvme`) and `/mnt/BACKUP` (`backup`) only, and btrfs snapshots do not cross subvolumes. Instant file rollback therefore comes from the mirror/restic, not from snapper.
 
 ### Ybytu
 - AdGuard Home configuration (`/var/lib/docker/volumes/adguard_conf/_data/AdGuardHome.yaml`) — **mirrored via `config-backup` since 06/10/2026**

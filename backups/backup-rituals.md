@@ -18,15 +18,17 @@ Documented in `config-backup.md`. To modify schedule times: Edit `/etc/systemd/s
 - [x] 05:15 `zomboid-backup` (savegame snapshots → NFS)
 - [x] 05:20 `agentic-ai-backup` → `/mnt/BACKUP/agentic-ai-server-psicopompo`
 - [x] 05:40 `restic-configs-backup` (configs + agentic-ai; retention: 14d/8w/6m)
-- [x] 05:55 `etckeeper-push` + `configs-git-push` (GitHub private mirror `mnemocine`)
+- [x] 05:55 `etckeeper-push` + `configs-git-push` (GitHub private mirror `MNEMOCINE-CONFIGS`) — size guard (>95 MB aborts with ntfy `high`) + health stamp (19/10/2026)
 
-**Verification Signals:** Mobile ntfy notifications; mtime freshness on `/srv/health/*` files; **monitored automatically since 28/08** — Grafana (`BackupNotRun` alert) queries health files via node_exporter textfile collector (`homelab_backup_last_ok_seconds`). See [`services/monitoring.md`](../services/monitoring.md).  
+**Verification Signals:** Mobile ntfy notifications; mtime freshness on `/srv/health/*` files; **monitored automatically since 28/08** — Grafana (`BackupNotRun` alert) queries health files via node_exporter textfile collector (`homelab_backup_last_ok_seconds`). Rule (read live from Prometheus, 19/10/2026): `(time() - homelab_backup_last_ok_seconds) > 26 * 3600` — it has **no job filter**, so every new stamp is covered the moment it exists (that is how `job="configs-git-push"` joined on 19/10). See [`services/monitoring.md`](../services/monitoring.md).  
 **Canonical Source of Schedules:** [`automations/schedules.json`](../automations/schedules.json) + [overview tables](../automations/README.md) — maintain strictly in sync.
 
 ## Weekly Rituals
 
 - [ ] **restic repository integrity check** (Sun 06:00, automated via `hl-restic-configs-check.timer`).
-- [ ] Inspect health stamps: `ls -la /srv/health/` (all entries must show mtime `< 24h`).
+- [ ] Spot-check stamp freshness (Grafana already alerts at >26 h; this is the on-demand view):
+      `sudo rg -N homelab_backup_age_seconds /var/lib/node-exporter/textfile/health_files.prom | awk '{j=$1; sub(/.*job="/,"",j); sub(/".*/,"",j); printf "%-30s %5.1f h\n", j, $2/3600}'`
+      Every row must read `< 24 h`. The file is regenerated every 5 min by `hl-health-metrics.timer` from `/srv/health/*-last-ok` (verified 19/10/2026: `configs-git-push` included).
 
 ## Monthly Recovery Drills
 
@@ -64,7 +66,21 @@ Upon deploying Prometheus textfile health file monitoring, **3 backups were foun
 | `config-backup` ybytu/ybyra (VPS) | Stale for 7 days | NFS `Stale file handle` after server reboot | Remounted `/srv/backup-configs` on VPS nodes |
 | `sumaenima-backup` (kavure) | Internal container crond broken | Image started executing as non-root `appuser` (v2.22.0) | Migrated scheduling to host systemd timer `hl-sumaenima-backup.timer` (03:00) |
 
-**Key Takeaway:** The Grafana alert `BackupNotRun` (>26h) now covers all backup jobs across all hosts. Legacy health stamps were removed.
+**Key Takeaway:** The Grafana alert `BackupNotRun` (>26h) now covers all backup jobs across all hosts. It reads the **health stamps** (`/srv/health/*-last-ok` → `homelab_backup_last_ok_seconds`); the stamps were **not** removed — they are the indicator. What was removed in 2026-08 were the *legacy* stamps of jobs already covered elsewhere. A job without a stamp is invisible to the alert: that is exactly how the GitHub push failed quietly from 16 to 19/10/2026 (see below).
+
+## Incident: Silent Off-Site Push Failure (16–19/10/2026 — psicopompo)
+
+Not a "backup outage" but its worst cousin: the **GitHub off-site copy was frozen for 3 days with zero signal**. Every run of `configs-git-push` exited `status=1` ("push FALHOU") while Grafana stayed green and ntfy stayed mute — the job had **no health stamp** and **no `OnFailure=`**, and the script discarded git's error output.
+
+| Item | Detail |
+|---|---|
+| Trigger | 17/10 commit picked up `ybytu/homelab/uptime-kuma/kuma.snapshot` (**106 → 134 MB**); GitHub rejects the **whole push** for any file >100 MB |
+| Detected by | manual audit of the backup chain (19/10) — **not** by monitoring |
+| Impact | none on data: the NAS mirror, restic and Google Drive were all current; only the 2nd off-site copy (GitHub) was stale |
+| Fix | `.gitignore` rule for the snapshot; the 3 never-pushed commits folded into one and pushed; **size guard** (>95 MB → abort + ntfy `high`); **health stamp**; **`OnFailure=`**; git diagnostics to journald |
+| Verified | guard tested live (100 MB probe file → aborted, no push, both alerts fired); happy path re-run (`OK`, stamp touched); `ls-remote` == local HEAD |
+
+**Rule extracted:** a backup job without (a) a freshness stamp and (b) an `OnFailure` alert is a silent-failure candidate. Audit any new job against both. Full detail: [`config-backup.md`](config-backup.md) §Incident.
 
 ## Change Management Procedure
 

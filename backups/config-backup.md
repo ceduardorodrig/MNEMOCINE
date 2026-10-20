@@ -51,20 +51,30 @@ Each Host (05:00) → /usr/local/bin/config-backup (systemd timer hl-config-back
 | Client Mounts | `/srv/backup-configs` (configs), `/srv/backup-gitrepos` (bare git) — fstab `nofail` |
 | Schedule | Systemd timer `hl-config-backup.timer` (05:00, `Persistent=true`) — migrated from cron 10/08 |
 | **Git Push Auth (GitHub)** | `hl-configs-git-push.service` runs as `User=edu`; uses git credential store (`~/.git-credentials`, permissions 0600, owner `edu`) with PAT scoped to private repository `MNEMOCINE`. Token **NEVER** stored in plaintext — managed in **sops store** as `GH_PUSH_TOKEN` (`guides/secrets-centralizados.md`). Canonized 21/09/2026. |
+| **Git Push Guards (19/10/2026)** | `configs-git-push` carries three safeguards: (a) **size guard** — aborts *before* committing (ntfy `high` + `OnFailure`) when any indexed blob exceeds **95 MB**, because GitHub refuses files >100 MB and rejects the **whole push**; (b) **health stamp** `/srv/health/configs-git-push-last-ok` on every successful run; (c) **diagnostics** — the raw `git push` output goes to the unit's journald log instead of `/dev/null`. Heavy artefacts stay **out of git** through the mirror's `.gitignore` while remaining in the NAS mirror, restic and Google Drive. |
 
 > **Root Privilege Guard (10/08/2026):** The script **must execute as root** (systemd timer runs as root). Unprivileged manual invocations abort immediately (`exit 1` without rsync or ntfy dispatch) — preventing false failure alerts. To run manually: `sudo /usr/local/bin/config-backup`.
 
 | Health Stamp | `/srv/health/config-backup-{host}-last-ok` |
+| Health Stamp (git push, 19/10/2026) | `/srv/health/configs-git-push-last-ok` — touched on every successful run (including "no changes"); feeds `homelab_backup_last_ok_seconds{job="configs-git-push"}` → Grafana `BackupNotRun` (>26h). See the incident below |
 
 ## Sources by Host (Mirrored Assets)
 
 | Host | SRC_DIRS | Primary Exclusions |
 |---|---|---|
 | psicopompo | `/home/edu/homelab` (**Service compose files** — first in list), `/mnt/NVME_PCI/homelab` (**Project roots**: sumaenimahub, transcribe, …), `/usr/local/bin`, syncthing state, **Desktop configs** (`~/.config/hypr`, `~/.config/noctalia`, `~/.config/uwsm`, `~/.config/environment.d`, `~/.config/steam-launch-options`, `~/.local/state/noctalia`, `~/.config/gtk-3.0`, `~/.config/gtk-4.0`, `~/.config/qt6ct`, **`~/.config/fish`** — shell config, 06/10/2026), **Dominium Prism Instance** (`~/.local/share/PrismLauncher/instances/Dominium` — modpack source of truth: mods/config/loader, ~484 MB), rclone, wallpapers. **GOLDEN FILES:** `/var/lib/noctalia-greeter/greeter.toml`, `/etc/greetd/config.toml`, `/etc/systemd/sleep.conf.d/60-freeze.conf`, `/etc/systemd/system/tailscaled-wait.service`, `/etc/systemd/system/nfs-server.service.d/10-tailscaled-wait.conf`, `/etc/smartd.conf`, `/etc/sudoers.d/99-edu-homelab`, `/etc/ufw/user{,6}.rules`, `~/.gtkrc-2.0`, **`~/.ssh/config`** (SSH host configuration without private keys), fstab, exports, pacman, snapper configs. | `ollama`, `index-v2`, `*.log`, **`target`** (Rust build artifacts), **Noctalia runtime state** (`clipboard`, `notification_history*`, `recently_used.json`, `usage_counts.json`, `wallpaper_shuffle.json`, `plugin-cache`, `community-*`), **Prism personal cache** (`minecraft/Distant_Horizons_server_data`, `saves`, `logs`, `crash-reports`, `screenshots`) |
-| kavure | `/srv/data` | `zomboid/data`, `pz-dedicated`, `workshop-mods`, `sumaenimahub/SUMAENIMA-HUB`, `volumes`, `backup`, `aiostreams/anime-database`, **`minecraft/minecraftserver \[dominium\]/MINECRAFT SERVER`**, **`minecraft/minecraftserver \[dominium\]/crafty`**, **`minecraft/minecraftserver \[dominium\]/DOMINIUM-MODPACK`**, `minecraft/offbox`, `minecraft/pre-update` (06/10/2026 — tooling in `minecraft/minecraftserver [dominium]/` is mirrored). **GOLDEN FILES (08/10/2026):** fstab + **`/etc/unbound/unbound.conf.d/mnemocine.conf`** + **`/etc/sysctl.d/99-unbound.conf`** (recursive unbound config) + **32 systemd units** (`/etc/systemd/system/hl-*.{service,timer}` + `hl-minecraft-status.service` + `hl-unbound-status.service`). Systemd units are treated as configuration by homelab standards. |
+| kavure | `/srv/data`, `/home/kavure/homelab/sumaenima-socialmedia-autopilot` (source + `var/`, 2026-10-19) | `zomboid/data`, `pz-dedicated`, `workshop-mods`, `sumaenimahub/SUMAENIMA-HUB`, `volumes`, `backup`, `aiostreams/anime-database`, **`minecraft/minecraftserver \[dominium\]/MINECRAFT SERVER`**, **`minecraft/minecraftserver \[dominium\]/crafty`**, **`minecraft/minecraftserver \[dominium\]/DOMINIUM-MODPACK`**, `minecraft/offbox`, `minecraft/pre-update` (06/10/2026 — tooling in `minecraft/minecraftserver [dominium]/` is mirrored). **GOLDEN FILES (08/10/2026):** fstab + **`/etc/unbound/unbound.conf.d/mnemocine.conf`** + **`/etc/sysctl.d/99-unbound.conf`** (recursive unbound config) + **32 systemd units** (`/etc/systemd/system/hl-*.{service,timer}` + `hl-minecraft-status.service` + `hl-unbound-status.service`). Systemd units are treated as configuration by homelab standards. |
 | kuaray | `/home/kuaray/docker`, `/home/kuaray/homelab` | Generic exclusions |
 | ybytu | `/home/ubuntu/homelab` | Generic exclusions |
 | ybyra | `/home/ubuntu/homelab`, `docker-compose.ybyra.yml` | `*.tar.gz`/`*.zip`/`*.tgz`/`*.tar` |
+
+> **Autopilot state (2026-10-19, HB-076):** kavure also mirrors
+> `/home/kavure/homelab/sumaenima-socialmedia-autopilot` — source, personas, config **and** `var/`
+> (141 files) — with `target/` excluded (2.6 MB). Its `golden/` now carries the four `hl-autopilot*`
+> units, their `10-kavure.conf` drop-ins and `/etc/config-backup.conf`. On psicopompo, `golden/` also
+> carries `ollama-tailnet.socket`, `ollama-tailnet.service` and `ollama.service.d/10-models.conf`
+> (the tailnet forwarder added when the autopilot moved). The autopilot **state** is therefore on
+> kavure and in this mirror; the old `var/` on psicopompo was removed after the checksummed copy.
 
 **Global Exclusions (Secrets — NEVER mirrored):** `.env`, `secrets.yaml`, `slskd.yml`, `passwd`, `config.xml` (API keys), **`htpasswd`**, **`registry.key`** (registry certificates, 07/10/2026), `*.db`, `*.log`, `*.lock`, `.venv`, `node_modules`, `.git`, `.cache`, `.stversions`. Secrets reside strictly in the **sops/age vault** (`/mnt/NVME_PCI/secrets/`), synchronized encrypted via Syncthing.
 
@@ -111,6 +121,24 @@ Also audited `/srv/backup-gitrepos` on ybyra and ybytu. Post-fix: Backup succeed
 
 > ⚠️ **Key Takeaway:** `x-systemd.automount` can transition to a dead state post-reboot while the mount continues serving stale cached handles. A `hard` mount where `soft` was specified indicates an improperly reconstructed automount. Quick fleet check:  
 > `findmnt -rn -t nfs4 -o OPTIONS | grep -c hard` (Expected output: **0** across all nodes).
+
+## Incident: Silent GitHub Push Failure (16–19/10/2026 — psicopompo)
+
+**Symptom:** none — which is the whole problem. Grafana stayed green, no ntfy message arrived, and the private GitHub mirror (`MNEMOCINE-CONFIGS`) had been frozen at commit `06c3b26f` (16/10) for **three days**.
+
+**Root cause:** the daily commit of 17/10 picked up `ybytu/homelab/uptime-kuma/kuma.snapshot` — an Uptime Kuma database dump that grows daily (**106 → 134 MB**). GitHub refuses any file >100 MB and rejects the **entire push**, so the runs of 17, 18 and 19/10 all exited `status=1` ("push FALHOU") at 05:55.
+
+**Why nobody knew — three blind spots, all closed:**
+
+| Blind spot | Fix (2026-10-19) |
+|---|---|
+| `git push origin main >/dev/null 2>&1` discarded the error | the git output now goes to journald (`logger`) and its last lines are embedded in the ntfy alert |
+| **No health stamp** → `BackupNotRun` (>26 h) never watched this job | stamp `/srv/health/configs-git-push-last-ok` on every successful run → `homelab_backup_last_ok_seconds{job="configs-git-push"}`; the rule `(time() - homelab_backup_last_ok_seconds) > 26 * 3600` has **no job filter** (verified against Prometheus on kavure), so new jobs are covered automatically |
+| **No `OnFailure=`** → a failed *run* produced no signal at all | `OnFailure=notify-backup-failure@%n.service` on the unit (ntfy `high`) |
+
+**Remediation:** `kuma.snapshot` was added to the mirror's `.gitignore` (heavy runtime dumps belong to the NAS mirror + restic + Google Drive, not to git); the three never-pushed commits were folded into a single `auto:` commit (`git reset --soft origin/main` → `git rm --cached` → commit) and pushed — the remote is back in sync (`8cb2e96c`). The size guard makes a recurrence loud instead of silent. **Preserved on disk:** the snapshot itself (134 MB, at `ybytu/homelab/uptime-kuma/`) and the pre-rewrite commits (reachable through the mirror's `git reflog`) — nothing was deleted to fix the push.
+
+**Lesson:** an off-site copy that fails *silently* is worse than no off-site copy, because recovery is planned around it. Every job in the backup chain needs **both** a freshness stamp and an `OnFailure` alert.
 
 ## Security & Operational Safeguards
 

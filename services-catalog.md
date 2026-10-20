@@ -49,7 +49,7 @@ Primary workstation, sole GPU host (RTX 5050), NFSv4 NAS, Swarm **worker**.
 | watchtower | Automated container image updater | container | — | keeps images current | — | edu |
 | autoheal | Restarts unhealthy containers | container | — | self-healing of healthchecked containers | all local containers | edu |
 | hl-infer | GPU inference gateway (VRAM ledger, leases, fixed windows) | native (systemd) | `127.0.0.1:9095` + `100.82.51.112:9095` | **one** arbiter for the single GPU (ADR-020, no CPU fallback) | steniorec, comfyui, ollama, autopilot | edu |
-| ollama | Local LLM runtime | native (systemd) | `127.0.0.1:11434` | local model inference | steniobot/autopilot (leases via `hl-infer`) | edu |
+| ollama | Local LLM runtime | native (systemd) | `127.0.0.1:11434` + `100.82.51.112:11434` (`ollama-tailnet` kernel forwarder) | local model inference | autopilot on kavure (lease via `hl-infer`) | edu |
 | libvirtd + dnsmasq | KVM hypervisor + NAT DNS/DHCP for guest VMs | native | `192.168.122.1:53` (`virbr0`) | isolated VM lab (`kali-linux`) | local VMs | edu |
 | waydroid | Android-in-container runtime | native | — | run Android apps on the workstation | owner | edu |
 | nfsd / rpcbind / rpc.mountd | NFSv4 server (NAS) | native | `100.82.51.112:2049`, `111`, `20048` | shared storage for the fleet | kavure + kuaray NFS mounts | edu |
@@ -84,7 +84,8 @@ Dedicated services node and **Swarm manager** (`sae-core` + `sae-edge` standby).
 | homeassistant | Home automation hub (host net) | container | `0.0.0.0:8123` | IoT orchestration + mDNS/SSDP discovery | owner automations | edu |
 | go2rtc | Embedded WebRTC camera server | `embedded` — child process **inside `homeassistant`**, not a standalone unit (`docker ps` shows no `go2rtc`; `/bin/go2rtc` runs inside the HA unit, PID owning `18554`/`18555`) | `127.0.0.1:18554`, `0.0.0.0:18555` | camera streaming for HA | homeassistant | edu |
 | pihole | Filtering DNS (host net) | container | `127.0.0.1` + `100.124.146.77:53`, `0.0.0.0:80`/`443` | primary DNS sinkhole | all DNS clients; Homepage tile | edu |
-| searxng-core | Privacy-respecting metasearch engine | container | `100.124.146.77:8080` | ad-free private search | owner | edu |
+| searxng-core | Privacy-respecting metasearch engine | container | `100.124.146.77:8080` | ad-free private search | autopilot harvest (hardcoded endpoint) | edu |
+| autopilot | Social-media engine — publish / engage / metrics / learn | native (systemd, `10-kavure.conf` drop-in) | — (outbound only) | 24/7 publishing independent of the workstation | Bluesky audience; SOPS store; Ollama via the psicopompo tailnet forwarder | edu |
 | searxng-valkey | Valkey cache for SearXNG | container | internal `6379` | search result cache | searxng-core | edu |
 | calibre | Calibre-Web eBook library | container | `100.124.146.77:8083` | personal eBook catalog + reader | owner | edu |
 | navidrome | Subsonic-compatible music streaming | container | `100.124.146.77:4533` | stream the music library | owner / clients | edu |

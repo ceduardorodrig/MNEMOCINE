@@ -19,7 +19,10 @@ Central homelab dashboard — aggregates links, live metrics, and real-time heal
 
 > **`network_mode: host` + `PORT=3001` (07/10/2026):** Homepage transitioned from `ports: 3001:3000` (bridge) to **host networking** — identical rationale to Uptime Kuma: ybytu's `INPUT` iptables policy is **default-deny** (only loopback is accepted), so inside a bridge network the container **failed to reach** local host services (`EHOSTUNREACH` on `:3002`/`:8082`/`:61208`).  
 >  
-> Operational impact on `siteMonitor`: Local services on ybytu target **`127.0.0.1`** — with the exception of **glances** (`:61208`), which binds strictly to the Tailscale IP and retains `100.115.253.109`. The healthcheck was updated to `http://127.0.0.1:3001/api/healthcheck`: the compose `${PORT:-3000}` was evaluated **at parse time** to `3000` — which under host networking hit **AdGuard** (returning 401 and flagging Homepage as "unhealthy").
+> Operational impact on `siteMonitor`: Local services on ybytu target **`127.0.0.1`** — with the exception of **glances** (`:61208`), which binds strictly to the Tailscale IP and retains `100.115.253.109`. The healthcheck was updated to `http://127.0.0.1:3001/api/healthcheck`: the compose `${PORT:-3000}` was evaluated **at parse time** to `3000` — which under host networking hit **AdGuard** (returning 401 and flagging Homepage as "unhealthy").  
+>  
+> ⚠️ **Troubleshooting Tailnet Reachability (`No route to host`):** Se o Homepage responder localmente (`curl http://127.0.0.1:3001` → 200) mas falhar remotamente via Tailscale com `No route to host`, inspecione imediatamente a tabela `nat` do host (`sudo iptables -t nat -S DOCKER`). Regras zumbis de DNAT residuais da antiga configuração bridge sequestram pacotes da porta 3001 antes do listener de host. Procedimento de expurgo e persistência: [`../guides/homelab-traps-2026-10.md`](../guides/homelab-traps-2026-10.md#11-a-zombie-dnat-rule-steals-a-host-port-that-a-host-networked-container-is-listening-on).
+
 
 ## Configuration
 

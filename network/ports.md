@@ -33,6 +33,16 @@ graph TD
 > [!CAUTION]
 > **Prohibition of `0.0.0.0` on internal nodes:** Binding internal services (databases, inference APIs, or management dashboards) to `0.0.0.0` is strictly forbidden. If an internal service requires multi-node access, bind explicitly to its Tailscale IP (`100.x.y.z`) or the `tailscale0` interface.
 
+> [!NOTE]
+> **Tailnet traffic is filtered by the ACL, not by UFW (verified 2026-10-19).** Tailscale installs
+> `-A INPUT -j ts-input` as **rule #1**, and `ts-input` contains `-A ts-input -i tailscale0 -j ACCEPT`.
+> Every packet arriving on `tailscale0` is therefore accepted **before** UFW: a
+> `ufw allow … on tailscale0` rule is **defense-in-depth, not a per-port control**. This is **by
+> design** (owner decision 2026-10-19): the tailnet is a trusted mesh — members join only by
+> authorization, and every tagged server is one the owner runs — so grant (5)
+> `tag:server → tag:server: *` stays as it is. Family devices remain constrained by grant (1)'s port
+> list. Do not treat UFW as the tailnet's port filter.
+
 ---
 
 ## 2. Canonical Port Matrix by Node
@@ -46,6 +56,7 @@ graph TD
 | `9090/tcp` | `127.0.0.1` + `100.82.51.112` | **`steniorec`** (Axum/Whisper) | GPU-accelerated audio transcription and streaming STT | [`../services/steniorec.md`](../services/steniorec.md) |
 | `9095/tcp` | `127.0.0.1` + `100.82.51.112` (+ docker subnets via scoped ufw) | **`hl-infer`** | Centralized GPU inference gateway (dynamic VRAM ledger, admission queue, fixed windows) | [`../services/hl-infer.md`](../services/hl-infer.md) |
 | `8188/tcp` | `127.0.0.1` + `100.82.51.112` | **ComfyUI** | Diffusion image generation (GPU `image_gen` consumer; idles at ~84 MiB, generations run under a lease) | [`../services/comfyui.md`](../services/comfyui.md) |
+| `11434/tcp` | `127.0.0.1` (Ollama) + `100.82.51.112` (`ollama-tailnet` kernel forwarder) | **Ollama** | Local LLM runtime. The tailnet forwarder exists so the autopilot on kavure keeps the local fallback; Ollama itself never leaves loopback. `systemd-socket-proxyd` binds the Tailscale IP (no `0.0.0.0`). Reachable by **tagged servers** — the ACL is the boundary (HB-077) | [`../services/autopilot.md`](../services/autopilot.md) · [`../services/hl-infer.md`](../services/hl-infer.md) |
 | `53/tcp,udp` | `192.168.122.1` (`virbr0`) | **libvirt dnsmasq** | DNS + DHCP for the isolated libvirt NAT network (guest VM `kali-linux`); reachable only on the host-internal `virbr0` bridge, never on LAN/tailnet | [`../servers/psicopompo.md`](../servers/psicopompo.md) |
 | `9777/udp` | `0.0.0.0` (ufw-scoped — see §4) | **Punktfunk Native** | QUIC control & streaming for LAN/tailnet clients | [`../services/punktfunk.md`](../services/punktfunk.md) |
 | `47990/tcp` | `0.0.0.0` (ufw-scoped — see §4) | **Punktfunk Management API** | HTTPS management API (mTLS/bearer auth) | [`../services/punktfunk.md`](../services/punktfunk.md) |

@@ -136,8 +136,12 @@ Noctalia natively honors `org.freedesktop.ScreenSaver.Inhibit` signals from Chro
 | `Super + Alt + 1/2/3` | Switch directly to workspace N |
 | `Super + Shift + Ctrl + N` | Move active window to workspace N and follow |
 | `Super + Shift + Alt + N` | Move active window to workspace N without following |
-| `Super + Shift + S` | Move active window to scratchpad |
-| `Super + S` | Toggle scratchpad drawer |
+| `Super + Shift + S` | **Toggle the active window to/from the scratchpad** — sends it when it sits on a desktop, pulls it back to the active (non-special) workspace when it is already inside the scratchpad. The drawer closes on the way back. |
+| `Super + S` | Show / hide the scratchpad drawer (independent of the toggle above) |
+
+**Scratchpad implementation (2026-10-19):** `hl.dsp.window.move({ workspace = "special" })` alone is not a toggle — Hyprland 0.56.2 short-circuits when the target workspace is the one the window already lives in (`Actions::moveToWorkspace`), so pressing the old bind while inside the scratchpad did nothing. `config/binds.lua` now branches on `hl.get_active_window().workspace.special` and sends `+0` when the window is already special; `+0` resolves to `monitor->activeWorkspaceID()` (the special lives in `m_activeSpecialWorkspace`, so `+0` is always the desktop underneath). Leaving the special also makes Hyprland clear the active special workspace, so the drawer closes by itself. Note: focusing any window that lives in the scratchpad re-opens the drawer — the drawer state follows the focused window's workspace.
+
+**`hyprctl dispatch` gotcha on the Lua config manager (2026-10-19):** with `hyprland.lua` (Hyprland 0.55+) the compositor uses the **Lua** config manager, and `hyprctl dispatch X` is evaluated as `hl.dispatch(X)`. Legacy dispatcher strings therefore fail with a Lua parse error (`hyprctl dispatch movetoworkspace special` → `')' expected near 'special'`). Use the Lua form instead: `hyprctl dispatch 'hl.dsp.window.move({ workspace = "+0" })'`. For read-only inspection, `hyprctl repl 'return <lua>'` prints the result (e.g. `hyprctl repl 'return hl.get_active_window().workspace.name'`), while `hyprctl eval` only answers `ok`. Also note `hyprctl keyword` is refused under Lua (`keyword can't work with non-legacy parsers. Use eval.`).
 
 ### Hardware & Desktop Utilities
 

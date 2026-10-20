@@ -346,9 +346,23 @@ problem. The same host had a second zombie on `:8083` (`→ 172.17.0.9:80`, also
   (StênioREC) and `ybyra:80` (public edge) — all **200/302**, with the two public **Funnels still 200**.
 - **Safe and self-healing:** removing a rule whose container no longer exists is harmless — if a
   container with that published port ever starts again, Docker re-creates the rule from its config.
-- **Recurrence guard:** this is point-in-time; a container re-creation can re-do it. The audit above
-  (DNAT target vs. the publishing container) is the check to re-run — folding it into an automated
-  surface is the follow-up recorded in **[HB-071](../backlog.md)**.
+- **Recurrence incident (2026-10-19 — Homepage & Uptime Kuma):** On 2026-10-15, while configuring
+  Syncthing (`22000`) on `ybytu`, `netfilter-persistent save` was invoked without auditing `nat/DOCKER`.
+  This dumped the host's raw iptables state into `/etc/iptables/rules.v4` containing stale DNAT rules for
+  `:3001` (`→ 172.21.0.2:3000`) and `:3002` (`→ 172.17.0.5:3001`). On the subsequent network/service
+  reload, `netfilter-persistent` resurrected the zombie rules, breaking Tailnet access (`No route to host`)
+  even though the containers ran healthy in `network_mode: host`.
+- **How to prevent recurrence definitively:**
+  1. **Audit before saving:** Never invoke `netfilter-persistent save` blindly. Always run
+     `sudo iptables -t nat -S DOCKER` first and ensure no rules target deleted containers or host-networked ports.
+  2. **Host-mode migration check:** Whenever changing any service from bridge (`ports:`) to `network_mode: host`,
+     immediately verify that Docker cleaned its DNAT rule. If residual rules exist, delete them:
+     `sudo iptables -t nat -D DOCKER <rule>`.
+  3. **Persist only clean state:** Immediately after surgical removal, update the persistent storage:
+     `sudo cp /etc/iptables/rules.v4 /etc/iptables/rules.v4.bak && sudo netfilter-persistent save`.
+  4. **Fleet re-audit (2026-10-19):** After purging `ybytu`, all nodes (`psicopompo`, `kavure`, `kuaray`,
+     `ybyra`) were scanned live — **0 zombie rules across all active nodes**. Tracking automation via **[HB-071](../backlog.md)**.
+
 
 ---
 
@@ -366,6 +380,31 @@ problem. The same host had a second zombie on `:8083` (`→ 172.17.0.9:80`, also
 | 8 | Container → own host tailnet IP blocked by `INPUT` | The packet arrives on the Docker bridge; the firewall must allow it. |
 | 9 | Method | Doc first → one logic → fix from the doc → no divergent host. |
 | 10 | Green locally ≠ green at the commit | Build the **clean commit** (`git worktree`/`git archive`), not the WIP tree, before pushing or tagging. |
+
+## 12. A `ufw` rule on `tailscale0` restricts **nothing** — the ACL is the tailnet firewall
+
+**The trap (hit on `psicopompo`, 2026-10-19 — exposing Ollama to the autopilot on kavure).** The
+obvious move was `ufw allow in on tailscale0 from 100.124.146.77 to any port 11434`, then test from
+kavure: `200`. Test from a **third** tagged server (`kuaray`): also `200`, even though the rule named
+a single source IP.
+
+**Why:** Tailscale installs `-A INPUT -j ts-input` as **rule #1**, and `ts-input` contains
+`-A ts-input -i tailscale0 -j ACCEPT`. Every tailnet packet is accepted **before** UFW's chains run.
+It is intentional (the maintainers call the ACL *the tailnet firewall*). `tailscale serve` has the
+same property — the Syncthing `:8384` listener answers from another host with `Default: deny` and
+**no** rule at all. This is the Layer-1 fact already stated in
+[`security-baseline.md`](security-baseline.md).
+
+**The tell:** a tailnet port answers from a host the UFW rule did **not** name. Check
+`iptables -S | rg ts-input` and `iptables -L ts-input` before touching the firewall.
+
+**The rule:**
+1. To restrict a tailnet port, edit the **ACL** (`grants`) — not UFW, not nftables.
+2. Keep the UFW rule only as **defense-in-depth**, and label it as such; never present it as the
+   control.
+3. Test from a **third** tagged server, not just the intended client: the client proves reachability,
+   the third proves the restriction.
+4. Docker-published ports are a separate layer (`DOCKER-USER`); do not mix the two.
 
 ## References
 

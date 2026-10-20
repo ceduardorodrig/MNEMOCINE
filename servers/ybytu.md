@@ -106,3 +106,22 @@ All workloads execute as Docker containers managed via Docker Compose:
 - **fail2ban** (1.0.2, ativo): jail `sshd` (`mode = aggressive`, `bantime 1h`, `findtime 10m`, `maxretry 5`). **`ignoreip` inclui a tailnet (`100.64.0.0/10`)** — o acesso normal é por ela e **nunca** deve ser banido.
 - **Acesso normal**: **Tailscale SSH** pela tailnet (não usa o OpenSSH). Detalhe: [`../network/tailscale.md`](../network/tailscale.md).
 - **Revisão de compromisso (13/10)**: **sem sinais** — todos os logins bem-sucedidos usam a **mesma chave do dono** (do ISP brasileiro), sem usuários/chaves/unidades/cron/conexões de saída fora do padrão.
+
+### Firewall & Docker NAT Persistence (`netfilter-persistent`)
+
+Diferente dos nós gerenciados por UFW (`kavure`, `kuaray`), o `ybytu` utiliza `iptables` nativo gerenciado por `netfilter-persistent` (`/etc/iptables/rules.v4`).
+
+**Protocolo obrigatório ao alterar regras de firewall no `ybytu`:**
+1. **Serviços em Host-Mode:** Containers com `network_mode: host` (`homepage:3001`, `uptime-kuma:3002`, `glances:61208`) **não podem ter regras DNAT** na chain `nat/DOCKER`. Se existirem, sequestram o tráfego da Tailnet para IPs mortos de bridge (`No route to host`).
+2. **Auditoria mandatória antes de salvar:** Nunca rodar `sudo netfilter-persistent save` cegamente. Execute antes:
+   ```bash
+   sudo iptables -t nat -S DOCKER
+   ```
+   Valide se todos os IPs de destino batem com containers ativos (`docker inspect`). Remova qualquer resíduo com `sudo iptables -t nat -D DOCKER <regra>`.
+3. **Persistência segura:**
+   ```bash
+   sudo cp /etc/iptables/rules.v4 /etc/iptables/rules.v4.bak-$(date +%Y%m%d)
+   sudo netfilter-persistent save
+   ```
+Ver detalhes e histórico de recuperação em [`../guides/homelab-traps-2026-10.md`](../guides/homelab-traps-2026-10.md#11-a-zombie-dnat-rule-steals-a-host-port-that-a-host-networked-container-is-listening-on).
+

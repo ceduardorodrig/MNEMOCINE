@@ -40,6 +40,7 @@ pending: [HB-061]
 | D10 | `HB-013` — reboot `ybytu` to prove persistence | proof | a reboot window | **HB-013** |
 | D11 | Members reach each other's devices (the *grande LAN*) — **✅ implemented 2026-10-13** (PR [#14](https://github.com/ceduardorodrig/MNEMOCINE-ACL/pull/14)) | policy | 1 grant, reversible | this doc · **HB-063** |
 | D12 | ComfyUI — interactive use **is allowed** outside the batch windows, via an `other`-kind lease (**✅ decided 2026-10-14**, owner) | GPU policy | verified live; may delay `image_gen` jobs | [`../services/comfyui.md`](../services/comfyui.md) · **HB-036** |
+| D13 | The autopilot's **production** scheduler runs on `kavure` (24/7); `psicopompo` stays the dev/build host and the GPU fallback. Ollama is exposed to the tailnet through a **kernel-bound** forwarder — and the **tailnet ACL**, not UFW, is the enforcement point (**✅ implemented 2026-10-19**) | host topology + security | one drop-in + one socket unit + one ACL-scoped service | [`../services/autopilot.md`](../services/autopilot.md) · **HB-076/HB-077** |
 
 ---
 
@@ -399,3 +400,33 @@ porque `other` tem a prioridade mais baixa (4) — mas ainda é admitido quando 
 `kind: other`, `required_bytes: 6 GiB`, `process: "python"` → estado **`admitted`** (`job-000001`);
 liberado na sequência; o livro voltou a `{"unmanaged":0,"leases":[]}` (o processo do ComfyUI de volta
 a 88 MB ocioso). Detalhe e receita em [`../services/comfyui.md`](../services/comfyui.md).
+
+---
+
+## D13 — The autopilot runs on kavure; Ollama is exposed through a kernel forwarder (**2026-10-19**)
+
+**Decision.** The social-media engine's four timers move to **kavure** (always on). `psicopompo`
+stays the **development/build host** and the only **GPU** host — `hl-infer`, `ollama` and `comfyui`
+do not move. Ollama remains bound to `127.0.0.1:11434`; a `systemd-socket-proxyd` forwarder binds
+the Tailscale IP so the engine on kavure keeps the local fallback.
+
+**Why.** A workstation is not a scheduler: a reboot, a suspend or a kernel update at the wrong
+minute loses a publication window, and `Persistent=false` deliberately never replays it (a burst
+would land outside the window and look like a bot). The engine is CPU-only in its normal path, so
+kavure does not need a GPU. The local fallback matters more than it looks: **Gemini is at HTTP 402**
+(depleted prepayment), so the only working providers are `opencode` (free model, no auth needed) and
+Ollama.
+
+**Why a kernel forwarder and not `tailscale serve`.** `tailscale serve` runs inside tailscaled and
+was verified to **bypass UFW** (the Syncthing 8384 listener answers from another host with no rule
+and `Default: deny`). A kernel socket bound to the Tailscale IP is filtered normally. It also keeps
+the `0.0.0.0` prohibition in [`../network/ports.md`](../network/ports.md) §1.
+
+**The boundary, by design (owner decision 2026-10-19).** Tailscale inserts
+`-A INPUT -j ts-input` as rule #1 and `ts-input` accepts everything arriving on `tailscale0`, so
+**UFW is not the filter for tailnet traffic** — the ACL is. The owner confirmed this is the intended
+model: the tailnet is a trusted mesh (members join only by authorization, and every tagged server is
+one the owner runs), so grant (5) `tag:server → tag:server: *` stays exactly as it is. Ollama is
+reachable by **tagged servers**, not by family devices (grant (1)'s port list does not include
+`:11434`). What was wrong was the documentation claiming UFW scoped the tailnet; `ports.md` now says
+otherwise. UFW remains defense-in-depth.

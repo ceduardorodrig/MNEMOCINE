@@ -89,7 +89,7 @@ Operates as a Swarm worker (`role=gpu`) attached to the `sae-net` overlay networ
 | Service | How | Port(s) + bind | Purpose |
 |---|---|---|---|
 | `hl-infer` | native systemd | `127.0.0.1:9095` + `100.82.51.112:9095` | Centralized GPU inference gateway (VRAM leases, fixed windows) — see [`services/hl-infer.md`](../services/hl-infer.md) |
-| `ollama` | native systemd | `127.0.0.1:11434` | Local LLM runtime (leased through `hl-infer`) |
+| `ollama` | native systemd | `127.0.0.1:11434` + `100.82.51.112:11434` (`ollama-tailnet` kernel forwarder) | Local LLM runtime (leased through `hl-infer`); the forwarder gives the autopilot on **kavure** the local fallback without leaving loopback. Re-enabled 2026-10-19 (it had been stopped since 13:05) |
 | `sumaenima-gpu` | native systemd | — | GPU worker supervisor (Rust) that boot-orders and revives `steniorec` |
 | `libvirtd` + `dnsmasq` | native systemd | `192.168.122.1:53` (`virbr0`) | KVM hypervisor + NAT DNS/DHCP for the isolated guest network |
 | `waydroid-container` | native systemd | — | Android-in-container runtime |
@@ -99,6 +99,10 @@ Operates as a Swarm worker (`role=gpu`) attached to the `sae-net` overlay networ
 | `punktfunk-host` | **user** systemd (`edu`) | `0.0.0.0:47990` (ufw-scoped) + `9777/udp` | Low-latency game/desktop streaming host |
 | `punktfunk-web` | **user** systemd (`edu`) | `0.0.0.0:47992` (ufw-scoped) | Punktfunk management web console |
 | `punktfunk-scripting` | **user** systemd (`edu`) | `0.0.0.0:47993` (ufw-scoped) | Punktfunk plugin/script runner |
+
+> **Autopilot moved (2026-10-19, HB-076):** the social-media engine's four timers now run on
+> `kavure`. psicopompo remains the **dev/build host** and the **GPU fallback** (`hl-infer` + the
+> `ollama-tailnet` forwarder). See [`../services/autopilot.md`](../services/autopilot.md).
 
 > **Note on `live-restore`:** Strictly removed from `daemon.json` on 2026-10-02 due to fundamental incompatibility with Docker Swarm mode. See [`AGENTS.md`](../AGENTS.md).
 

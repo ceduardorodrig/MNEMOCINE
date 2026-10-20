@@ -215,11 +215,12 @@ ybyra show none either. The container is a config artifact, not a service.
 
 **4. The real Ollama is the host service, not the container.** `ollama.service` on psicopompo
 (`/usr/local/bin/ollama serve`, drop-in `OLLAMA_MODELS=/mnt/NVME_PCI/ollama_models/models`, models
-`gemma4:e2b`, `qwen3:8b`, `qwen2.5:7b`), listening on **`127.0.0.1:11434` only** (no overlay, no
-host publish). Its callers:
-- **Autopilot** (`hl-autopilot.timer`, `autopilot-providers`): endpoint `http://127.0.0.1:11434`,
-  model `gemma4:e2b`; the call is wrapped by a gateway lease (`gateway.rs`) — this is the path
-  already recorded as migrated.
+`gemma4:e2b`, `qwen3:8b`, `qwen2.5:7b`), listening on **`127.0.0.1:11434`** (no overlay, no host
+publish) **plus** a kernel-bound forwarder on `100.82.51.112:11434` (`ollama-tailnet.socket`,
+`systemd-socket-proxyd`; since 2026-10-19, HB-076). Its callers:
+- **Autopilot** (now `hl-autopilot.timer` **on kavure**): endpoint `http://psicopompo:11434`,
+  model `gemma4:e2b`; the call is wrapped by a gateway lease against
+  `HL_INFER_URL=http://psicopompo:9095` (`gateway.rs`).
 - **OpenCode server** (`opencode serve`, loopback): polls `GET /api/tags` every 30 s. Metadata
   only — it lists installed models and loads none, so it never touches VRAM.
 

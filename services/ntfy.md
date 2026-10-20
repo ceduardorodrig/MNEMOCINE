@@ -41,7 +41,7 @@ services:
 
 | Topic | Origin | Usage |
 |---|---|---|
-| **`backup`** | Backup automation scripts (config, restic, agentic-ai, docs-sync, n8n, monitoring, zomboid, valheim, sumaenima, miracena, rclone, scryfall, arandu) | **OK/FAILED** status reports for all scheduled backups |
+| **`backup`** | Backup automation scripts (config, configs-git-push, restic, agentic-ai, docs-sync, n8n, monitoring, zomboid, valheim, sumaenima, miracena, rclone, scryfall, arandu) | **OK/FAILED** status reports for all scheduled backups |
 | **`alerts`** | **Uptime Kuma** (~40 Down/Up monitors) **+ `alertmanager-ntfy`** (Prometheus/Alertmanager) **+ `arm-hunt`** **+ `hl-backlog-report`** | Service downtime + homelab alerts + ARM instance acquisition + weekly backlog digest (silent `min`, `low` on drift) |
 | `chimaera-heptatonic` | Changedetection.io | Webpage change notifications |
 | ~~`uptimekuma`~~ | **Deprecated / unused** — Uptime Kuma publishes directly to **`/alerts`** (Option A, 08/10/2026) | — |

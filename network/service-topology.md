@@ -15,9 +15,13 @@ Service dependency and interconnect topology across the homelab infrastructure.
 
 ```text
 sae-net (Swarm overlay managed by kavure) — GPU Workers
-├── steniobot_vision ────→ valkey (kavure), api (kavure) via overlay
-├── steniobot_audio ─────→ valkey (kavure), api (kavure) via overlay
-└── steniobot_ollama ────→ port 11434 (kavure API reaches via overlay)
+└── steniorec ───────────→ valkey (kavure), api (kavure) via overlay
+    (the legacy steniobot_vision / steniobot_audio / steniobot_ollama
+     definitions are retired — see services/hl-infer.md)
+
+Ollama is NOT on the overlay: it is the psicopompo host service on 127.0.0.1:11434,
+exposed to the tailnet by the kernel-bound `ollama-tailnet` forwarder for the
+autopilot that now runs on kavure.
 
 minecraftserver_default (172.19.0.0/16) — (Historical / Decommissioned)
 └── crafty-controller ───→ (Migrated to kavure)
