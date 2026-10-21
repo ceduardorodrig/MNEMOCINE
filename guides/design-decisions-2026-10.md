@@ -430,3 +430,32 @@ one the owner runs), so grant (5) `tag:server → tag:server: *` stays exactly a
 reachable by **tagged servers**, not by family devices (grant (1)'s port list does not include
 `:11434`). What was wrong was the documentation claiming UFW scoped the tailnet; `ports.md` now says
 otherwise. UFW remains defense-in-depth.
+
+---
+
+## D14 — Engine vs tenant: identity and credentials are deployment data (**2026-10-21**)
+
+**Decision.** The autopilot repository is the **engine**. A **tenant** owns the persona packs, the
+account identities, the engagement policy and the state. A pack declares the identity
+(`channel.handle`) and the **names** of the environment variables that hold the secrets
+(`app_password_env` for Bluesky, `x_env` for X); the engine never stores a handle or a secret. The
+scheduler runs from `AUTOPILOT_TENANT_DIR`; the engine lives in `AUTOPILOT_DIR`.
+
+**Why.** The old layout was one account per process (`BLUESKY_HANDLE` / `X_*` globals) and the
+identity lived in **two** places: `channel.handle` fed the card/quality gate while `BLUESKY_HANDLE`
+drove the login. That cannot serve several personas with different accounts, let alone customers.
+With the identity in the pack and secrets named, one binary serves many tenants; the publisher
+rejects a session for another account (`create_session_for_channel`), so a misconfigured deployment
+fails loudly instead of posting from the wrong account. The tenant layout is documented in
+[`services/autopilot.md`](../services/autopilot.md) and in the engine's `docs/tenancy.md`.
+
+**Consequences.** The public engine will ship `examples/` only; the real pack, the engage config and
+`var/` stay in `/home/kavure/autopilot/tenants/sumaenima/` (and its NAS mirror). The public release
+requires sanitizing the history (the pack was tracked) and carries the **AGPL-3.0-only** license plus
+a commercial option. The persona pack is the sellable unit; the engine is the delivery vehicle.
+
+**Pre-existing exposure (resolved 2026-10-21).** The production handle appeared in the public
+`MNEMOCINE` `backlog-archive.md` (HB-073). The autopilot public repository does not include it, and
+the `MNEMOCINE` history was sanitized on 2026-10-21 (`git filter-repo`; pre-rewrite bundle
+`/mnt/BACKUP/mnemocine-pre-sanitize-2026-10-21.bundle`). Old commits may remain reachable by SHA
+until GitHub's garbage collection; the repository has no forks.

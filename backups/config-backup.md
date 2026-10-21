@@ -63,18 +63,18 @@ Each Host (05:00) → /usr/local/bin/config-backup (systemd timer hl-config-back
 | Host | SRC_DIRS | Primary Exclusions |
 |---|---|---|
 | psicopompo | `/home/edu/homelab` (**Service compose files** — first in list), `/mnt/NVME_PCI/homelab` (**Project roots**: sumaenimahub, transcribe, …), `/usr/local/bin`, syncthing state, **Desktop configs** (`~/.config/hypr`, `~/.config/noctalia`, `~/.config/uwsm`, `~/.config/environment.d`, `~/.config/steam-launch-options`, `~/.local/state/noctalia`, `~/.config/gtk-3.0`, `~/.config/gtk-4.0`, `~/.config/qt6ct`, **`~/.config/fish`** — shell config, 06/10/2026), **Dominium Prism Instance** (`~/.local/share/PrismLauncher/instances/Dominium` — modpack source of truth: mods/config/loader, ~484 MB), rclone, wallpapers. **GOLDEN FILES:** `/var/lib/noctalia-greeter/greeter.toml`, `/etc/greetd/config.toml`, `/etc/systemd/sleep.conf.d/60-freeze.conf`, `/etc/systemd/system/tailscaled-wait.service`, `/etc/systemd/system/nfs-server.service.d/10-tailscaled-wait.conf`, `/etc/smartd.conf`, `/etc/sudoers.d/99-edu-homelab`, `/etc/ufw/user{,6}.rules`, `~/.gtkrc-2.0`, **`~/.ssh/config`** (SSH host configuration without private keys), fstab, exports, pacman, snapper configs. | `ollama`, `index-v2`, `*.log`, **`target`** (Rust build artifacts), **Noctalia runtime state** (`clipboard`, `notification_history*`, `recently_used.json`, `usage_counts.json`, `wallpaper_shuffle.json`, `plugin-cache`, `community-*`), **Prism personal cache** (`minecraft/Distant_Horizons_server_data`, `saves`, `logs`, `crash-reports`, `screenshots`) |
-| kavure | `/srv/data`, `/home/kavure/homelab/sumaenima-socialmedia-autopilot` (source + `var/`, 2026-10-19) | `zomboid/data`, `pz-dedicated`, `workshop-mods`, `sumaenimahub/SUMAENIMA-HUB`, `volumes`, `backup`, `aiostreams/anime-database`, **`minecraft/minecraftserver \[dominium\]/MINECRAFT SERVER`**, **`minecraft/minecraftserver \[dominium\]/crafty`**, **`minecraft/minecraftserver \[dominium\]/DOMINIUM-MODPACK`**, `minecraft/offbox`, `minecraft/pre-update` (06/10/2026 — tooling in `minecraft/minecraftserver [dominium]/` is mirrored). **GOLDEN FILES (08/10/2026):** fstab + **`/etc/unbound/unbound.conf.d/mnemocine.conf`** + **`/etc/sysctl.d/99-unbound.conf`** (recursive unbound config) + **32 systemd units** (`/etc/systemd/system/hl-*.{service,timer}` + `hl-minecraft-status.service` + `hl-unbound-status.service`). Systemd units are treated as configuration by homelab standards. |
+| kavure | `/srv/data`, `/home/kavure/homelab/sumaenima-socialmedia-autopilot` (engine source, 2026-10-19), `/home/kavure/autopilot/tenants/sumaenima` (tenant: packs + config + `var/`, 2026-10-21) | `zomboid/data`, `pz-dedicated`, `workshop-mods`, `sumaenimahub/SUMAENIMA-HUB`, `volumes`, `backup`, `aiostreams/anime-database`, **`minecraft/minecraftserver \[dominium\]/MINECRAFT SERVER`**, **`minecraft/minecraftserver \[dominium\]/crafty`**, **`minecraft/minecraftserver \[dominium\]/DOMINIUM-MODPACK`**, `minecraft/offbox`, `minecraft/pre-update` (06/10/2026 — tooling in `minecraft/minecraftserver [dominium]/` is mirrored). **GOLDEN FILES (08/10/2026):** fstab + **`/etc/unbound/unbound.conf.d/mnemocine.conf`** + **`/etc/sysctl.d/99-unbound.conf`** (recursive unbound config) + **32 systemd units** (`/etc/systemd/system/hl-*.{service,timer}` + `hl-minecraft-status.service` + `hl-unbound-status.service`). Systemd units are treated as configuration by homelab standards. |
 | kuaray | `/home/kuaray/docker`, `/home/kuaray/homelab` | Generic exclusions |
 | ybytu | `/home/ubuntu/homelab` | Generic exclusions |
 | ybyra | `/home/ubuntu/homelab`, `docker-compose.ybyra.yml` | `*.tar.gz`/`*.zip`/`*.tgz`/`*.tar` |
 
-> **Autopilot state (2026-10-19, HB-076):** kavure also mirrors
-> `/home/kavure/homelab/sumaenima-socialmedia-autopilot` — source, personas, config **and** `var/`
-> (141 files) — with `target/` excluded (2.6 MB). Its `golden/` now carries the four `hl-autopilot*`
-> units, their `10-kavure.conf` drop-ins and `/etc/config-backup.conf`. On psicopompo, `golden/` also
-> carries `ollama-tailnet.socket`, `ollama-tailnet.service` and `ollama.service.d/10-models.conf`
-> (the tailnet forwarder added when the autopilot moved). The autopilot **state** is therefore on
-> kavure and in this mirror; the old `var/` on psicopompo was removed after the checksummed copy.
+> **Autopilot engine + tenant (2026-10-21, HB-079):** kavure mirrors the **engine**
+> (`/home/kavure/homelab/sumaenima-socialmedia-autopilot`, source; `target/` excluded) and the
+> **tenant** (`/home/kavure/autopilot/tenants/sumaenima`: personas, config and `var/`, **185
+> files**). The four `10-kavure.conf` drop-ins now carry `AUTOPILOT_TENANT_DIR` and
+> `AUTOPILOT_SECRETS`; they and the units are golden files. On psicopompo, `golden/` keeps
+> `ollama-tailnet.socket`, `ollama-tailnet.service` and `ollama.service.d/10-models.conf`. The
+> tenant is the single writer; the old engine `var/` is frozen for rollback.
 
 **Global Exclusions (Secrets — NEVER mirrored):** `.env`, `secrets.yaml`, `slskd.yml`, `passwd`, `config.xml` (API keys), **`htpasswd`**, **`registry.key`** (registry certificates, 07/10/2026), `*.db`, `*.log`, `*.lock`, `.venv`, `node_modules`, `.git`, `.cache`, `.stversions`. Secrets reside strictly in the **sops/age vault** (`/mnt/NVME_PCI/secrets/`), synchronized encrypted via Syncthing.
 

@@ -35,7 +35,7 @@ tags: [homelab, server, kavure, docker, storage, gaming, todo]
 - **Homelab Automation (n8n, reactivated 2026-10-09):** Standalone n8n + `n8n-postgres` (`:5678`) for homelab workflows — **distinct** from the Miracena n8n on kuaray (not part of that stack). Its daily `pg_dump` writes to the NAS (see backups).
 - **Subnet Router (Activated 2026-10-05):** Advertises route `192.168.3.0/24` across the Tailnet, granting remote access to local IoT devices and home routers.
 - **DNS Core Resolver (2026-10-08):** Runs Pi-hole alongside a native **recursive `unbound`** instance (`127.0.0.1:5053`, DNSSEC validation). Monitored by a dedicated Rust watchdog (`hl-dns-watchdog.timer`).
-- **Social-media autopilot host (2026-10-19):** production scheduler for `SUMAENIMA-SOCIALMEDIA-AUTOPILOT` — four `Type=oneshot` timers (publish/engage/metrics/learn). CPU-only: the LLM is cloud-first and the GPU fallback stays on psicopompo behind `hl-infer`. See [`../services/autopilot.md`](../services/autopilot.md).
+- **Social-media autopilot host (2026-10-19):** production scheduler for `SUMAENIMA-SOCIALMEDIA-AUTOPILOT` — four `Type=oneshot` timers (publish/engage/metrics/learn). CPU-only: the LLM is cloud-first and the GPU fallback stays on psicopompo behind `hl-infer`. The **tenant** (packs, config, state) lives in `/home/kavure/autopilot/tenants/sumaenima/`; the repo is code only (HB-079). See [`../services/autopilot.md`](../services/autopilot.md).
 
 ## Storage Layout & Directory Structure
 
@@ -58,7 +58,7 @@ tags: [homelab, server, kavure, docker, storage, gaming, todo]
 
 | Timer | Schedule | Protected Service | Target Destination |
 |---|---|---|---|
-| `hl-config-backup.timer` | 05:00 | Host configurations **+ the autopilot repo/state** (`/home/kavure/homelab/sumaenima-socialmedia-autopilot`, `target/` excluded; 2.6 MB) | rsync $\rightarrow$ NAS mirror |
+| `hl-config-backup.timer` | 05:00 | Host configurations **+ the autopilot engine and tenant** (`/home/kavure/homelab/sumaenima-socialmedia-autopilot` with `target/` excluded, **and** `/home/kavure/autopilot/tenants/sumaenima`; 185 tenant files) | rsync $\rightarrow$ NAS mirror |
 | `hl-zomboid-backup.timer` | 05:15 | Project Zomboid world saves | rsync $\rightarrow$ NAS mirror |
 | `hl-n8n-backup.timer` | 05:25 | Homelab n8n PostgreSQL | pg\_dump $\rightarrow$ NAS mirror (health stamp since 09/10) |
 | `hl-valheim-backup.timer` | 05:30 | Valheim world saves | rsync $\rightarrow$ NAS mirror |

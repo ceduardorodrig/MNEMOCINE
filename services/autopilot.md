@@ -1,6 +1,6 @@
 ---
 tags: [homelab, service, agents, kavure]
-pending: [HB-078]
+pending: [HB-078, HB-079]
 ---
 
 # Social-Media Autopilot (`SUMAENIMA-SOCIALMEDIA-AUTOPILOT`)
@@ -20,6 +20,22 @@ burst. `kavure` is always on.
 
 The engine is **CPU-only** in its normal path: the LLM is cloud-first (the `opencode` CLI, then
 Gemini), the cards rasterise with `rsvg-convert`, and the GPU is only the third fallback.
+
+## Tenant model (2026-10-21, HB-079)
+
+The engine is **code**; the **tenant** owns the persona packs, the account identities, the engage
+config and the state. On kavure the tenant is `/home/kavure/autopilot/tenants/sumaenima/`
+(`personas/`, `config/`, `var/`), owned by `kavure` (`0700`). The wrapper `cd`s into
+`$AUTOPILOT_TENANT_DIR`; the engine stays in `/home/kavure/homelab/sumaenima-socialmedia-autopilot`
+and is built there.
+
+- **Identity** is the pack's `channel.handle`. The login uses it, and the publisher rejects a
+  session that belongs to another account (`create_session_for_channel`).
+- **Secrets are names**: the pack declares `app_password_env` (Bluesky) and `x_env` (X); the unit's
+  `AUTOPILOT_SECRETS` lists the variables the wrapper loads from SOPS. No handle or secret is global,
+  so two personas in one process can use different accounts.
+- **Per-persona engage**: `config/engage/<slug>.yaml` when present, else `config/engage.yaml`.
+- The public engine will ship `examples/` only; the real pack and the tenant state are not published.
 
 ## Timers
 
@@ -46,28 +62,41 @@ All four are `Persistent=false`: a missed window is not replayed.
 
 ## State (`var/`)
 
-141 files, < 1 MB: `runs/` (the run journal), `metrics.jsonl`, `engage/state.jsonl` (the **daily
-caps**), `learn/*.json` (memory proposals), `cards/`. It is gitignored and must be **single-writer**:
-only one host may run the timers at a time.
+The live state is the **tenant's** `var/` — 175 files at the migration, < 1 MB: `runs/` (the run
+journal), `metrics.jsonl`, `engage/state.jsonl` (the **daily caps**), `learn/*.json` (memory
+proposals), `cards/`. It is gitignored and must be **single-writer**: only one host may run the
+timers at a time. The old `var/` in the engine directory is frozen for rollback.
 
 ## Backups
 
-`hl-config-backup` (05:00) mirrors the whole repo — source, personas, config **and** `var/` — to
-`/srv/backup-configs/kavure/sumaenima-socialmedia-autopilot/` on the NAS, excluding `target/`
-(2.6 MB in total). The unit files and the `10-kavure.conf` drop-ins are **golden files** in the same
-backup, and `/etc/config-backup.conf` now backs itself up, so a rebuilt host recovers the rule too.
+`hl-config-backup` (05:00) mirrors `/srv/data`, the engine repo **and the tenant**
+(`/home/kavure/autopilot/tenants/sumaenima`) to `/srv/backup-configs/kavure/…` on the NAS, excluding
+`target/`. The tenant mirror has **185 files** (personas + config + `var/`); the engine mirror keeps
+the source. The unit files and the `10-kavure.conf` drop-ins — now with
+`AUTOPILOT_TENANT_DIR`/`AUTOPILOT_SECRETS` — are **golden files**, and `/etc/config-backup.conf`
+backs itself up, so a rebuilt host recovers the rule too.
 
 ## Deploy
 
-From psicopompo (dev) to kavure (prod):
+Two independent artifacts — the **engine** (code) and the **tenant** (private packs/config/state):
 
 ```bash
-git archive --format=tar.gz HEAD | ssh kavure@kavure 'tar -xzf - -C ~/homelab/sumaenima-socialmedia-autopilot'
-ssh kavure@kavure 'cd ~/homelab/sumaenima-socialmedia-autopilot && ~/.cargo/bin/cargo build --release --locked'
+# engine: source only; the tenant directories are never touched
+rsync -aHAX --checksum --delete \
+  --exclude .git/ --exclude target/ --exclude var/ --exclude personas/ --exclude config/ \
+  ./ kavure@kavure:/tmp/autopilot-src/
+ssh kavure@kavure 'sudo rsync -aHAX --checksum --delete \
+  --exclude personas/ --exclude config/ --exclude var/ --exclude target/ \
+  /tmp/autopilot-src/ /home/kavure/homelab/sumaenima-socialmedia-autopilot/'
+
+# build on the destination
+ssh kavure@kavure 'cd ~/homelab/sumaenima-socialmedia-autopilot && cargo build --release --locked'
 ```
 
 Building **on the destination** keeps the binary inside the host's glibc (kavure 2.39). A binary
 built on psicopompo (glibc 2.44) can silently start requiring a symbol the destination does not have.
+The tenant lives on kavure (`/home/kavure/autopilot/tenants/sumaenima/`); it is deployed and backed
+up as its own directory, never as part of the engine.
 
 ## Unit notes
 
@@ -78,6 +107,10 @@ built on psicopompo (glibc 2.44) can silently start requiring a symbol the desti
 - Host-specific values live in `/etc/systemd/system/hl-autopilot*.service.d/10-kavure.conf`
   (`User=kavure`, `AUTOPILOT_DIR`, `SOPS_DECRYPT`, `HL_INFER_URL`); the unit files stay identical to
   the psicopompo ones (config-as-code, no fork).
+- `AUTOPILOT_TENANT_DIR=/home/kavure/autopilot/tenants/sumaenima` — the wrapper `cd`s there, so
+  `var/` and the relative defaults are tenant-scoped.
+- `AUTOPILOT_SECRETS="BLUESKY_APP_PASSWORD GEMINI_API_KEY"` — the variable **names** the wrapper
+  loads from SOPS. The pack names its own per-channel variables; list every one a tenant uses.
 
 ## Migration record (2026-10-19)
 
@@ -97,6 +130,37 @@ Two facts, **by design**, are recorded in [`../network/ports.md`](../network/por
 ACL — not UFW — is the filter (Tailscale's `ts-input` accepts `tailscale0` before UFW), and Ollama is
 reachable by **tagged servers**, not by family devices. The owner confirmed the model on 2026-10-19:
 it is the same trust boundary the fleet already uses for Syncthing, NFS and the monitoring exporters.
+
+## Tenant migration record (2026-10-21, HB-079)
+
+- Froze the four timers and waited for the running engage to finish (`13:45:53`).
+- Created `/home/kavure/autopilot/tenants/sumaenima/` (`0700`, `kavure:kavure`) and copied
+  `personas/`, `config/` and `var/` with `rsync -aHAX --numeric-ids --checksum`.
+- **175/175** `var/` files hash-identical; 6 persona files, 3 configs.
+- Synced the engine source (excluding `personas/`, `config/`, `var/`, `target/`) and rebuilt on
+  kavure (`cargo build --release --locked`, 49 s).
+- Installed the tenant-aware wrapper and added `AUTOPILOT_TENANT_DIR` + `AUTOPILOT_SECRETS` to the
+  four drop-ins (backup: `10-kavure.conf.bak-20261021`; `daemon-reload`).
+- Dry run from the tenant: the full pipeline described, no network, no publish.
+- `publish auth --persona` against the real pack: authenticated and the DID returned (the handle was
+  redacted in the output); the session-handle check passed.
+- `config-backup` run live: exit 0, ntfy OK, tenant mirror **185 files**.
+- Re-enabled the four timers; next run 18:15.
+- **Rollback:** restore the four `10-kavure.conf.bak-20261021` files, `daemon-reload`; the wrapper
+  falls back to `$REPO` and the frozen `var/` in the engine directory.
+
+**Public-release note.** The handle appeared in the **public** `MNEMOCINE` `backlog-archive.md`
+(HB-073, pre-existing). The autopilot public repository does **not** include it: the real pack lives
+in the tenant, the public tree ships `examples/`, and the history was sanitized before the flip. The
+`MNEMOCINE` history was sanitized on 2026-10-21 (`git filter-repo`; pre-rewrite bundle
+`/mnt/BACKUP/mnemocine-pre-sanitize-2026-10-21.bundle`).
+
+**Public-release prep (2026-10-21).** The real packs were removed from the tree and from all
+history with `git filter-repo` (`--path personas/ --invert-paths` +
+`--replace-text`/`--replace-message`); the repository was renamed to
+`sumaenima-socialmedia-autopilot`, and its description/topics were set. The pre-rewrite bundle is
+`/mnt/BACKUP/sumaenima-socialmedia-autopilot-pre-public-2026-10-21.bundle` (verified). All commit
+hashes changed and the vault references were remapped. The **public flip** waits for the 18:15 run.
 
 ## Known gaps
 
