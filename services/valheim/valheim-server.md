@@ -38,6 +38,7 @@ Dedicated server deployment for Valheim 1.0 (Deep North) powered by BepInEx and 
 | Public Discovery | `false` (Direct Tailnet access only) |
 | Runtime Framework | `TYPE: BepInEx` |
 | World Modifiers | `portals=casual` |
+| Extra Launch Arguments | `SERVER_EXTRA_LAUNCH_ARGS="-simulationdistance 4"` (uncaps client render/simulation distance ceiling from default 2 to 4) |
 | Automated Updates | Daily check at 03:00 BRT via steamcmd |
 | Backup Rotation | Every 30 minutes container-side; daily 05:30 BRT off-box |
 | System Timezone | `America/Sao_Paulo` |
@@ -96,7 +97,7 @@ All active plugins operate **entirely on the server side** — vanilla clients c
 
 ```text
 /srv/data/valheim/
-├── docker-compose.yml    ← Service definition (MODS, MODIFIERS: portals=casual)
+├── docker-compose.yml    ← Service definition (MODS, MODIFIERS: portals=casual, SERVER_EXTRA_LAUNCH_ARGS: -simulationdistance 4)
 ├── .env                  ← VALHEIM_SERVER_PASS
 ├── config/               ← BepInEx configurations
 │   └── bepinex/          ← Mod configuration files
