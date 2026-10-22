@@ -81,7 +81,7 @@ Managed exclusively by Noctalia's native idle system — standalone `hypridle` a
 | Screen Off | `0s` unlocked / `60s` locked | Screen never powers down during active sessions; turns off 60s after session lock |
 | Lock Screen | `900s` (15 min) | Session locks automatically after 15 minutes of inactivity |
 | Suspend on Idle | `0s` (Disabled) | Automatic idle suspend is disabled |
-| Pre-Action Fade | `2s` | Visual gamma fade prior to lock; user input cancels transition |
+| Pre-Action Fade | `0s` (Disabled) | Desativado para evitar apagão momentâneo da tela antes do bloqueio (ajustado 21/10/2026) |
 
 Noctalia natively honors `org.freedesktop.ScreenSaver.Inhibit` signals from Chromium, Zen, Stremio, Electron, and Steam WebHelper, suppressing screen off during media playback.
 

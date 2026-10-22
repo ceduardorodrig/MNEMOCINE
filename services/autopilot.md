@@ -1,6 +1,6 @@
 ---
 tags: [homelab, service, agents, kavure]
-pending: [HB-078, HB-079]
+pending: [HB-078]
 ---
 
 # Social-Media Autopilot (`SUMAENIMA-SOCIALMEDIA-AUTOPILOT`)
@@ -35,7 +35,7 @@ and is built there.
   `AUTOPILOT_SECRETS` lists the variables the wrapper loads from SOPS. No handle or secret is global,
   so two personas in one process can use different accounts.
 - **Per-persona engage**: `config/engage/<slug>.yaml` when present, else `config/engage.yaml`.
-- The public engine will ship `examples/` only; the real pack and the tenant state are not published.
+- The public engine ships `examples/` only; the real pack and the tenant state are not published.
 
 ## Timers
 
@@ -160,7 +160,10 @@ history with `git filter-repo` (`--path personas/ --invert-paths` +
 `--replace-text`/`--replace-message`); the repository was renamed to
 `sumaenima-socialmedia-autopilot`, and its description/topics were set. The pre-rewrite bundle is
 `/mnt/BACKUP/sumaenima-socialmedia-autopilot-pre-public-2026-10-21.bundle` (verified). All commit
-hashes changed and the vault references were remapped. The **public flip** waits for the 18:15 run.
+hashes changed and the vault references were remapped. The 18:15 run published on the tenant
+(card + Bluesky post); the repository was flipped **public** on 2026-10-21 with branch protection,
+secret scanning/push protection, vulnerability reporting and the **v0.1.0** release. The social
+preview is the only manual step left.
 
 ## Known gaps
 

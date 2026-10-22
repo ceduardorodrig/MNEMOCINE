@@ -37,7 +37,7 @@ Each Host (05:00) → /usr/local/bin/config-backup (systemd timer hl-config-back
 | 05:55 | etckeeper-push + configs-git-push |
 | Sun 06:00 | restic check |
 
-> **Desktop Idle Policy Note (24/09/2026):** Override file `~/.local/state/noctalia/settings.toml` houses desktop idle management (screen lock 900s; display sleep disabled while unlocked and 60s when locked; suspend disabled). Mirrored alongside `~/.config/noctalia`; `merged-config.toml` is strictly a generated export artifact and must not be edited directly.  
+> **Desktop Idle Policy Note (24/09/2026, atualizado 21/10/2026):** Override file `~/.local/state/noctalia/settings.toml` houses desktop idle management (screen lock 900s; display sleep disabled while unlocked and 60s when locked; suspend disabled; pre-action fade desativado em 0s para evitar apagão visual antes do lock). Mirrored alongside `~/.config/noctalia`; `merged-config.toml` is strictly a generated export artifact and must not be edited directly.  
 >  
 > **⚠️ Config Collision Bug Fix (06/10/2026):** `merged-config.toml` was relocated to `~/.config/noctalia/export/` (subfolder). It previously resided in the config root, where Noctalia evaluated it as a top-level layer (alphabetical order, last write wins) — overriding manual edits in `config.toml` and freezing settings. Subfolders are ignored during startup, keeping the exported snapshot safely versioned without polluting active runtime. Details in [`../guides/hyprland-noctalia-guide.md`](../guides/hyprland-noctalia-guide.md).
 

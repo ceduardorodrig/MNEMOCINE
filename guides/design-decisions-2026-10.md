@@ -449,10 +449,10 @@ rejects a session for another account (`create_session_for_channel`), so a misco
 fails loudly instead of posting from the wrong account. The tenant layout is documented in
 [`services/autopilot.md`](../services/autopilot.md) and in the engine's `docs/tenancy.md`.
 
-**Consequences.** The public engine will ship `examples/` only; the real pack, the engage config and
+**Consequences.** The public engine ships `examples/` only; the real pack, the engage config and
 `var/` stay in `/home/kavure/autopilot/tenants/sumaenima/` (and its NAS mirror). The public release
-requires sanitizing the history (the pack was tracked) and carries the **AGPL-3.0-only** license plus
-a commercial option. The persona pack is the sellable unit; the engine is the delivery vehicle.
+sanitized the history (the pack was tracked) and carries the **AGPL-3.0-only** license plus a
+commercial option. The persona pack is the sellable unit; the engine is the delivery vehicle.
 
 **Pre-existing exposure (resolved 2026-10-21).** The production handle appeared in the public
 `MNEMOCINE` `backlog-archive.md` (HB-073). The autopilot public repository does not include it, and
