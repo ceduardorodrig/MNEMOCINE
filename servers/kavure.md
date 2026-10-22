@@ -35,7 +35,7 @@ tags: [homelab, server, kavure, docker, storage, gaming, todo]
 - **Homelab Automation (n8n, reactivated 2026-10-09):** Standalone n8n + `n8n-postgres` (`:5678`) for homelab workflows — **distinct** from the Miracena n8n on kuaray (not part of that stack). Its daily `pg_dump` writes to the NAS (see backups).
 - **Subnet Router (Activated 2026-10-05):** Advertises route `192.168.3.0/24` across the Tailnet, granting remote access to local IoT devices and home routers.
 - **DNS Core Resolver (2026-10-08):** Runs Pi-hole alongside a native **recursive `unbound`** instance (`127.0.0.1:5053`, DNSSEC validation). Monitored by a dedicated Rust watchdog (`hl-dns-watchdog.timer`).
-- **Social-media autopilot host (2026-10-19):** production scheduler for `SUMAENIMA-SOCIALMEDIA-AUTOPILOT` — four `Type=oneshot` timers (publish/engage/metrics/learn). CPU-only: the LLM is cloud-first and the GPU fallback stays on psicopompo behind `hl-infer`. The **tenant** (packs, config, state) lives in `/home/kavure/autopilot/tenants/sumaenima/`; the repo is code only (HB-079). See [`../services/autopilot.md`](../services/autopilot.md).
+- **Social-media autopilot host (2026-10-19):** production scheduler for `SOCIAL-MEDIA-AUTOPILOT` — four `Type=oneshot` timers (publish/engage/metrics/learn). CPU-only: the LLM is cloud-first and the GPU fallback stays on psicopompo behind `hl-infer`. The **tenant** (packs, config, state) lives in `/home/kavure/autopilot/tenants/sumaenima/`; the repo is code only (HB-079). See [`../services/autopilot.md`](../services/autopilot.md).
 
 ## Storage Layout & Directory Structure
 

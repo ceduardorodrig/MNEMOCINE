@@ -1,5 +1,6 @@
 ---
 tags: [homelab, service, docker, compose, tailscale, ybyra]
+pending: [HB-081]
 ---
 
 # Sumænimá Hub — Edge (Stack `sae-edge`)

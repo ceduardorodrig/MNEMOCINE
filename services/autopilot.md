@@ -3,7 +3,7 @@ tags: [homelab, service, agents, kavure]
 pending: [HB-078]
 ---
 
-# Social-Media Autopilot (`SUMAENIMA-SOCIALMEDIA-AUTOPILOT`)
+# Social-Media Autopilot (`SOCIAL-MEDIA-AUTOPILOT`)
 
 **Role:** the autonomous social-media engine — harvest → triage → create → guardrail → publish →
 metrics → learn, plus a separate engagement stage (reply / like / follow at a human pace).
@@ -158,7 +158,9 @@ in the tenant, the public tree ships `examples/`, and the history was sanitized 
 **Public-release prep (2026-10-21).** The real packs were removed from the tree and from all
 history with `git filter-repo` (`--path personas/ --invert-paths` +
 `--replace-text`/`--replace-message`); the repository was renamed to
-`SUMAENIMA-SOCIALMEDIA-AUTOPILOT`, and its description/topics were set. The pre-rewrite bundle is
+`SUMAENIMA-SOCIALMEDIA-AUTOPILOT` (and to `SOCIAL-MEDIA-AUTOPILOT` on 2026-10-22, to remove the
+agency prefix: the engine is tenant-neutral, and the Sumænimá deployment is its first tenant), and
+its description/topics were set. The pre-rewrite bundle is
 `/mnt/BACKUP/sumaenima-socialmedia-autopilot-pre-public-2026-10-21.bundle` (verified). All commit
 hashes changed and the vault references were remapped. The 18:15 run published on the tenant
 (card + Bluesky post); the repository was flipped **public** on 2026-10-21 with branch protection,
