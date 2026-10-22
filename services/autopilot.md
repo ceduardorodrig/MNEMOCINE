@@ -158,7 +158,7 @@ in the tenant, the public tree ships `examples/`, and the history was sanitized 
 **Public-release prep (2026-10-21).** The real packs were removed from the tree and from all
 history with `git filter-repo` (`--path personas/ --invert-paths` +
 `--replace-text`/`--replace-message`); the repository was renamed to
-`sumaenima-socialmedia-autopilot`, and its description/topics were set. The pre-rewrite bundle is
+`SUMAENIMA-SOCIALMEDIA-AUTOPILOT`, and its description/topics were set. The pre-rewrite bundle is
 `/mnt/BACKUP/sumaenima-socialmedia-autopilot-pre-public-2026-10-21.bundle` (verified). All commit
 hashes changed and the vault references were remapped. The 18:15 run published on the tenant
 (card + Bluesky post); the repository was flipped **public** on 2026-10-21 with branch protection,
