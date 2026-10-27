@@ -7,7 +7,7 @@ tags: [homelab, meta]
 [![Nodes](https://img.shields.io/badge/nodes-5%20Active%20Nodes-blue?style=flat-square&logo=serverfault)](servers/psicopompo.md)
 [![Mesh Network](https://img.shields.io/badge/mesh-Tailscale%20%2F%20WireGuard-informational?style=flat-square&logo=tailscale)](network/tailscale.md)
 [![Governance](https://img.shields.io/badge/governance-StenioSentinel-brightgreen?style=flat-square)](https://github.com/ceduardorodrig/STENIO-SENTINEL)
-[![License](https://img.shields.io/badge/license-MIT%20%7C%20Apache--2.0-blue?style=flat-square)](LICENSE-MIT)
+[![License](https://img.shields.io/badge/license-GPL--3.0-blue?style=flat-square)](LICENSE)
 [![OS](https://img.shields.io/badge/os-CachyOS%20%7C%20Ubuntu%20%7C%20Linux%20Mint-orange?style=flat-square&logo=linux)](servers/psicopompo.md)
 [![Location](https://img.shields.io/badge/location-Brasília--DF%2C%20Brazil-informational?style=flat-square)](https://github.com/ceduardorodrig)
 
@@ -148,8 +148,7 @@ stenio --health
 
 ## 📜 License
 
-- **Documentation & Architecture Manifests:** [Creative Commons Attribution 4.0 International (CC-BY-4.0)](https://creativecommons.org/licenses/by/4.0/)
-- **Scripts & Operational Tooling:** [MIT License](LICENSE-MIT) / [Apache 2.0](LICENSE-APACHE)
+This project and its public infrastructure manifests are licensed under the [GNU General Public License v3.0 (GPL-3.0)](LICENSE).
 
 ---
 
