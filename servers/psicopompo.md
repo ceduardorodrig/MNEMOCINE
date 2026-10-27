@@ -106,6 +106,32 @@ Operates as a Swarm worker (`role=gpu`) attached to the `sae-net` overlay networ
 
 > **Note on `live-restore`:** Strictly removed from `daemon.json` on 2026-10-02 due to fundamental incompatibility with Docker Swarm mode. See [`AGENTS.md`](../AGENTS.md).
 
+## Pacman Mirrors & Package Management Policy (2026-10-26)
+
+- **Root Cause & Diagnosis:**
+  - `cachyos-rate-mirrors` ranks mirrors purely by ping/speed using a small test file. For Brazilian connections, it places `cdn77.cachyos.org` at #1 due to its São Paulo edge (POP).
+  - However, CDN77 suffers from known upstream sync lags and URL normalization bugs on `.sig` signature files containing special characters such as `+` (e.g. `gcc-16.2.1+r23...`), returning **HTTP 404**.
+  - Subsequent mirrors ranked as fallback (e.g. `mirror.krfoss.org`) triggered Cloudflare Bot Challenges (**HTTP 403 Forbidden**), causing `pacman` to abort the transaction.
+  - The background timer `cachyos-rate-mirrors.timer` was running weekly, periodically overwriting manual fixes and reintroducing the broken order.
+
+- **Canonical Configuration Applied:**
+  - **Mirrorlists:** `/etc/pacman.d/cachyos-mirrorlist` and `/etc/pacman.d/cachyos-v3-mirrorlist` (backups at `*.bak`).
+  - **Tier-1 Primary Mirrors (Cloudflare Anycast, ~20ms in SP, instant upstream build sync):**
+    ```ini
+    Server = https://us.cachyos.org/repo/$arch_v3/$repo
+    Server = https://at.cachyos.org/repo/$arch_v3/$repo
+    ```
+  - **Systemd Masking:**
+    ```bash
+    sudo systemctl stop cachyos-rate-mirrors.timer
+    sudo systemctl mask cachyos-rate-mirrors.timer
+    sudo systemctl mask cachyos-rate-mirrors.service
+    ```
+
+- **Operational Rules:**
+  - Avoid running `rate-mirrors cachyos` or clicking "Rank Mirrors" in CachyOS Hello during routine maintenance.
+  - If unmasking is ever required: `sudo systemctl unmask cachyos-rate-mirrors.timer && sudo systemctl enable --now cachyos-rate-mirrors.timer`.
+
 ## See Also
 
 - [`servers/psicopompo-gaming.md`](psicopompo-gaming.md) — Steam on Linux gaming guide

@@ -42,7 +42,7 @@ The server runs BepInEx with server-side QoL mods. Connecting with a vanilla gam
 | CameraTweaks (Searica) | Configurable camera FOV and zoom distances | All players |
 | Server Devcommands (JereKuusela) | Enables remote admin devcommands (`god`, `fly`, `spawn`) | **Admins only** |
 
-Installation: Managed locally through Thunderstore Mod Manager or r2modman.
+Installation: Managed locally through Gale Mod Manager (recommended) or r2modman / Thunderstore.
 
 ### Enabling the Game Console (F5)
 
