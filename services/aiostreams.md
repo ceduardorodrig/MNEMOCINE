@@ -21,7 +21,7 @@ Streaming aggregation proxy for media players.
 ## Access & Network Bindings
 
 - **Tailnet:** `http://kavure.chimaera-heptatonic.ts.net:3000` (`100.124.146.77:3000`)
-- **Public WAN:** `https://kavure.chimaera-heptatonic.ts.net:10000` (via Tailscale Funnel)
+- **Public WAN & Tailnet Ingress:** `https://kavure.chimaera-heptatonic.ts.net:10000` (via Tailscale Funnel; authorized for `autogroup:member` via `tag:edge:10000` in MNEMOCINE-ACL PR #15)
 
 > 📌 **Network Interface Bindings:** The container publishes listening sockets on both `100.124.146.77:3000` (Zone 1 - Tailnet) and `127.0.0.1:3000` (Zone 0 - Loopback). Loopback binding is required so the host-level Tailscale Funnel daemon can forward incoming public traffic on port `10000` without exposing unauthenticated listeners on physical LAN interfaces (`0.0.0.0`). Managed via `/home/kavure/homelab/aiostreams/compose.yml`.
 

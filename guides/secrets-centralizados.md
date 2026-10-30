@@ -69,7 +69,7 @@ scp secrets/generated/sumaenima.env ybyra:/home/ubuntu/homelab/sumaenima/.env   
 | Service | Target File | Present in Store? | Variable Prefix |
 |---|---|---|---|
 | Sumænimá sae-core | `SUMAENIMA-HUB/.env` (psicopompo + kavure) | ✅ | Direct |
-| Sumænimá edge/SPA | `/home/ubuntu/homelab/sumaenima/.env` (ybyra) | ✅ Covered subset | Direct |
+| Sumænimá edge/SPA | `/home/ubuntu/homelab/sumaenima/.env` (ybyra) | ✅ Strict Least-Privilege (HB-082) | `TS_EDGE_AUTH_KEY`, `UMAMI_DB_PASSWORD` |
 | Zomboid | `/srv/data/zomboid/.env` (kavure) | ✅ | `ZOMBOID_*` |
 | Homepage | `config/.env` (ybytu) | ✅ | `CRAFTY_API_KEY` |
 | Zomboid Panel | `/srv/data/zomboid-panel/.env` (kavure) | ⚠️ Config only (no secrets) | — |

@@ -44,6 +44,12 @@ The server runs BepInEx with server-side QoL mods. Connecting with a vanilla gam
 
 Installation: Managed locally through Gale Mod Manager (recommended) or r2modman / Thunderstore.
 
+### Client Runtime & Launch Options (psicopompo)
+
+- **Proton Runtime:** `proton-cachyos-slr` (Proton CachyOS padrão do sistema — descartado override do `proton_experimental` por estabilidade e frametime superiores no stack CachyOS).
+- **Mod Manager:** Gale Mod Manager com perfil `gale-valheim`.
+- **Launch Options:** Declarativamente gerenciadas via `steam-launch-options` (`profile = "gale-valheim"`, Smooth Motion adaptativo e Wayland nativo).
+
 ### Enabling the Game Console (F5)
 
 The developer console is disabled by default in client builds. Enable it once locally:

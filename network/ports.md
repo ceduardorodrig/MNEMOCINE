@@ -119,7 +119,7 @@ graph TD
 | `10000/tcp` | `100.124.146.77` / `tailscale0` | **Tailscale Funnel ingress** | Public TLS Funnel fronting AioStreams/HA on kavure | [`tailscale.md`](tailscale.md) |
 | `9096/tcp` | `0.0.0.0` (UFW-scoped — see §4) | **hl-wol-relay** | Wake-on-LAN relay target to wake **psicopompo** & receive emergency shutdown from Kururu. **Re-bound 2026-10-14 (HB-074)** — native bind `0.0.0.0` replaces `tailscale serve`; UFW restricted to `192.168.3.55`, `192.168.3.100` and `tailscale0` | [`../services/wol-relay.md`](../services/wol-relay.md) |
 | `25565/tcp` | `tailscale0` (was LAN + `tailscale0`) | **Minecraft Dominium** | Dedicated Minecraft server game port. **UFW active since 2026-10-13** (HB-047) → LAN blocked, tailnet-only (owner decision: no LAN players — reached by tailnet shared users only) | [`../services/crafty.md`](../services/crafty.md) |
-| `40000/udp` | `0.0.0.0`, `[::]` (`tailscaled`) | **Tailscale Peer Relay** | High-throughput direct peer-to-peer WireGuard relay | [`tailscale.md`](tailscale.md) |
+| `40000/udp` | `0.0.0.0`, `[::]` (`tailscaled`) | **Tailscale Peer Relay** | High-throughput direct peer-to-peer WireGuard relay underlay. **Allowed in UFW 2026-10-29** | [`tailscale.md`](tailscale.md) |
 
 > **Correction (2026-10-13):** the row **`8766/tcp` — `sae-core_asciline`** was removed. The service
 > does **not exist**: the `sae-core` stack has exactly `api`, `db`, `valkey`, `umami-db` and `backup`
@@ -225,6 +225,7 @@ Not every `0.0.0.0` listening socket represents a vulnerability. The following e
 | `51413/tcp,udp`, `22000/tcp,udp` | **Kuaray LAN/tailnet services** (Transmission peer, Syncthing) | Bound `0.0.0.0` for BitTorrent peer transfers and tailnet sync transport. Samba (`139`, `445`) and xrdp (`3389`) were deactivated and their UFW rules purged on 2026-10-15 |
 | `11470/tcp`, `12470/tcp` | **Stremio desktop local server** (psicopompo) | The embedded Node streaming/transcoding server of the Stremio **desktop client** binds fixed ports `11470`/`12470` with **no configuration knob** — it cannot be re-bound to loopback. psicopompo's UFW is tailnet-only (`deny incoming`), so the socket is not LAN/public reachable. Reviewed under HB-047 (2026-10-13); accepted as an unavoidable fixed bind |
 | `18555/tcp` | **Home Assistant embedded go2rtc WebRTC** (kavure) | The HA `go2rtc` integration **generates** `webrtc: listen: ":18555/tcp"` into a `/tmp` config (`homeassistant/components/go2rtc/server.py`) and exposes **no override** — a user `/config/go2rtc.yaml` is ignored, and `debug_ui` only *adds* the API on `:11984` (worse). `network_mode: host` is mandatory for IoT discovery. Reviewed under HB-047 (2026-10-13); accepted as an unavoidable fixed bind (kavure's UFW is tailnet-only, and no camera is configured) |
+| `40000/udp` | **Tailscale Peer Relay** (kavure / ybytu) | Underlay WireGuard relay daemon (`tailscaled --relay-server-port=40000`). Binds `0.0.0.0` by design to receive direct peer-to-peer relay packets from LAN and WAN. Allowed in UFW on kavure (2026-10-29); accepted by ybytu nftables |
 
 > **Host scope (engine rule, 2026-10-13).** §4 is a **host-agnostic** table, but a row here excuses a bind **only where the host's own §2 entry is not marked `⚠️ defect`**. Before remediation, that is why the Docker Swarm row above did **not** clear kavure's `2377`/`7946`: its §2 rows were defects (no host firewall). Since **2026-10-13 (HB-047 step 3/3)** kavure runs **UFW active (tailnet-only)**, so its Swarm rows are no longer defects and the exception now applies — it still covers the *mechanism* (`dockerd` binds without a per-interface option). `stenio --ports` parses this table and enforces the rule — the exception set is **read from the document**, never hardcoded.
 
@@ -233,6 +234,16 @@ Not every `0.0.0.0` listening socket represents a vulnerability. The following e
 ---
 
 ## 5. Changelog
+
+### 2026-10-29 — Tailscale Peer Relay (40000/udp) UFW Allowance on Kavure
+
+- **Kavure Peer Relay Underlay Unblocked:**
+  - `tailscaled` on kavure runs with `--relay-server-port=40000` to serve as a high-throughput peer relay for tailnet peers.
+  - Tailscale's built-in `ts-input` iptables chain auto-accepts its default port `41641/udp`, but does **not** manage rules for custom relay ports.
+  - Kavure's UFW (active since 2026-10-13 under HB-047 with default-deny incoming) was dropping incoming relay packets on `enp1s0` (`[UFW BLOCK] ... DPT=40000`) from LAN peers (`192.168.3.100`, `192.168.3.200`, `192.168.3.55`).
+  - Added rule `40000/udp ALLOW IN Anywhere` (`sudo ufw allow 40000/udp comment 'Tailscale Peer Relay underlay'`) and reloaded UFW.
+  - Live verification confirmed: `relayserver: allocated endpoint` events now process cleanly, and `dmesg` blocks for port 40000 ceased completely.
+  - Verified fleet peer relay status: `ybytu` (Oracle Cloud VPS) runs nftables with default accept policy on input, with zero packet drops on `:40000/udp`.
 
 ### 2026-10-15 — Deactivation of Samba & XRDP on Kuaray; WoL Relay (9096) and Ybytu Syncthing (22000) Reconciliation
 

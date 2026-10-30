@@ -137,6 +137,7 @@ These are legitimately reachable from the physical LAN and must be explicitly al
 | ~~`3389/tcp`~~ | ~~xrdp~~ | **Deactivated 2026-10-15** (remote access unified via Tailscale SSH/SFTP; UFW rule purged). |
 | `9777/udp`, `47990`, `47992/47993/tcp` | Punktfunk | Native LAN/tailnet streaming discovery. |
 | `5353/udp`, `1900/udp` | Home Assistant mDNS/SSDP | IoT discovery — `network_mode: host`, cannot be restricted. |
+| `40000/udp` | Tailscale Peer Relay | Direct WireGuard relay underlay on nodes running `--relay-server-port=40000` (`kavure`). Tailscale auto-manages port 41641 in iptables, but custom relay ports require explicit host UFW allow (added 2026-10-29). |
 | ICMP (netwatch `lan_*`) | Path probes | The observability probes to the gateway/LAN. |
 
 Everything else defaults to deny. (The bind remediation in HB-047 — re-binding the `0.0.0.0`

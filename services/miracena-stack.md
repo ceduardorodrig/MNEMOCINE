@@ -15,25 +15,50 @@ tags: [homelab, service, miracena, stack, docker, n8n, directus, wordpress, nuxt
 |---|---|---|---|---|---|
 | PostgreSQL | miracena-postgres | 5432 (internal) | postgres:16-alpine | 1 GB | 0.5 |
 | Redis | miracena-redis | 6379 (internal) | redis:7-alpine | 128 MB | 0.25 |
-| Directus | miracena-directus | 8055 | directus/directus:latest | 2 GB | 1.0 |
+| Directus | miracena-directus | 8055 | directus/directus:12.6.0 | 2 GB | 1.0 |
 | Nuxt3 Frontend | miracena-nuxt | 3003 | node:22-alpine | 1 GB | 1.0 |
-| Nginx Proxy Manager | miracena-nginx-proxy-manager | 81 (admin), 8180 (HTTP), 8445 (HTTPS) | jc21/nginx-proxy-manager:latest | 256 MB | 0.25 |
-| WordPress | miracena-wordpress | 8085 | wordpress:latest | 512 MB | 0.5 |
+| Nginx Proxy Manager | miracena-nginx-proxy-manager | 81 (admin), 8180 (HTTP), 8445 (HTTPS) | jc21/nginx-proxy-manager:2.16.0 | 256 MB | 0.25 |
+| WordPress | miracena-wordpress | 8085 | wordpress:6.6.2-php8.3-apache | 512 MB | 0.5 |
 | MariaDB | miracena-mariadb | 3306 (internal) | mariadb:11 | 512 MB | 0.25 |
 | n8n | miracena-n8n | 5678 | docker.n8n.io/n8nio/n8n:stable | 1 GB | 0.5 |
-| Tailscale Tunnel | miracena-tunnel | — | tailscale/tailscale:latest | 128 MB | 0.25 |
+| Tailscale Tunnel | miracena-tunnel | 443 | tailscale/tailscale:latest | 128 MB | 0.25 |
 
 ## Access Routes
 
-### External (Via Tailscale Funnel — Publicly Accessible)
-- **WordPress (Public Site):** https://miracena.chimaera-heptatonic.ts.net/
+### External (Public Internet via Tailscale Funnel)
+- **Public Domain:** `https://miracena.chimaera-heptatonic.ts.net/`
+- **Architecture:** Tailscale Funnel (ephemeral node `miracena` with `tag:edge`) → `miracena-nginx-proxy-manager:80`.
+- **WAF & Split-Horizon Protection:**
+  - Public visitors can access public website assets and front-facing content.
+  - `/wp-admin` and `/wp-login.php` are **blocked with HTTP 403 Forbidden** on the public Funnel URL.
+  - `/xmlrpc.php` and configuration files (`wp-config.php`, `readme.html`) return **HTTP 404 Not Found**.
+  - Administration is accessible **exclusively via internal Tailnet direct IP** (`http://kuaray.chimaera-heptatonic.ts.net:8085/` or `100.94.209.99:8085`).
 
 ### Internal (Tailnet Only)
+- **WordPress Admin & Direct:** http://kuaray.chimaera-heptatonic.ts.net:8085 (bound strictly to `100.94.209.99:8085`)
 - **Nuxt3 Frontend:** http://kuaray.chimaera-heptatonic.ts.net:3003
-- **WordPress:** http://kuaray.chimaera-heptatonic.ts.net:8085
 - **Directus:** http://kuaray.chimaera-heptatonic.ts.net:8055
 - **n8n:** http://kuaray.chimaera-heptatonic.ts.net:5678
 - **NPM Admin:** http://kuaray.chimaera-heptatonic.ts.net:81
+
+### Hardening & Containment (Enforced 2026-10-29, HB-083 & HB-084)
+1. **Network Egress Firewall (`hl-miracena-egress-guard.service`):**
+   - Systemd unit on host `kuaray` enforcing `iptables -t mangle -I PREROUTING` rules.
+   - Any traffic originating from container bridge subnet `172.22.0.0/16` directed to homelab LAN (`192.168.0.0/16`) or Tailnet (`100.64.0.0/10`) is unconditionally DROPPED. Outbound internet egress remains functional.
+2. **Least-Privilege Secret Envs (HB-082 / HB-085):**
+   - Containers no longer mount or inherit the master monolithic `.env`.
+   - Directus mounts `/srv/data/miracena/env/directus.env` (chmod 0600).
+   - n8n mounts `/srv/data/miracena/env/n8n.env` (chmod 0600).
+   - WordPress mounts `/srv/data/miracena/env/wordpress.env` (chmod 0600).
+   - Tunnel mounts `/srv/data/miracena/env/tunnel.env` (chmod 0600).
+3. **WordPress Core & Application Hardening:**
+   - Image pinned: `wordpress:6.6.2-php8.3-apache`.
+   - PHP script execution permanently blocked in `/srv/data/miracena/wordpress/html/wp-content/uploads/.htaccess`.
+   - Dashboard file editor permanently disabled via `define('DISALLOW_FILE_EDIT', true);` in `wp-config.php`.
+   - High-risk plugins (`wp-file-manager`) banned by StênioSentinel (`SEC-WORDPRESS-BANNED-PLUGIN`).
+   - Contaminated backups and compromised accounts permanently eradicated and isolated in quarantine.
+4. **Redis Authentication:**
+   - Command `--requirepass` enforced in `docker-compose.yml` with authenticated healthcheck (`redis-cli -a ... ping`).
 
 ### Credentials
 

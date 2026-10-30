@@ -60,10 +60,12 @@ steam-launch-options ge-update  # Pull and unpack latest GE-Proton release
 
 | Category | Target Proton Tool | Assigned Profile |
 |---|---|---|
-| **Online Multiplayer / Anti-Cheat** | `proton_experimental` | `vram` |
-| **AAA Titles / Heavy RTX** | `GE-Proton` (auto-updated) | `vram`, `dx12`, or `rtx` |
-| **Indie / Lightweight Titles** | Default (`proton-cachyos-slr`) | `vram` |
-| Single Player with Optional Co-op | `GE-Proton` | `vram` |
+| **Default / Stack Padrão** | `proton-cachyos-slr` (Proton CachyOS) | `vram` |
+| **AAA Titles / Heavy RTX** | `GE-Proton` (auto-updated) | `vram`, `dx12`, ou `rtx` |
+| **Online Multiplayer / Anti-Cheat específico** | `proton_experimental` | `vram` |
+| Single Player com Coop Opcional | `GE-Proton` | `vram` |
+
+> 💡 **Valheim:** Segue o Proton padrão do sistema (`proton-cachyos-slr`). Anteriormente utilizava override para `proton_experimental`, mas o Proton CachyOS padrão provou entregar desempenho, frametime e estabilidade superiores com os mods via Gale/BepInEx e Wayland nativo.
 
 ### Global Environment Variables (`~/.config/environment.d/gaming.conf`)
 

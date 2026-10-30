@@ -70,6 +70,7 @@ proven (a tile/monitor/doc) **and** it is not an intentionally-excluded infra po
 | Glances (all hosts) | `tcp:61208` | ✅ | grant (1) |
 | **Portal Sumænimá / API / Umami** (Funnel) | `tcp:443` → `tag:edge` | ❌→✅ **fixed** | MagicDNS resolves the name to the node's **tailnet** IP (`getent hosts sumaenima.chimaera-heptatonic.ts.net` → `100.75.200.18`); tile href |
 | **Portal Miracena** (Funnel) | `tcp:443` → `tag:edge` | ❌→✅ **fixed** | same |
+| **AioStreams Funnel** (kavure) | `tcp:10000` → `tag:edge` | ❌→✅ **fixed (PR #15)** | MagicDNS resolves `kavure.chimaera-heptatonic.ts.net` to `100.124.146.77`; grant (1c) carried only `:443`, so members on tailnet timed out accessing `:10000` |
 | Sumænimá Backup (kavure) | `tcp:9092` | ❌ stays (by design) | Swarm **ingress** — infra, runbook §3; Homepage checks it **server-side** (grant 5), so the tile *status* still works |
 | StênioREC (psicopompo) | `tcp:9090` | ✅ | grant (1) |
 | Docker Registry (psicopompo) | `tcp:5000` | ❌ stays (by design) | deny pin; infra |

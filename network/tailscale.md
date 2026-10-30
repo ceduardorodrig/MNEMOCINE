@@ -1,6 +1,6 @@
 ---
 tags: [homelab, network, tailscale]
-pending: [HB-049]
+pending: []
 ---
 
 # Tailscale
@@ -371,6 +371,8 @@ Tailscale Funnels expose designated local ports publicly via TLS without requiri
 | sumaenima (tunnel) | `sumaenima.chimaera-heptatonic.ts.net` | StênioBOT (via container tunnel `sae-edge_tunnel` proxying to `api:9090` on kavure) |
 | miracena (tunnel) | `miracena.chimaera-heptatonic.ts.net` | WordPress (via container tunnel `miracena-tunnel` proxying to NPM `:80` → WordPress `:8085`) |
 
+> 🔒 **Regra de Simetria de Funnel (Hairpinning & MagicDNS):** Membros conectados à Tailscale resolvem `*.chimaera-heptatonic.ts.net` para o IP interno do nó via MagicDNS. Para evitar timeout na malha WireGuard, a tríade completa de portas oficiais do Funnel (`tcp:443`, `tcp:8443`, `tcp:10000`) é autorizada permanentemente para `autogroup:member` em nós `tag:edge` no repositório `MNEMOCINE-ACL` (PRs #15 e #16).
+
 > **Security Policy:** Home Assistant remains **strictly restricted to the tailnet**: `http://100.124.146.77:8123`. No public Funnel is provisioned for Home Assistant.
 
 ### Managing Funnels via CLI
@@ -401,6 +403,14 @@ sudo tailscale set --relay-server-port=40000
 sudo tailscale debug prefs | grep RelayServerPort
 sudo ss -ulpn | grep 40000
 ```
+
+> ⚠️ **Host Firewall Requirement (`UFW` / `nftables`):**  
+> Tailscale automatically inserts iptables rules for its primary WireGuard port (`41641/udp`) in the `ts-input` chain, but **does not** manage host firewall rules for `--relay-server-port`. On hosts with an active firewall default-deny policy (such as `kavure` with UFW), the UDP relay port must be explicitly allowed:
+> ```bash
+> sudo ufw allow 40000/udp comment 'Tailscale Peer Relay underlay'
+> sudo ufw reload
+> ```
+> Without this rule, incoming underlay packets from LAN/WAN peers directed to the relay socket are dropped at the host firewall before reaching `tailscaled` (fixed on kavure 2026-10-29). On `ybytu`, incoming policy is governed by Oracle Cloud Security Lists and nftables.
 
 ### ACL Capability Grant (`policy.hujson`)
 

@@ -22,7 +22,7 @@ pending: [HB-007, HB-008]
 ## Execution Strategy
 
 - **Fixed Target:** `2 OCPU / 12 GB RAM`. Smaller allocations are rejected to claim the full entitlement.
-- **Interval:** **2-minute polling interval**. Testing at 1-minute intervals triggered `TooManyRequests: Too many requests for the user` API rate limiting. When host capacity opens, it remains available for minutes, not seconds.
+- **Interval:** **2-minute polling interval**. Testing at 1-minute intervals triggered `TooManyRequests: Too many requests for the user` API rate limiting. When host capacity opens, it remains available for minutes, not seconds. *Note (2026-10-29): that 60 s measurement was taken while the CLI was still doing 7 internal retries per cycle; with `--no-retry` each cycle is a single request, so the effective request rate dropped ~7×. The interval stays at 2 min — no reason to trade 429 risk for a window that lasts minutes.*
 - **Tailscale Mesh Networking:** The node launches without a public IP and joins the Tailnet automatically on initial boot.
 - **Automatic Sentinel Stop:** Successful instance launch touches `/var/lib/arm-hunt/done`, terminating subsequent polling.
 - **ntfy Push Alerts:** Dispatches high-priority notifications on successful launch or unhandled errors.
@@ -103,6 +103,38 @@ Persistent=true
 WantedBy=timers.target
 ```
 
+### Cadence hardening + reconciliation (2026-10-29)
+
+Two real defects surfaced in the 21-day log analysis, both fixed on psicopompo without moving the host:
+
+**(a) Unbounded CLI retries collapsed the cadence.** `oci compute instance launch` retries **7 times
+internally** by default (OCI CLI docs, `--max-retries`). When the API wobbles, one cycle lasted
+**8–9 min**; because the timer is `OnUnitActiveSec=2min` (counted from *activation*, not from
+completion), the next fire lands immediately after the slow run finishes → the cadence **decays to
+the run duration** instead of staying at 2 min. Measured: **50 gaps > 5 min totalling 8.3 h** in 21
+days, all concentrated on **2026-10-26** (05:40→12:18) and **2026-10-28** (11:18→12:16), i.e. ~5×
+fewer launch attempts during those windows — not a single one caused by a reboot.
+
+Fixed with the officially documented bounds:
+
+```bash
+--no-retry --connection-timeout 10 --read-timeout 30   # ~1.5 s per cycle when capacity is absent
+```
+plus `TimeoutStartSec=90` in the unit as a backstop (measured: the miss went from ~100 s to **1.5 s**;
+the 100 s were pure retry storm — the capacity verdict was already known by second 2).
+
+> **Do not switch the timer to `OnUnitInactiveSec=2min`.** That would make the period
+> `run time + 2 min` (~220 s), dropping the rate from ~720 to ~390 attempts/day. The correct fix is
+> to keep the trigger and **bound the run**, not to stretch the interval.
+
+**(b) A client timeout does not prove the launch failed.** If OCI accepted the request and the reply
+was lost, the next cycle would launch **again** → two instances / Always Free quota blow-up. The
+script now writes `$STATE/verify` on any non-capacity error and, on the next cycle, **reconciles**
+via `oci compute instance list --display-name ybytyra` (states other than `TERMINATED`/`TERMINATING`)
+before launching: if the instance exists it is treated as captured (`done` + ntfy); if the list call
+itself fails it **does not launch blind** (3 consecutive failures discard the marker so a persistent
+error cannot wedge the loop). Cost: one extra call, only after an error.
+
 ## Zero-Touch Automated Provisioning
 
 Upon launch, the instance is provisioned automatically via cloud-init (`provisioning/cloud-init/ybytyra.yaml`):
@@ -162,11 +194,26 @@ The loop can **stop silently** (dead timer, stalled log). `arm-hunt-watchdog`
 `/alerts` if the timer is not active or the log has been idle for > 1 h. If already captured
 (`done` sentinel), it does not watch.
 
-## Current Status (2026-10-13)
+**Cadence check added 2026-10-29:** an idle-log test cannot catch a **slow** loop — with a 10-min
+cycle the log never goes stale. The watchdog now reads the last 60 ticks and alerts when **3
+consecutive gaps exceed 5 min** (tunable via `ARM_WATCHDOG_MAX_GAP` / `ARM_WATCHDOG_GAP_STREAK`),
+deduplicated to one alert per day (`$STATE/cadence-alert`). Validated against the real 2026-10-26
+window (streak reached 28) and against the healthy cadence (streak 0).
 
-Active on **psicopompo** via `hl-arm-hunt.timer` (every 2 min). As of 2026-10-12: **2,666 capacity
-attempts, no luck yet** (~4 days). Target shape 2 OCPU/12 GB. **Not captured yet** — the loop keeps
-polling and now logs a normal `sem capacidade` miss each cycle.
+## Current Status (2026-10-29)
+
+Active on **psicopompo** via `hl-arm-hunt.timer` (every 2 min). As of **2026-10-29 19:50**: **14,112
+capacity misses** out of 14,615 ticks since 2026-10-08 (21 days, ~97 % of the theoretical 720/day) —
+**not captured yet**. Target shape 2 OCPU/12 GB, **kept deliberately** (no smaller fallback: the
+decision on 2026-10-29 was to insist on the full entitlement). Last `429` was 2026-10-12; the
+transient-error spikes (73 on 26/10, 39 on 28/10) are covered by the hardening above.
+
+**Considered and rejected (2026-10-29): moving the loop to `kavure`.** The 21-day log shows **zero
+gaps caused by reboots/suspends** on psicopompo, so the migration buys no cadence; it would add an
+`oci` CLI install, a second copy of `/etc/arm-hunt/*`, and — the blocker — an **automatic refresh of
+`/home/kavure/.config/mnemocine/secrets.enc.env`**, which is a **stale static copy** (hash differs
+from the live store; `agentic-ai` syncs psicopompo↔kuaray, not to kavure). Running the loop there
+today would resolve an outdated `TS_AUTH_KEY`. Revisit only if psicopompo stops being always-on.
 
 **Ready to be born tagged (2026-10-13):** the SOPS `TS_AUTH_KEY` now carries `tag:server`, so when a
 capacity window finally opens the VM will register with a tag identity and key expiry off — and the

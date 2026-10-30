@@ -159,6 +159,7 @@ supported fix is the `DOCKER-USER` chain (e.g. via `ufw-docker`).
 | **`kuaray`/`kavure` OpenSSH is tailnet-only** | `kuaray`, `kavure` | HB-047 steps 2–3 (2026-10-13) enabled UFW with `:22` allowed **only on `tailscale0`**, so **LAN SSH is closed** on both — an **owner decision** aligned with tailnet-only (no LAN SSH is needed; the admin path is Tailscale SSH). Tailscale SSH is unaffected. **Reversal (one line):** `sudo ufw allow 22/tcp comment 'OpenSSH (LAN)'`. |
 | **No OpenSSH on psicopompo** | `psicopompo` | `sshd` is inactive, has no host keys, and binds no TCP `:22` — the port is 100% Tailscale SSH. |
 | **GitOps ACL + console lockout** | `MNEMOCINE-ACL` | Policy changes go through a reviewed PR; console edits are overwritten. |
+| **Tailnet deny-by-default ACL (HB-049)** | `MNEMOCINE-ACL` | Allow-all grant removed (Phase 3 tighten, 2026-10-13); every load-bearing path is an explicit, purpose-scoped grant. |
 
 ## 4. Open gaps
 
@@ -166,7 +167,6 @@ Each gap is a tracked backlog item. The detail lives in the linked document.
 
 | Gap | Backlog | Severity | In one line |
 |---|---|---|---|
-| Tailnet **allow-all grant still present** — tags applied and the least-privilege rules deployed (Phases 1+2), but the rule is not yet deleted; Funnel still `member`+`edge`; **two grant gaps** (`tag:monitoring → tag:server`, `tag:server → tag:server`) | [**HB-049**](../backlog.md) | 🔴 | The ACL/tag redesign — **Phase 3 (the tighten) is the remaining work**; runbook: [`tailnet-acl-runbook.md`](tailnet-acl-runbook.md) |
 | **Secret hygiene** | [**HB-051**](../backlog.md) | 🟡 | Plaintext `TS_AUTH_KEY` in a running service spec; a static token in a service doc; vestigial SSH keys that break the documented key fallback |
 | **Service catalogue + security baseline + Stênio reconciliation** | [**HB-052**](../backlog.md) | 🟡 | This document is part of it; the machine-readable catalogue and the reality-vs-declaration invariants remain |
 | **LAN binds + host firewalls** | [**HB-047**](../backlog.md) | 🔴 | Re-bind the `0.0.0.0` sockets and enable UFW on `kavure`/`kuaray`; runbook: [`ufw-lan-runbook.md`](ufw-lan-runbook.md). **Progress 2026-10-13:** the **host-firewall rollout is COMPLETE 3/3** (`psicopompo`, `kuaray`, `kavure` — all tailnet-only, `DEFAULT_FORWARD_POLICY="DROP"`). The **socket re-bind half** is done on **`kuaray`** (8 container ports + rpcbind → tailnet/loopback) and reviewed on **`psicopompo`** (no live defect; Stremio accepted as a fixed bind) — see [`../network/ports.md`](../network/ports.md) §5. **Remaining:** the `⚠️ defect` rows on **`kavure`** and **`ybytu`** (parent-coordinated). Now **defense-in-depth**, not exposure (the firewall already removed the LAN reach). |
