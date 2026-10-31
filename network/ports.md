@@ -170,7 +170,8 @@ graph TD
 | `2375/tcp` | `127.0.0.1` + `100.94.209.99` / `tailscale0` | **docker-socket-proxy** | Hardened Docker API proxy queried by Homepage | [`../services/homepage.md`](../services/homepage.md) |
 | `3003/tcp` | `100.94.209.99` / `tailscale0` | **Miracena Nuxt** | Miracena project Nuxt 3 web frontend | [`../servers/kuaray.md`](../servers/kuaray.md) |
 | `5678/tcp` | `100.94.209.99` / `tailscale0` | **n8n (Miracena)** | Workflow automation engine (Miracena stack; migrated from kavure 2026-10-04) | [`../services/n8n.md`](../services/n8n.md) |
-| `8055/tcp` | `100.94.209.99` / `tailscale0` | **Miracena Directus** | Headless CMS and data layer (Miracena stack) | [`../servers/kuaray.md`](../servers/kuaray.md) |
+| `8446/tcp` | `100.94.209.99` / `tailscale0` (HTTPS) | **Client platform (Frappe), `tailscale serve`** | Tailnet-only HTTPS proxy to the loopback port `127.0.0.1:8081` (31/10/2026; undo: `tailscale serve --https=8446 off`). Not Funnel | [`../services/miracena-stack.md`](../services/miracena-stack.md) |
+| `8055/tcp` | — | ~~Miracena Directus~~ | **Retired 31/10/2026** — port released (the replacement platform listens only on loopback `8081`) | [`../servers/kuaray.md`](../servers/kuaray.md) |
 | `8085/tcp` | `100.94.209.99` / `tailscale0` | **Miracena WordPress** | Miracena legacy CMS environment | [`../servers/kuaray.md`](../servers/kuaray.md) |
 | `81/tcp` | `100.94.209.99` / `tailscale0` | **Miracena NPM Admin** | Nginx Proxy Manager admin UI (Miracena stack) | [`../servers/kuaray.md`](../servers/kuaray.md) |
 | `8180,8445/tcp` | `100.94.209.99` / `tailscale0` | **Miracena NPM HTTP/HTTPS** | Nginx Proxy Manager ingress for the Miracena stack | [`../servers/kuaray.md`](../servers/kuaray.md) |

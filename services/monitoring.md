@@ -33,7 +33,7 @@ Custom metrics exported via the **textfile collector** (homelab standard — zer
 | Script (All Hosts) | Timer | Metrics Exported |
 |---|---|---|
 | `health-files-metrics.sh` | `hl-health-metrics.timer` (5 min) | `homelab_backup_last_ok_seconds`/`_age_seconds` (age of `/srv/health/*-last-ok` stamps) + `homelab_systemd_unit_active`/`_failed` (critical units: mnt-storage, tailscaled, docker, hl-* timers) |
-| `container-metrics.sh` | `hl-container-metrics.timer` (2 min) | `homelab_container_state{name,state}` (running/restarting/exited/...) |
+| `container-metrics.sh` | `hl-container-metrics.timer` (2 min) | `homelab_container_state{name,state}` (running/restarting/exited/...) + `homelab_container_health{name,health}` and `homelab_container_started_seconds{name}` for containers with a healthcheck (31/10/2026; deployed on psicopompo, kavure, ybytu, kuaray; canonical copy in `MNEMOCINE-OPS/provisioning/scripts/`). **Note:** `autoheal` restarts unhealthy containers within about a minute, so `unhealthy` is rarely visible for 5 min; `ContainerFlapping` is the alert that catches that churn. |
 | `netwatch-metrics.sh` | `hl-netwatch-metrics.timer` (**15 s**) | `homelab_net_ping_{up,loss_ratio,rtt_seconds}{target}`, `homelab_nic_errors{device,type}` (ethtool `-S`), `homelab_tailscale_health` — the **network path-segment model**. Targets in `/etc/homelab/netwatch-targets.conf`; source `MNEMOCINE-OPS/provisioning/scripts/`. See [`network/observability.md`](../network/observability.md). |
 | `smart-metrics.sh` (psicopompo/kuaray/kavure — **physical disks only**) | `hl-smart-metrics.timer` (15 min) | `smartmon_smart_available`, `smartmon_health`, `smartmon_temperature_celsius`, `smartmon_{reallocated_sector_ct,current_pending_sector,offline_uncorrectable}_raw_value`, `smartmon_power_on_hours`, `smartmon_power_cycle_count`, `smartmon_load_cycle_count`, `smartmon_unsafe_shutdown_count`, `smartmon_udma_crc_error_count`, NVMe: `smartmon_nvme_{percentage_used,available_spare,media_errors,data_units_written,power_on_hours,unsafe_shutdowns}`, Non-SMART USB/SD cards: `smartmon_usb_ioerr_total`/`smartmon_usb_iorequest_total` |
 
@@ -86,6 +86,8 @@ Custom metrics exported via the **textfile collector** (homelab standard — zer
 | `SmartDiskError` | reallocated/pending/uncorrectable sectors > 0 | warning |
 | `SmartDiskTemp` | disk temperature > 55°C | warning |
 | `ContainerRestarting` | container in restarting state for 10m | warning |
+| `ContainerUnhealthy` | container whose healthcheck reports `unhealthy` for 5m (31/10/2026) | warning |
+| `ContainerFlapping` | `changes(homelab_container_started_seconds[1h]) >= 3`: crash loop or **autoheal churn** (31/10/2026) | warning |
 | `n8nDown` / `PrometheusDown` | scrape target unreachable | critical |
 | `NetworkCarrierDown` | physical NIC `carrier == 0` (20 s) | warning |
 | `NetworkRxErrors` | `increase(node_network_receive_errs_total[5m]) > 0` | warning |
@@ -106,6 +108,8 @@ Custom metrics exported via the **textfile collector** (homelab standard — zer
 > **Disk Failure Warning (12/09):** EXPANSION-2TB on psicopompo (`/dev/sdg`) actively degraded — reallocated sector count surged from 280 → 25,400 with 8 pending + 8 uncorrectable sectors emerging during ext4 formatting (forcing latent bad blocks to surface). smartd tracked normalized health dropping from 99 → 61 in real time. Drive marked dying; quarantined from holding primary data.  
 >  
 > **False Positives Remediated (09/10/2026):** (a) `n8nDown`/`PrometheusDown` fired every 4 hours because the Prometheus `n8n` job scraped the deprecated kavure target — Miracena stack (including n8n) moved to **kuaray** on 04/10; scrape target updated to `100.94.209.99:5678` (instance relabeled `kuaray`). (b) `BackupNotRun` on scryfall-mirror was false: The rewritten `scryfall-sync` Rust binary (29/09) omitted touching the health stamp — fixed via `ExecStartPost` in the systemd unit (see [`scryfall-mirror`](scryfall-mirror.md)).
+
+> **Known-and-accepted silence (2026-10-30):** `SmartDiskError` for `kuaray` `/dev/sdb` (dying HDD, already known; the host is being retired from the homelab — HB-087) is **silenced for 90 days** in Alertmanager (silence `5582a8e6-3742-48f4-a4c6-342c7b3c4d7a`, matchers `alertname`+`instance`+`device`). It is a runtime silence (not in `alertmanager.yml`), so it **expires on its own on 2027-01-28** and the alert returns if the disk is still monitored. Scoped to that one disk: temperature, `NodeDown` and backup alerts for kuaray still fire. List/remove: `curl http://100.124.146.77:9093/api/v2/silences` · `DELETE /api/v2/silence/<id>`.
 
 ## Long-Term Retention & Recording Rules (12/09)
 

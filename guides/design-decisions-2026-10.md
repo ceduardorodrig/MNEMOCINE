@@ -1,6 +1,6 @@
 ---
 tags: [homelab, meta, network, docker, tutorial]
-pending: [HB-061]
+pending: [HB-061, HB-086]
 ---
 
 # Design Decisions — 2026-10 Dossier
@@ -41,6 +41,8 @@ pending: [HB-061]
 | D11 | Members reach each other's devices (the *grande LAN*) — **✅ implemented 2026-10-13** (PR [#14](https://github.com/ceduardorodrig/MNEMOCINE-ACL/pull/14)) | policy | 1 grant, reversible | this doc · **HB-063** |
 | D12 | ComfyUI — interactive use **is allowed** outside the batch windows, via an `other`-kind lease (**✅ decided 2026-10-14**, owner) | GPU policy | verified live; may delay `image_gen` jobs | [`../services/comfyui.md`](../services/comfyui.md) · **HB-036** |
 | D13 | The autopilot's **production** scheduler runs on `kavure` (24/7); `psicopompo` stays the dev/build host and the GPU fallback. Ollama is exposed to the tailnet through a **kernel-bound** forwarder — and the **tailnet ACL**, not UFW, is the enforcement point (**✅ implemented 2026-10-19**) | host topology + security | one drop-in + one socket unit + one ACL-scoped service | [`../services/autopilot.md`](../services/autopilot.md) · **HB-076/HB-077** |
+| D15 | `SEC-SUDO` on `security/audit-access-fleet.sh` — keep `sudo -n` as a **reviewed** privilege point (**✅ decided 2026-10-30**, owner: option C) | security | none (no host change) | this doc · **HB-086** |
+| D16 | `kuaray` becomes exclusive to a client stack; the homelab-tailnet services move out (**✅ decided 2026-10-30**, owner) | host topology | one service move at a time, each with a rollback | [`../network/kuaray-decoupling-plan.md`](../network/kuaray-decoupling-plan.md) · **HB-087** |
 
 ---
 
@@ -459,3 +461,47 @@ commercial option. The persona pack is the sellable unit; the engine is the deli
 the `MNEMOCINE` history was sanitized on 2026-10-21 (`git filter-repo`; pre-rewrite bundle
 `/mnt/BACKUP/mnemocine-pre-sanitize-2026-10-21.bundle`). Old commits may remain reachable by SHA
 until GitHub's garbage collection; the repository has no forks.
+
+---
+
+## D15 — `SEC-SUDO` on `security/audit-access-fleet.sh` (**decided 2026-10-30**)
+
+**Decision.** Keep `sudo -n` in `security/audit-access-fleet.sh` as a **reviewed privilege point**
+(owner: option C). The script keeps reading `/root/.ssh/authorized_keys` and the root crontab on the
+five hosts. The `SEC-SUDO` warning stays in `stenio --scope vault` as a known, tracked finding. No
+host configuration changes, and the Stênio rule and its regex are not touched.
+
+**Why.** The privilege already exists: `psicopompo` lets `edu` run any command as root, and
+`kuaray`, `kavure`, `ybytu` and `ybyra` let their host users do the same without a password, so
+`sudo -n` works today. Narrowing that `ALL` to two commands was rejected because the operator runbooks depend on root
+(Docker cleanup, UFW, snapshots, `config-backup`), and enumerating every root command is fragile. A
+dedicated system account for the audit was rejected by the owner. The engine (`governance/stenio/`)
+is immutable for application work, so the rule cannot be narrowed to clear the warning. Any attempt
+to hide the call under another command name would be a detection bypass, so it is not an option.
+
+**Consequences.** The warning is expected in every vault run until the audit moves to a model that
+does not need root. Revisit this decision if the fleet adopts a dedicated automation identity or if a
+host's `NOPASSWD` grant is narrowed for another reason.
+
+**Reversal.** Cheap: replace `sudo -n` with a scoped sudoers rule for `cat /root/.ssh/authorized_keys`
+and `crontab -l` on each host (with `visudo -c` and a backup first), then record the new decision here.
+
+---
+
+## D16 — kuaray becomes exclusive to a client stack (**decided 2026-10-30**)
+
+**Decision (owner).** `kuaray` hosts only the client project's stack. Every service that belongs to the
+homelab tailnet moves to another host, one at a time, each move with its own backup and rollback;
+`kuaray` leaves the homelab tailnet last. The ~16 GB media stack leaves kuaray (target host still to be
+chosen: `kavure` with a download quota, or `psicopompo`/NAS). The 313 GB cold NAS mirror does **not**
+stay on the client host: backups remain on the NAS and `psicopompo`, and the Syncthing `backup` folder on
+kuaray is retired as part of the move, freeing the 916 GB disk.
+
+**Why.** The client project must not depend on the homelab tailnet (a personal, non-commercial plan) and
+must be able to move to its own server later. Mixing the two on one host is what made the migration
+risky: consumers are hard-coded to the host's tailnet address and the host's disk holds homelab data.
+
+**Where the rest lives.** The client's own network, identity, DNS and licensing decisions are recorded
+in the client's private repository, not here: this folder is published publicly every day (HB-089).
+
+**Reversal.** Per phase; see the rollbacks in [`../network/kuaray-decoupling-plan.md`](../network/kuaray-decoupling-plan.md).

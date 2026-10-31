@@ -49,6 +49,21 @@ Ingestion pipelines execute under native systemd units:
 
 The native sync utility touches `/srv/health/scryfall-mirror-last-ok` upon zero-exit completion to inform health check monitors.
 
+## Architectural Decision: Pipeline & Download Isolation (scryfall-sync vs scryfall-prefetch)
+
+**Date:** 2026-10-30  
+**Status:** Accepted (Conscious Architectural Decision)  
+**Context:**  
+Both `scryfall-sync` (bulk dataset catalog updater) and `scryfall-prefetch` (card artwork cache warmer) share the pattern of atomic disk writes (`<dest>.part` followed by atomic `rename`), triggering low-density AST token warnings in static analysis (Stenio `ARCH-DRY-DUPLICATION` Warning).
+
+**Decision:**  
+Intentionally maintain `scryfall-sync` and `scryfall-prefetch` as decoupled, independent Rust binaries without a shared library or unified download abstraction.
+
+**Rationale:**
+1. **Divergent I/O Profiles:** `scryfall-prefetch` downloads small individual image assets (tens of KB to a few MB) buffered into memory (`resp.bytes().await`), whereas `scryfall-sync` streams multi-gigabyte card dumps (`bulk/default-cards.jsonl.gz`) in chunks (`resp.bytes_stream()`) to prevent host memory exhaustion.
+2. **Zero Blast Radius for Arandu Ingestion:** Daily catalog ingestion (`hl-arandu-sync` at 04:00) requires a strictly valid, uncorrupted dataset. Keeping `scryfall-sync` completely isolated from image prefetching guarantees that artwork scraping heuristics never introduce silent regressions into database ingestion.
+3. **Governance & Gate Compliance:** The shared HTTP request and rename sequence reflects standard idiomatic Rust. Stenio Sentinel classifies this low-density overlap as non-blocking `Severity::Warning`, confirming full release compliance (`[GATE PASSED]` with 0 blocking errors).
+
 ## See Also
 - [`arandu.md`](arandu.md) — Arandu service architecture
 - [`../network/nfs.md`](../network/nfs.md) — NFS storage network configurations

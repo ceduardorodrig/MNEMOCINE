@@ -1,5 +1,6 @@
 ---
 tags: [homelab, backup, config, automation, meta]
+pending: [HB-089]
 ---
 
 # `homelab-docs-sync` — Public Documentation Repository Publisher (Vault → Public)

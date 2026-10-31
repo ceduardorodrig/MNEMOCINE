@@ -64,4 +64,4 @@ The catalog previously contained only **600 of 118,406 cards** while falsely rep
 
 **Result:** Ingests 118,448 cards (118,286 with artwork) across 1,052 sets in ~50 seconds. The binary now **hard-fails** if zero cards are parsed.
 
-See [`scryfall-mirror.md`](scryfall-mirror.md) and [`../servers/kavure.md`](../servers/kavure.md).
+See [`scryfall-mirror.md`](scryfall-mirror.md) (including §"Architectural Decision: Pipeline & Download Isolation") and [`../servers/kavure.md`](../servers/kavure.md).

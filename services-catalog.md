@@ -118,7 +118,7 @@ Standby mirror / media + **Miracena** client stack. **Standalone Docker — not 
 
 | service | what it does (1 line) | how | port(s) + bind | why it exists | who depends on it | owner |
 |---|---|---|---|---|---|---|
-| miracena-directus | Headless CMS backend | container | `100.94.209.99:8055` | Miracena client data layer | miracena-nuxt, WordPress | edu · Miracena |
+| ~~miracena-directus~~ | **Retired 31/10/2026**; successor: `miracena-frappe-*` (client platform, loopback `127.0.0.1:8081`, own Compose project) | container | — | Miracena client data layer | — | edu · Miracena |
 | miracena-wordpress | WordPress content engine | container | `100.94.209.99:8085` | Miracena public site | miracena-tunnel (Funnel) | edu · Miracena |
 | miracena-nuxt | Nuxt 3 frontend (SSR) | container | `100.94.209.99:3003` | Miracena web frontend | owner | edu · Miracena |
 | miracena-n8n | Workflow automation (Miracena) | container | `100.94.209.99:5678` | Miracena automations | owner | edu · Miracena |

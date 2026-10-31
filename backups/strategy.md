@@ -60,7 +60,7 @@ tags: [homelab, backup, storage]
 
 ### Kuaray
 - Multimedia libraries (Navidrome, Lidarr) — audio media consolidated on psicopompo since 06/08 (`/mnt/BACKUP/media/`)
-- Miracena stack database dumps (Directus + n8n + MariaDB)
+- Miracena stack database dumps (Directus + n8n + MariaDB + the Frappe platform site, same `miracena-backup` job and health stamp)
 
 ### Kavure
 - **Project Zomboid (Active):** Daily off-box mirror (05:15, `zomboid-backup` via `hl-zomboid-backup.timer`) targeting psicopompo `/mnt/BACKUP/zomboid-server-kavure/daily/`

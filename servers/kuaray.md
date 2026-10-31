@@ -42,7 +42,7 @@ pending: [HB-013]
 | miracena-postgres | `postgres:16-alpine` | `5432` (internal) | PostgreSQL database for Directus and n8n |
 | miracena-mariadb | `mariadb:11` | `3306` (internal) | MariaDB database for WordPress |
 | miracena-redis | `redis:7-alpine` | `6379` (internal) | Redis caching layer for Directus |
-| miracena-directus | `directus/directus:latest` | `100.94.209.99:8055` | Headless CMS backend |
+| ~~miracena-directus~~ | ~~`directus/directus`~~ | ~~`100.94.209.99:8055`~~ | **Retired 31/10/2026** (replaced by the Frappe platform, loopback `127.0.0.1:8081`); its volumes are kept until 2026-11-30 (HB-093) |
 | miracena-wordpress | `wordpress:latest` | `100.94.209.99:8085` | WordPress content management engine |
 | miracena-nuxt | `node:22-alpine` | `100.94.209.99:3003` | Nuxt 3 web frontend |
 | miracena-n8n | `docker.n8n.io/n8nio/n8n:stable` | `100.94.209.99:5678` | Workflow automation server |

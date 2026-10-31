@@ -98,7 +98,7 @@ Active ordering (cloud infrastructure placed last); **7 groups / 74 tiles**:
 1. **Psicopompo (Workstation & NAS)** — Power on Kavure (WoL), Syncthing, Punktfunk, **hl-infer (12/10)**, **ComfyUI (12/10)**, Glances + runtime infra (Watchtower, Autoheal, Node Exporter, Promtail)
 2. **Sumænimá (ΣÆ Produção)** — Portal, API, Backup, Umami Analytics, **StênioREC (13/10)**, Docker Registry
 3. **Kavure (Serviços & Games)** — Power on Psicopompo (WoL), Project Zomboid, Zomboid Control Panel, Crafty Controller, Minecraft Server, Valheim Server, AioStreams, Comet, n8n Homelab, Grafana, Prometheus, **Loki (12/10)**, **Alertmanager (12/10)**, SearXNG, Pi-hole, Unbound, Home Assistant, Navidrome, Calibre Web + runtime infra
-4. **Miracena (Kuaray)** — Portal Miracena, WordPress, Directus, Nuxt 3, n8n, NPM Admin
+4. **Miracena (Kuaray)** — Portal Miracena, WordPress, **Plataforma Miracena (31/10; link to the tailnet HTTPS address, siteMonitor on `/api/method/ping`, brand icon `/icons/miracena.svg`; Directus tile removed)**, Nuxt 3, n8n, NPM Admin, **StênioSentinel (30/10)**
 5. **Kuaray (Mídia & Staging)** — Syncthing, Transmission, Prowlarr, Lidarr, slskd, FlareSolverr, Soularr, Vert + runtime infra
 6. **Ybytu (Cloud Borda)** — AdGuard Home, Glances, Uptime Kuma, Changedetection, Ntfy + runtime infra
 7. **Ybyra (Cloud Borda)** — Glances + runtime infra
@@ -229,6 +229,8 @@ Active ordering (cloud infrastructure placed last); **7 groups / 74 tiles**:
 > **08/10/2026 — `minecraft-status` (HEAD Support):** Minecraft `siteMonitor` raised `<httpProxy> Error` because the native endpoint returned **HEAD responses with bodies** (violating RFC 7231 §4.3.2). Resolved in Rust source (`SUMAENIMA-HUB/provisioning/minecraft-status`): HEAD returns empty body. Validated with zero log errors. See [`minecraft-status.md`](minecraft-status.md).  
 >  
 > **08/10/2026 — Unbound Tile (Invalid Docker Chip → Mini Endpoint):** The tile used `server: kavure` + `container: unbound`, but unbound is **native systemd** — showing "not found". In accordance with conventions (**native service without HTTP → lightweight HTTP status endpoint + `siteMonitor`**), created **`unbound-status`** (`:9097`, Rust, in `SUMAENIMA-HUB/provisioning/unbound-status/`) with `siteMonitor: http://kavure:9097`. Backup: `services.yaml.bak-20261008-unbound-status`.
+>  
+> **30/10/2026 — StênioSentinel added to Miracena (Kuaray):** Added tile for **StênioSentinel** (`miracena-stenio`, `:9099`) with Docker badge (`server: kuaray` + `container: miracena-stenio`) and `href: http://kuaray:9099/health`. Icon `/icons/sumaenima.svg`. Monitored live via `dockerproxy` on Kuaray (`100.94.209.99:2375`). Backup: `services.yaml.bak-20261030-stenio`.
 
 ### Custom Icons (`config/icons/`)
 
@@ -253,3 +255,5 @@ docker restart homepage
 > **⚠️ Healthcheck:** Upstream container image executes `wget 127.0.0.1:3000` (IPv4) but Next.js 16 binds to IPv6 — causing default healthchecks to fail and triggering autoheal loops. Resolved in `compose.yml` with custom healthcheck using `[::1]`.
 
 Container logs are managed by Docker and Watchtower handles automatic image updates.
+
+> **31/10/2026 — Miracena identity:** the group `Miracena (Kuaray)` carries the client's icon (`config/icons/miracena.svg`, set through `layout:` in `settings.yaml`, which now lists all seven groups in their existing order with `style: column`). New static icons are only served after `docker restart homepage`. Ybyra has no separate Homepage: it is the `Ybyra (Cloud Borda)` group of this instance.

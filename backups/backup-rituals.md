@@ -1,5 +1,6 @@
 ---
 tags: [homelab, backup, ritual, checklist]
+pending: [HB-094]
 ---
 
 # Backup & Verification Rituals
@@ -50,6 +51,7 @@ Documented in `config-backup.md`. To modify schedule times: Edit `/etc/systemd/s
 
 ## Architectural Decisions & Exclusions
 
+- **Known exposure (HB-094, accepted 2026-10-31):** the client's dumps with third-party personal data are also mirrored unencrypted to Google Drive.
 - **Unencrypted Local Backups:** Primary NAS backup storage is unencrypted by explicit user preference (preventing key-loss lockouts) — secrets are encrypted upstream via SOPS/age.
 - **Off-Site Storage:** ✅ **Active** (09/08) — Google Drive 5TB mirrored via rclone (`gdrive:BACKUP MNEMOCINE`, unencrypted remote mirror). See [`services/rclone.md`](../services/rclone.md).
 - **etckeeper Bare Repositories:** Replicated strictly to internal NAS (never pushed to GitHub).

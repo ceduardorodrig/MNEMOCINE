@@ -33,6 +33,9 @@ tags: [homelab, recovery, backup, checklist]
 > **psicopompo RESTORED FIRST** — Operates as the Tailnet NAS / central backup repository. Remaining nodes depend on its NFS exports.
 
 ### Total Loss of Psicopompo (Including `/mnt/BACKUP`)
+> **Step-by-step rebuild (order, NFS, Swarm, ops layer, backup-circuit restart, verification):**
+> [`psicopompo-rebuild.md`](psicopompo-rebuild.md) (2026-10-30; never rehearsed yet). The sketch below is the summary.
+
 The recovery path pivots to **rclone off-site storage** (Google Drive `BACKUP MNEMOCINE`):
 
 1. Rebuild psicopompo (OS + NFS daemons + Docker).

@@ -100,7 +100,7 @@ Internet → ISP Router (192.168.3.1) ⇄ IT-BLUE LE-4203 Switch ⇄ { psicopomp
 | psicopompo | `100.82.51.112` | `192.168.3.100/24` | `eno1` |
 | ybytu | `100.115.253.109` | `10.0.0.136/24` | `ens3` |
 | ybyra | `100.66.224.34` | `10.0.0.40/24` | `ens3` |
-| kuaray | `100.94.209.99` | `192.168.3.200/24` (Wired) · `192.168.3.53/24` (Wi-Fi) | `enp7s0` · `wlp6s0` |
+| kuaray | `100.94.209.99` | `192.168.3.200/24` (Wired, primary, route metric 100) · `192.168.3.53/24` (Wi-Fi, **deliberate backup**, metric 600) | `enp7s0` · `wlp6s0` |
 | kavure | `100.124.146.77` | `192.168.3.41/24` | `enp1s0` |
 | sumaenima | `100.85.140.67` | (Tailnet tunnel node on ybyra) | — |
 
