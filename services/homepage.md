@@ -1,6 +1,6 @@
 ---
 tags: [homelab, service, homepage, monitoring]
-pending: [HB-069]
+pending: [HB-069, HB-095]
 ---
 
 # Homepage
@@ -257,3 +257,5 @@ docker restart homepage
 Container logs are managed by Docker and Watchtower handles automatic image updates.
 
 > **31/10/2026 — Miracena identity:** the group `Miracena (Kuaray)` carries the client's icon (`config/icons/miracena.svg`, set through `layout:` in `settings.yaml`, which now lists all seven groups in their existing order with `style: column`). New static icons are only served after `docker restart homepage`. Ybyra has no separate Homepage: it is the `Ybyra (Cloud Borda)` group of this instance.
+
+> **31/10/2026:** the Miracena group no longer carries an icon in its title (no other group has one); the platform tile has a single status chip (`siteMonitor` on `/api/method/ping`). Planned: move the whole Homepage to `kavure` (HB-095).

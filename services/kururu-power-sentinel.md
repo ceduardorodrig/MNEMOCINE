@@ -51,38 +51,44 @@ To prevent erratic grid fluctuations ("power flapping" and auto-reclosers) from 
 * Once the cumulative debit reaches **180 seconds (3 minutes)**, the safe shutdown is triggered immediately.
 
 ### C. Physical Motion & Dock Baseline Discrimination (Physics-Based Immunity)
-To completely prevent false positives when unplugging Kururu for handheld use without relying on fragile network IP addresses or external lamp states:
+To prevent false positives when unplugging Kururu for handheld use while preserving 100% detection for real blackouts:
 * While charging on AC (`ac_online == 1`), Kururu's daemon continuously calibrates its **resting dock orientation vector** $\vec{V}_{dock} = (X, Y, Z)$ using a low-pass filter on the hardware 3-axis accelerometer (`/sys/class/sensors/accelerometer_sensor/raw_data`).
 * When AC disconnects:
-  - **Real Blackout:** The tablet remains resting motionless on its dock/stand. Heavy desk vibrations, cat jumps, or typing settle at $\Delta < 86$ units (well below the $\Delta = 180$ threshold). Kururu detects zero physical pickup ($\Delta < 180$) and **immediately triggers the BlackoutPending countdown**, even if the router is on UPS and WAN internet is still online!
+  - **Mains Witness Veto (Smart Lamps):** Before assuming an outage, Kururu checks 4 dedicated smart bulbs wired directly to house wall sockets without battery/UPS backup (`192.168.3.36-39:6668`). If at least one lamp responds, **mains electricity is alive**! Kururu enters `CableFault` (0 debit, no server shutdown) preventing bad cables or loose chargers from dropping the homelab.
+  - **Real Blackout:** If the tablet remains resting motionless on its dock ($\Delta < 180$) and **all smart lamps are unreachable**, power grid collapse is confirmed. Kururu enters `BlackoutPending(StaticDockLostAc)`, triggering safe shutdown in 180s even if the router is on UPS and WAN internet is still online!
   - **Handheld / Portable Usage:** Physically unplugging the cable and picking up the tablet by hand produces a massive orientation shift ($\Delta \ge 310 - 530$ units). Kururu detects $\Delta \ge 180$, logs `[ASSESSMENT] Confidence: 10%`, and **takes zero shutdown action**.
-* **Dock Return Trigger:** If the user is in `PortableUsage` and returns the tablet to its resting dock orientation ($\Delta < 180$) while unpowered, the daemon immediately transitions to `BlackoutPending(StaticDockLostAc)`, triggering safe shutdown even if the cable is dead.
+* **Dock Return Trigger:** If the user is in `PortableUsage` and returns the tablet to its resting dock orientation ($\Delta < 180$) while unpowered:
+  - If smart lamps are online $\rightarrow$ transitions to `CableFault` (standing by).
+  - If smart lamps are dead $\rightarrow$ transitions to `BlackoutPending(StaticDockLostAc)` (countdown to safe shutdown).
 
 ### D. Multi-Variable Confidence Matrix & Decision Weights
 
-To eliminate ambiguity and real-world edge cases, Kururu Sentinel evaluates four independent physical, hardware, and network vectors:
+To eliminate ambiguity and real-world edge cases, Kururu Sentinel evaluates five independent physical, hardware, and network vectors:
 
 | Vector | Probe Source | Evaluation Weight | Role |
 |---|---|---|---|
 | **AC Mains Power** | Hardware PMIC (`axp20x-battery/ac_online`) | **Mandatory Gatekeeper** | If AC is online (`1`) and debit is `0`, confidence is strictly **0%**. |
+| **Mains Grid Witness** | Tuya Local TCP `:6668` (`192.168.3.36-39`) | **Mains Physical Veto** | 4 wall-powered smart bulbs without UPS. If any respond, mains power is healthy. |
 | **Dock Orientation Shift** | 3-axis accelerometer ($\|\vec{V} - \vec{V}_{dock}\|$) | **Primary Discriminator (60%)** | Distinguishes static dock placement ($\Delta < 180$) from human handling ($\Delta \ge 180$). |
 | **WAN Internet Reachability** | ICMP probe to `1.1.1.1` and `8.8.8.8` | **Secondary Corroborator (40%)** | Verifies upstream network vitality without relying on local lamp IPs. |
 | **Battery Charge Capacity** | Sysfs gauge (`battery/capacity`) | **Safety Watchdog (Veto)** | If battery falls to $\le 20\%$ during battery operation, escalates to `CriticalBattery` shutdown. |
 
 #### Confidence Scoring Matrix
 
-| AC State | Dock Shift ($\Delta$) | WAN State | Battery | Assessment | Confidence | Action / FSM State |
-|---|---|---|---|---|---|---|
-| **Online (1)** | Any | Any | Any | Mains grid power healthy | **0%** | `AcNormal` (Dynamic dock calibration) |
-| **Offline (0)** | $\ge 180$ (Moved) | **Online** | $> 20\%$ | Handheld portable usage | **10%** | `PortableUsage` (Standby, 0 debit) |
-| **Offline (0)** | $< 180$ (Static) | **Online** | Any | Power grid lost, router on UPS | **75%** | `BlackoutPending(StaticDockLostAc)` |
-| **Offline (0)** | $\ge 180$ (Moved) | **Offline** | Any | Power lost while handheld / Wi-Fi lost | **85%** | `BlackoutPending(WanLostInPortable)` |
-| **Offline (0)** | $\ge 180$ (Moved) | Any | $\le 20\%$ | Tablet battery critically low | **95%** | `BlackoutPending(CriticalBattery)` |
-| **Offline (0)** | $< 180$ (Static) | **Offline** | Any | Full grid & WAN outage on dock | **100%** | `BlackoutPending(StaticDockLostAc)` |
+| AC State | Dock Shift ($\Delta$) | Smart Lamps | WAN State | Battery | Assessment | Confidence | Action / FSM State |
+|---|---|---|---|---|---|---|---|
+| **Online (1)** | Any | Any | Any | Any | Mains grid power healthy | **0%** | `AcNormal` (Dynamic dock calibration) |
+| **Offline (0)** | $\ge 180$ (Moved) | Any | **Online** | $> 20\%$ | Handheld portable usage | **10%** | `PortableUsage` (Standby, 0 debit) |
+| **Offline (0)** | $< 180$ (Static) | **Online** | Any | $> 20\%$ | Cable fault / loose charger (mains UP) | **0%** | `CableFault` (Standby, 0 debit) |
+| **Offline (0)** | $< 180$ (Static) | **Offline** | **Online** | Any | Power grid lost, router on UPS | **90%** | `BlackoutPending(StaticDockLostAc)` |
+| **Offline (0)** | $\ge 180$ (Moved) | **Offline** | **Offline** | Any | Power lost while handheld / Wi-Fi lost | **85%** | `BlackoutPending(WanLostInPortable)` |
+| **Offline (0)** | Any | Any | Any | $\le 20\%$ | Tablet battery critically low | **95%** | `BlackoutPending(CriticalBattery)` |
+| **Offline (0)** | $< 180$ (Static) | **Offline** | **Offline** | Any | Full grid, lamps & WAN outage on dock | **100%** | `BlackoutPending(StaticDockLostAc)` |
 
 #### Anti-Bounce Hysteresis & Leaky Bucket Drain
-To prevent state thrashing between `PortableUsage` and `BlackoutPending`:
-- `StaticDockLostAc` only de-escalates back to `PortableUsage` if a human physically lifts the tablet ($\Delta \ge 180$) **and** WAN remains reachable.
+To prevent state thrashing between `PortableUsage`, `CableFault` and `BlackoutPending`:
+- In `CableFault`, detecting physical pickup ($\Delta \ge 180$) transitions to `PortableUsage`. If smart lamps die, it escalates immediately to `BlackoutPending`.
+- `StaticDockLostAc` only de-escalates back to `PortableUsage` if a human physically lifts the tablet ($\Delta \ge 180$) **and** WAN remains reachable, or back to `CableFault` if smart lamps recover.
 - `WanLostInPortable` only de-escalates back to `PortableUsage` if WAN connectivity recovers.
 - `CriticalBattery` never de-escalates unless physical AC power is restored.
 - In `BlackoutPending`, detecting AC drains debit at 10s per 5s cycle. It only transitions back to `AcNormal` when debit reaches `0s`.
