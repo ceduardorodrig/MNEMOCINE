@@ -12,7 +12,7 @@ Dedicated server deployment for Valheim 1.0 (Deep North) powered by BepInEx and 
 **World Name:** `Fimbulvetr`  
 **Tailscale IP:** `100.124.146.77`  
 
-> **Operational Status:** Running Valheim 1.0.20 / **network version 41** (updated 2026-10-15) via `mbround18/valheim:3` with BepInEx and server-side mods. The server runs in private mode (`public=false`), accessible exclusively through the encrypted Tailnet. Automated backups run every 30 minutes with off-box sync to the primary NAS over NFS. World portal modifier set to casual mode (teleportation of ores permitted).
+> **Operational Status:** Running Valheim 1.0.20 / **network version 41** (updated 2026-10-15) via `mbround18/valheim:3` with BepInEx and server-side mods. The server runs in private mode (`public=false`), accessible exclusively through the encrypted Tailnet. Automated backups run every 4 hours with off-box sync to the primary NAS over NFS. World portal modifier set to casual mode (teleportation of ores permitted).
 
 ## Container Specification
 
@@ -40,7 +40,7 @@ Dedicated server deployment for Valheim 1.0 (Deep North) powered by BepInEx and 
 | World Modifiers | `portals=casual` |
 | Extra Launch Arguments | `SERVER_EXTRA_LAUNCH_ARGS="-simulationdistance 4"` (uncaps client render/simulation distance ceiling from default 2 to 4) |
 | Automated Updates | Daily check at 03:00 BRT via steamcmd |
-| Backup Rotation | Every 30 minutes container-side; daily 05:30 BRT off-box |
+| Backup Rotation | Every 4 hours container-side (2-day TTL); daily 05:30 BRT off-box |
 | System Timezone | `America/Sao_Paulo` |
 
 ## Administrative Access & Permissions (`permissions.yaml`)
@@ -114,10 +114,29 @@ All active plugins operate **entirely on the server side** — vanilla clients c
 ## Backup & Disaster Recovery Architecture
 
 - **Off-Box Snapshots (Primary):** The native game engine writes automated world saves into `saves/worlds_local/Fimbulvetr_backup_auto-*`. The `valheim-backup` script triggers daily incremental `rsync` syncs pushing datasets across the encrypted Tailnet to psicopompo (`/mnt/BACKUP/valheim-server-kavure/daily/worlds_local/`).
-- **Container Backup Daemon:** Odin creates local archive snapshots every 30 minutes in `/home/steam/backups` with a 7-day retention schedule.
+- **Container Backup Daemon:** Odin creates local archive snapshots every 4 hours (`0 */4 * * *`) in `/home/steam/backups` with a 2-day retention schedule (`AUTO_BACKUP_DAYS_TO_LIVE=2`), preventing disk bloat while retaining rapid recovery points. Primary authoritative persistence is the daily off-box sync to the NAS.
 - **Systemd Automation:** `hl-valheim-backup.timer` triggers at 05:30 BRT daily.
 
 ## Troubleshooting & Historical Findings
+
+### SteamCMD Bootstrap Failure in mbround18/valheim:3 (Empty Directory Bug)
+- **Symptom:** Container enters continuous crash/restart loop. Log shows:
+  ```text
+  /usr/bin/steamcmd: 31: exec: /home/steam/.local/share/Steam/steamcmd/steamcmd.sh: not found
+  ```
+- **Root Cause:** In the upstream image build from late October 2026, `/home/steam/.local/share/Steam/steamcmd/` was created as an empty directory in the image layer. Debian's `/usr/bin/steamcmd` wrapper script tests `if [ ! -e "$STEAMROOT/steamcmd" ]` to decide whether to copy the base `steamcmd.sh` files from `/usr/lib/games/steam/`. Because the directory already exists, it skips bootstrap and attempts to exec the non-existent shell script.
+- **Resolution:** Wrapped the container `entrypoint` in `docker-compose.yml` with a pre-flight guard:
+  ```yaml
+  entrypoint:
+    - /bin/bash
+    - -c
+    - |
+      if [ -d /home/steam/.local/share/Steam/steamcmd ] && [ ! -f /home/steam/.local/share/Steam/steamcmd/steamcmd.sh ]; then
+        rm -rf /home/steam/.local/share/Steam/steamcmd
+      fi
+      exec /entrypoint.sh "$@"
+    - --
+  ```
 
 ### Simultaneous Player Drops (~30 s) — Network Event, Not the Server
 

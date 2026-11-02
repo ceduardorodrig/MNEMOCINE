@@ -3,30 +3,30 @@
 # wallpaper-pipeline.sh — acervo de wallpapers do psicopompo (>=4K, EXIF-aware)
 #
 # Regras do acervo:
-#   >=4K (largura>=3840 E altura>=2160) + exibição horizontal/quadrada -> wallpaper-pc/
-#   >=4K + exibição vertical                                           -> wallpaper-celular-tablet/
+#   >=4K (width>=3840 AND height>=2160) + horizontal/square display -> wallpaper-pc/
+#   >=4K + vertical display                                           -> wallpaper-celular-tablet/
 #   <4K                                                                -> menores-4k/  (fila de upscale)
 #
-# A orientação considerada é sempre a de EXIBIÇÃO (tag EXIF 0x0112), nunca a
-# dimensão crua do arquivo: JPEGs com orientation 6/8 (RightTop/LeftBottom) têm
-# os pixels armazenados girados 90° e só aparecem corretos porque o visualizador
-# aplica a tag. Classificar por dimensão crua joga paisagem na pasta de celular.
+# The orientation considered is always the DISPLAY one (EXIF tag 0x0112), never the
+# raw dimension of the file: JPEGs with orientation 6/8 (RightTop/LeftBottom) have
+# their stored pixels rotated 90° and only look correct because the viewer
+# applies the tag. Classifying by raw dimension sends landscape images to the phone folder.
 #
 # Uso:
-#   wallpaper-pipeline.sh report    [BASE]           contagem por classe (não altera nada)
-#   wallpaper-pipeline.sh normalize [BASE] [--apply] grava a rotação no pixel (remove dependência de EXIF)
+#   wallpaper-pipeline.sh report    [BASE]           count per class (changes nothing)
+#   wallpaper-pipeline.sh normalize [BASE] [--apply] writes the rotation into the pixels (removes the EXIF dependency)
 #   wallpaper-pipeline.sh organize  [BASE] [--apply] move para as 3 pastas (varre raiz + subpastas)
 #   wallpaper-pipeline.sh upscale   [BASE]           menores-4k/ -> .upscale-work/out/
 #
-# O upscale usa SEMPRE a escala nativa do modelo (-s 4). NÃO use -s 2 com modelo
-# x4: isso quebra o alinhamento dos tiles e destrói a imagem (armadilha 1 do guia).
+# The upscale ALWAYS uses the model's native scale (-s 4). Do NOT use -s 2 with an
+# x4 model: it breaks the tile alignment and destroys the image (trap 1 of the guide).
 #
-# Imagens chapadas (< 0.02 bytes/pixel) vão por Lanczos em vez de IA — nesses casos
+# Flat images (< 0.02 bytes/pixel) go through Lanczos instead of AI — in those cases
 # os modelos inventam textura (46-102 MB por arquivo) e o Lanczos reproduz fiel em
 # ~2 MB. Ver guides/wallpaper-library.md.
 #
-# BASE padrão: ~/Pictures/PAREDEDEPAPEL
-# Dependências: imagemagick (identify/magick); realesrgan-ncnn-vulkan (apenas no upscale)
+# Default BASE: ~/Pictures/PAREDEDEPAPEL
+# Dependencies: imagemagick (identify/magick); realesrgan-ncnn-vulkan (upscale only)
 #
 set -euo pipefail
 
@@ -38,9 +38,9 @@ WORK_DIRNAME=".upscale-work"
 
 usage() { sed -n '2,/^set -euo/p' "$0" | sed 's/^# \{0,1\}//' | head -n -1; }
 
-# Lista imagens do acervo: raiz + subpastas visíveis (wallpaper-pc, celular,
-# menores-4k) + saída do upscale. Diretórios ocultos (equivalem a internos)
-# são ignorados pelo fd, exceto .upscale-work/out que é incluído à parte.
+# Lists images of the collection: root + visible subfolders (wallpaper-pc, phone,
+# smaller-than-4k) + upscale output. Hidden directories (they count as internal)
+# are ignored by fd, except .upscale-work/out which is included separately.
 list_images() {
   local base="$1" up="${1}/${WORK_DIRNAME}/out"
   fd --type f --absolute-path "${EXT_ARGS[@]}" . "$base" -0
@@ -49,7 +49,7 @@ list_images() {
   fi
 }
 
-# Dimensões de EXIBIÇÃO: "LARGURA ALTURA" (aplica a rotação da tag EXIF).
+# DISPLAY dimensions: "WIDTH HEIGHT" (applies the rotation of the EXIF tag).
 display_dims() {
   local f="$1" w h o
   w="$(identify -format '%w' "$f")"
@@ -137,8 +137,8 @@ run_batch() {
     -s 4 -n realesrgan-x4plus "${extra[@]}" >"${work}/${ext}.log" 2>&1
 }
 
-# Teto de 8192 no lado maior. NÃO é opcional: sem ele saem arquivos de até
-# 14000x24000 (336 MP, ~84 MB) que vários visualizadores não abrem.
+# Cap of 8192 on the longer side. NOT optional: without it files of up to
+# 14000x24000 (336 MP, ~84 MB) come out, which many viewers cannot open.
 aplicar_teto() {
   local work="$1" f w h tw th tmp
   while IFS= read -r -d '' f; do
@@ -165,7 +165,7 @@ cmd_upscale() {
   command -v realesrgan-ncnn-vulkan >/dev/null || { echo "instale realesrgan-ncnn-vulkan (AUR)" >&2; exit 1; }
   rm -rf "$work"; mkdir -p "${work}/out"
 
-  # 1) set chapado -> Lanczos 400% direto para a saída
+  # 1) flat set -> Lanczos 400% straight to the output
   local f n_lanc=0
   while IFS= read -r -d '' f; do
     e_chapada "$f" || continue
@@ -173,7 +173,7 @@ cmd_upscale() {
   done < <(fd --type f --absolute-path --max-depth 1 "${EXT_ARGS[@]}" . "$src" -0)
   echo "chapadas por Lanczos: ${n_lanc}"
 
-  # 2) o resto -> hardlinks por extensão + IA x4 nativo
+  # 2) the rest -> hardlinks per extension + native x4 AI
   local exts=() e
   for e in "${EXTS[@]}"; do
     if fd --type f --max-depth 1 -e "$e" . "$src" | rg -q .; then exts+=("$e"); fi
@@ -188,7 +188,7 @@ cmd_upscale() {
     done
     echo "lotes IA: ${exts[*]}  |  -s 4 (nativo)  |  modelo realesrgan-x4plus"
     echo "limite: 2 workers simultâneos (3 estouram os 8 GB da RTX 5050)"
-    # ATENÇÃO: o upscaler descarta a tag EXIF — rode 'normalize' ANTES.
+    # WARNING: the upscaler drops the EXIF tag — run 'normalize' FIRST.
     if (( ${#exts[@]} >= 2 )); then
       run_batch "$work" "${exts[0]}" & local p1=$!
       run_batch "$work" "${exts[1]}" & local p2=$!

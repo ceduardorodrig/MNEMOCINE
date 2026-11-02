@@ -121,7 +121,7 @@ ss -lunpt | grep -E '2456|2457|2458'
 ## Backup Verification
 
 - **Off-Box NAS Target:** `valheim-backup` executes `rsync --delete` from `/srv/data/valheim/saves/worlds_local/` → `/mnt/BACKUP/valheim-server-kavure/daily/worlds_local/` over NFS.
-- **Container Backups:** Dedicated Odin container snapshots written every 30 minutes into `/srv/data/valheim/backups/` with a 7-day retention policy.
+- **Container Backups:** Dedicated Odin container snapshots written every 4 hours into `/srv/data/valheim/backups/` with a 2-day retention policy (`AUTO_BACKUP_DAYS_TO_LIVE=2`).
 
 ## Troubleshooting
 

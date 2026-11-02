@@ -53,7 +53,7 @@ for H in "${HOSTS[@]}"; do
     CRONS=$(ssh -o ConnectTimeout=5 -o BatchMode=yes "$H" 'sudo -n crontab -l 2>/dev/null || true' 2>/dev/null || true)
   fi
   if [ -n "$CRONS" ] && ! echo "$CRONS" | grep -qv "^#"; then
-    : # apenas comentários
+    : # comments only
   elif [ -n "$CRONS" ] && echo "$CRONS" | grep -qvE "^(#|$|no crontab)"; then
     log_alert "⚠️ [CRON] Crontab de root ativo detectado em $H: $CRONS"
   fi
