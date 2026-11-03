@@ -95,7 +95,7 @@ proven (a tile/monitor/doc) **and** it is not an intentionally-excluded infra po
 | Calibre Web (kavure) | `tcp:8083` | ✅ | grant (1) |
 | WordPress (kuaray) | `tcp:8085` | ❌→✅ **fixed (PR #13)** | Homepage tile (`href http://kuaray:8085`); this row wrongly claimed grant (1) — the CI guard found `:8085` was never granted |
 | **Directus** (kuaray) | `tcp:8055` | ❌→✅ **fixed** | tile + Uptime Kuma |
-| Nuxt 3 (kuaray) | `tcp:3003` | ✅ | grant (1) |
+| ~~Nuxt 3 (kuaray)~~ | `tcp:3003` | retired 2026-11-02 | dashboard retired and deleted; grant removed separately |
 | **NPM admin** (kuaray) | `tcp:81` | ❌→✅ **fixed** | tile + Uptime Kuma |
 | Transmission (kuaray) | `tcp:9091` | ✅ | grant (1) |
 | Prowlarr (kuaray) | `tcp:9696` | ✅ | grant (1) |

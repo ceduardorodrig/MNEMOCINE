@@ -118,13 +118,12 @@ Standby mirror / media + **Miracena** client stack. **Standalone Docker — not 
 
 | service | what it does (1 line) | how | port(s) + bind | why it exists | who depends on it | owner |
 |---|---|---|---|---|---|---|
-| ~~miracena-directus~~ | **Retired 31/10/2026**; successor: `miracena-frappe-*` (client platform, loopback `127.0.0.1:8081`, own Compose project) | container | — | Miracena client data layer | — | edu · Miracena |
 | miracena-wordpress | WordPress content engine | container | `100.94.209.99:8085` | Miracena public site | miracena-tunnel (Funnel) | edu · Miracena |
-| miracena-nuxt | Nuxt 3 frontend (SSR) | container | `100.94.209.99:3003` | Miracena web frontend | owner | edu · Miracena |
+
 | miracena-n8n | Workflow automation (Miracena) | container | `100.94.209.99:5678` | Miracena automations | owner | edu · Miracena |
 | miracena-nginx-proxy-manager | Reverse proxy + SSL manager | container | `100.94.209.99:81`, `8180`, `8445` | ingress for the Miracena stack | Miracena services | edu · Miracena |
 | miracena-tunnel | Tailscale Funnel ingress | container | HTTPS 443 (Funnel) | public URL for Miracena | external visitors | edu · Miracena |
-| miracena-postgres / -mariadb / -redis | Databases + cache for the stack | container | internal `5432` / `3306` / `6379` | state + caching | Directus, WordPress, n8n | edu · Miracena |
+| miracena-postgres / -mariadb | X container | internal `5432` / `3306` | state | WordPress, n8n | edu · Miracena |
 | transmission | BitTorrent client | container | `0.0.0.0:9091`, `51413` | download engine | prowlarr/lidarr pipelines | edu |
 | prowlarr | Indexer proxy manager | container | `0.0.0.0:9696` | central indexer hub | lidarr | edu |
 | lidarr | Music collection manager | container | `0.0.0.0:8686` | automate music library | owner | edu |
@@ -210,7 +209,7 @@ Grouping them here is deliberate: an untracked service is the one nobody notices
 |---|---|---|
 | psicopompo | `ollama`, `libvirtd`+`dnsmasq`, `waydroid`, `nfsd`/`rpcbind`, `sumaenima-gpu`, `punktfunk-web`/`-scripting`, `dockerproxy`, `hl-sftp-mount`, `hl-rclone-mount`, `hl-docker-prune` | internal infrastructure / no owner-facing UI (Punktfunk tile covers the host only; the SFTP/rclone mounts are desktop-local) |
 | kavure | `go2rtc`, `searxng-valkey`, `monitoring-cadvisor`, `monitoring-alertmanager-ntfy`, `dockerproxy`, `sae-edge_*-standby`, `n8n-postgres`, `scryfall-mirror`, `hl-nic-power-tuning`, `hl-*` timers, `dnscrypt-proxy` (cold) | internal dependencies, dormant failover, or deliberately frozen |
-| kuaray | `dockerproxy`, `cups`, `avahi`, `rpcbind`, `hl-nic-power-tuning`, `miracena-postgres`/`-mariadb`/`-redis`/`-tunnel` | native LAN services or internal stack members (Samba and xrdp deactivated 2026-10-15) |
+| kuaray | `dockerproxy`, `cups`, `avahi`, `rpcbind`, `hl-nic-power-tuning`, `miracena-postgres`/`-mariadb`/`-tunnel` | native LAN services or internal stack members (Samba and xrdp deactivated 2026-10-15) |
 | ybytu | `dockerproxy`, `hl-wol-dispatcher`, `vnstat`, `hl-tailscale-gro`, **`homepage` itself** | infrastructure/tooling without a dedicated UI |
 | ybyra | `dockerproxy`, `sae-edge_proxy`/`tunnel`/`umami`, `rpcbind` | the edge is represented by the "Portal Sumænimá" tile, not per-service |
 | kururu | **everything** (`kururu-wake`, `kururu-sentinel`, `kururu-display`, `kururu-host`, `dropbear`, `tailscaled`) | the node is not in the dashboard at all |

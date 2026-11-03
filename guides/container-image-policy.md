@@ -115,8 +115,7 @@ A **Política Híbrida em 4 Camadas** equilibra segurança máxima onde há dado
 | `miracena-wordpress` | `wordpress:6.6.2-php8.3-apache` | Camada 1 | `wordpress:6.6.2-php8.3-apache` | Bloqueado |
 | `miracena-mariadb` | `mariadb:11` | Camada 1 | `mariadb:11` | Bloqueado |
 | `miracena-postgres` | `postgres:16-alpine` | Camada 1 | `postgres:16-alpine` | Bloqueado |
-| `miracena-redis` | `redis:7-alpine` | Camada 1 | `redis:7-alpine` | Bloqueado |
-| `miracena-directus` | `directus/directus:latest` | Camada 1 | `directus/directus:11` | Bloqueado |
+
 | `miracena-nginx-proxy-manager` | `jc21/nginx-proxy-manager:latest` | Camada 1 | `jc21/nginx-proxy-manager:2.11` | Bloqueado |
 | `miracena-tunnel` | `tailscale/tailscale:latest` | Camada 4 | `:latest` | Habilitado |
 | `prowlarr` | `lscr.io/linuxserver/prowlarr:latest` | Camada 3 | `:latest` | Habilitado |
@@ -193,5 +192,5 @@ services:
 
 O motor de governança em Rust (`governance/stenio/src/infra.rs`) valida proativamente as regras de imagem através do código **`SEC-COMPOSE-PINNED-IMAGE`**:
 
-- Emite **CRITICAL WARNING** se motores de banco ou CMS (`wordpress`, `mariadb`, `postgres`, `directus`) utilizarem `:latest` ou tags flutuantes sem SemVer.
+- Emite **CRITICAL WARNING** se motores de banco ou CMS (nomes de serviço contendo `wordpress`, `mariadb` ou `postgres`) utilizarem `:latest` ou tags flutuantes sem SemVer.
 - Aceita `:latest` em utilitários de telemetria e wrappers de servidores de jogos reconhecidos na taxonomia do homelab.

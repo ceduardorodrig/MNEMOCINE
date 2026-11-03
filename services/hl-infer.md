@@ -1,6 +1,6 @@
 ---
 tags: [homelab, service, gpu, psicopompo]
-pending: [HB-093]
+pending: [HB-102]
 ---
 
 # hl-infer (GPU Inference Gateway)

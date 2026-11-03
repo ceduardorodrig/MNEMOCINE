@@ -84,7 +84,7 @@ scp secrets/generated/sumaenima.env ybyra:/home/ubuntu/homelab/sumaenima/.env   
 | Migration Archive | `zomboid-server-kavure/archive/migration-20260805/.env` | N/A (historical archive) | — |
 | **Oracle Cloud (OCI)** | `~/.oci/config` + private key (psicopompo) | ✅ 2026-10-08 | `OCI_*` |
 | **Tailscale — Funnel Auth Key (edge)** | `edge.yml` via `${TS_AUTH_KEY}` | ✅ 2026-10-08 | `TS_AUTH_KEY` |
-| **Miracena — Directus static token** | Referenced from `services/miracena-stack.md` | ✅ 2026-10-13 | `MIRACENA_DIRECTUS_TOKEN` |
+| **Miracena — previous platform static token** | Was referenced from `services/miracena-stack.md` (platform retired 31/10/2026; key record kept) | ✅ 2026-10-13 | `MIRACENA_DIRECTUS_TOKEN` |
 
 ## Non-.env Secret Handling (Migrated 2026-08-28)
 
@@ -120,7 +120,7 @@ Oracle Cloud VMs (`ybytu`, `ybyra`) are managed via API directly from the termin
 
 ## Secret Hygiene Findings (HB-051) — 2026-10-13
 
-Reconnaissance recorded three secret-hygiene gaps. The Directus token is remediated here; the
+Reconnaissance recorded three secret-hygiene gaps. The previous platform's token is remediated here; the
 `TS_AUTH_KEY` was rotated the same day, but the replacement value was then exposed in a chat
 session (see (a)) — the owner **accepted that exposure risk on 2026-10-13** instead of rotating a
 second time; the `authorized_keys` cleanup is a recommendation only (files deliberately
@@ -196,12 +196,18 @@ and `docker service inspect`**; the secret is still readable inside the containe
 the exposure window and blast radius shrink substantially. Coordinate the compose change with the
 edge stack owner before deploying.
 
-### (b) Static Directus token moved out of the vault — remediated 2026-10-13
+### (b) Static token of the previous platform moved out of the vault — remediated 2026-10-13
 
 The literal token previously inlined in `services/miracena-stack.md` was moved to the SOPS store
 under the key **`MIRACENA_DIRECTUS_TOKEN`**; the note now references the key name only. Retrieve it
 with `/mnt/NVME_PCI/secrets/sops-decrypt.sh MIRACENA_DIRECTUS_TOKEN`. The same value was added to
 the master `secrets.env` to keep the re-encrypt workflow lossless.
+
+> 🧹 **2026-11-02 — `MIRACENA_DIRECTUS_*` keys removed from the store** (owner-approved, previous
+> platform retired 31/10/2026): `MIRACENA_DIRECTUS_TOKEN`, `_KEY`, `_SECRET` and `_ADMIN_PASSWORD`
+> were removed from `secrets.enc.env` (`sops unset`) and from the master `secrets.env`; derived
+> `generated/*.env` were regenerated and the old `.bak-*` copies that held them were shredded.
+> The records above are kept as history only; the key no longer resolves.
 
 > ✅ **Master-store drift — reconciled 2026-10-13 (HB-056).** The master `secrets.env` was found
 > **behind** the encrypted store by three keys (`GEMINI_API_KEY`, `BLUESKY_HANDLE`,

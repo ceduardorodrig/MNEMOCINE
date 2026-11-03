@@ -1,5 +1,6 @@
 ---
 tags: [homelab, server, kavure, docker, storage, gaming, todo]
+pending: [HB-100]
 ---
 
 # kavure
@@ -101,3 +102,5 @@ decryptable if `psicopompo` is lost — DR "Rota A" (detail in
 - [`network/kavure-migration-plan.md`](../network/kavure-migration-plan.md) — Service migration blueprint
 - [`services/crafty.md`](../services/crafty.md) — Minecraft server controller
 - [`services/unbound.md`](../services/unbound.md) — Recursive local DNS resolver
+
+> **2026-11-02 note:** on 2026-11-01 around 02:46 UTC `calibre`, `navidrome` and `crafty-controller` stopped with exit 128 (`error mounting /srv/data/media/books ... no such device`): they were started while the NFS exports from psicopompo (`/mnt/BACKUP/media/books` and `music`, automount in fstab) were not available. The mounts were healthy again on 2026-11-02 and the three containers were started with `docker start` (no recreate). To prevent a repeat, give the containers a start dependency on the mounts (for example `restart: unless-stopped` plus a check in the compose `depends_on` wrapper or a systemd drop-in that waits for the automount), tracked in HB-100.

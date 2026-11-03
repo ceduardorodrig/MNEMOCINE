@@ -98,7 +98,7 @@ Active ordering (cloud infrastructure placed last); **7 groups / 74 tiles**:
 1. **Psicopompo (Workstation & NAS)** — Power on Kavure (WoL), Syncthing, Punktfunk, **hl-infer (12/10)**, **ComfyUI (12/10)**, Glances + runtime infra (Watchtower, Autoheal, Node Exporter, Promtail)
 2. **Sumænimá (ΣÆ Produção)** — Portal, API, Backup, Umami Analytics, **StênioREC (13/10)**, Docker Registry
 3. **Kavure (Serviços & Games)** — Power on Psicopompo (WoL), Project Zomboid, Zomboid Control Panel, Crafty Controller, Minecraft Server, Valheim Server, AioStreams, Comet, n8n Homelab, Grafana, Prometheus, **Loki (12/10)**, **Alertmanager (12/10)**, SearXNG, Pi-hole, Unbound, Home Assistant, Navidrome, Calibre Web + runtime infra
-4. **Miracena (Kuaray)** — Portal Miracena, WordPress, **Plataforma Miracena (31/10; link to the tailnet HTTPS address, siteMonitor on `/api/method/ping`, brand icon `/icons/miracena.svg`; Directus tile removed)**, Nuxt 3, n8n, NPM Admin, **StênioSentinel (30/10)**
+4. **Miracena (Kuaray)** — Portal Miracena, WordPress, **Plataforma Miracena (31/10; link to the tailnet HTTPS address, siteMonitor on `/api/method/ping`, brand icon `/icons/miracena.svg`)**, n8n, NPM Admin, **StênioSentinel (30/10)**
 5. **Kuaray (Mídia & Staging)** — Syncthing, Transmission, Prowlarr, Lidarr, slskd, FlareSolverr, Soularr, Vert + runtime infra
 6. **Ybytu (Cloud Borda)** — AdGuard Home, Glances, Uptime Kuma, Changedetection, Ntfy + runtime infra
 7. **Ybyra (Cloud Borda)** — Glances + runtime infra
@@ -108,7 +108,7 @@ Active ordering (cloud infrastructure placed last); **7 groups / 74 tiles**:
 > Its `server: psicopompo` + `container: steniorec` chip is **truthful and unchanged** (verified live: the
 > standalone `steniorec` container, image `sumaenima-server:cuda`, up/healthy on psicopompo). Only the column moved.
 
-> **12/10/2026 — Groups corrected against the live config:** the list above was stale (it documented **5 groups** and placed the Miracena stack — WordPress/Directus/NPM/n8n — under **Kavure**, and a non-existent `Sumænimá (Primary Edge)` tile under Ybyra). The config actually has **7 groups**: the Miracena stack has its own group (**Miracena (Kuaray)**) and Ybyra carries only Glances + runtime infra. See the changelog entry below for the GPU/observability additions.
+> **12/10/2026 — Groups corrected against the live config:** the list above was stale (it documented **5 groups** and placed the Miracena stack — WordPress/NPM/n8n — under **Kavure**, and a non-existent `Sumænimá (Primary Edge)` tile under Ybyra). The config actually has **7 groups**: the Miracena stack has its own group (**Miracena (Kuaray)**) and Ybyra carries only Glances + runtime infra. See the changelog entry below for the GPU/observability additions.
 
 > **08/08/2026:** **CasaOS removed** (uninstalled from kuaray); **Crafty/Minecraft migrated** to kavure (Kavure group); groups reordered (cloud at the bottom).  
 >  
@@ -134,7 +134,7 @@ Active ordering (cloud infrastructure placed last); **7 groups / 74 tiles**:
 >  
 > **09/09/2026:** **Valheim Server added** to Kavure group — `valheim-server` (Docker, `mbround18/valheim:3`, port `2456`/udp). Docker badge (container `valheim-server`). Icon `valheim.png` (walkxcode/dashboard-icons). See [`valheim-server`](valheim/valheim-server.md).  
 >  
-> **10/09/2026:** **Miracena Stack added** to Kavure group — **WordPress** (`miracena-wordpress`, `:8085`), **Directus** (`miracena-directus`, `:8055`), **NPM Admin** (`miracena-nginx-proxy-manager`, `:81`). **n8n updated** to Docker badge (`miracena-n8n`). All Miracena stack services appear on the dashboard with up/down health and label `Docker · Miracena`. See [`miracena-stack`](miracena-stack.md).  
+> **10/09/2026:** **Miracena Stack added** to Kavure group — **WordPress** (`miracena-wordpress`, `:8085`), **NPM Admin** (`miracena-nginx-proxy-manager`, `:81`). **n8n updated** to Docker badge (`miracena-n8n`). All Miracena stack services appear on the dashboard with up/down health and label `Docker · Miracena`. See [`miracena-stack`](miracena-stack.md).  
 >  
 > **27/09/2026:** **Glances on Ybytu normalized + Restart Always Policy** — Glances on Ybytu transitioned from `siteMonitor` to Docker socket (`server: ybytu`, `container: glances`), eliminating HTTP 500 errors from `EHOSTUNREACH` (bridge loopback → tailscale0 blocked by iptables). Core infrastructure containers (`dockerproxy`, `glances`, `node-exporter`, `promtail`, `autoheal`, `watchtower`) updated with `restart: always` across all nodes (`psicopompo`, `ybyra`, `ybytu`) preventing persistent `exited` states following reboots.  
 >  

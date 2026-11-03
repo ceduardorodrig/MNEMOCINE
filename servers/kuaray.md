@@ -1,6 +1,6 @@
 ---
 tags: [homelab, server, kuaray, docker, storage, media, home-assistant, automation]
-pending: [HB-013]
+pending: [HB-013, HB-099, HB-101]
 ---
 
 # kuaray
@@ -9,9 +9,13 @@ pending: [HB-013]
 > Node reintegrated into the active topology via a wired Ethernet link (`enp7s0`, 100 Mb/s full-duplex, 0.28 ms LAN latency).
 > Assumes the role of dedicated host for the **Miracena Stack** (offloading active memory from Kavure) and the **Multimedia Stack** (*arr services, torrent, Soulseek), reading primary libraries over NFS from psicopompo.
 
-**Role:** Miracena Client Project Stack (Directus, WordPress, Nuxt 3, n8n, DBs) + Multimedia Suite (*arr stack, P2P, streaming)  
+**Role:** Miracena Client Project Stack (WordPress, n8n, DBs) + Multimedia Suite (*arr stack, P2P, streaming)  
 **Default Shell:** bash (`/bin/bash`)  
 **Swarm Role:** **none** — kuaray is **not** a Docker Swarm node (`docker info` → `Swarm: pending`); it runs **standalone Docker/Compose only**. The Sumænimá edge standby lives on **kavure**, not here.  
+**2026-11-02:** the leftover swarm state was removed with `docker swarm leave` (`docker info` → `Swarm: inactive`). While it was `pending` the engine retried a TLS renewal in a loop and filled `/var/log/syslog` (about 11 GB in one week). Standalone containers were not touched (32 running before and after). **Side effect (incident, about 15 min, 2026-11-02):** leaving the swarm broke the Docker embedded DNS for the user-defined networks that already existed: containers could still resolve external names but no longer each other (`getent hosts db` returned nothing), so the Frappe stack (frontend and workers: `host not found in upstream`) and WordPress (500, no database) failed. Fixed with `docker compose down && up -d` per project, which recreates the network (volumes untouched). After any `docker swarm leave` or `join` on a host, recreate every compose project and test name resolution between containers. If `kavure` still lists kuaray as a node, remove it there with `docker node rm`.  
+
+**2026-11-02:** the broken Nuxt dashboard `miracena-nuxt` was retired and deleted (container, source directory and Homepage tile removed); `miracena-redis` was removed and its data deleted.  
+**`miracena-tunnel` is intentionally disabled** (its Tailscale key was revoked on 2026-10-29 after the WordPress incident, see HB-088 in the archive; the plan is to bring it back later). It kept crash-looping because the compose file says `restart: unless-stopped`; on 2026-11-02 the container was stopped (not removed; the state volume `miracena_tailscale_state` is kept). A later `docker compose up -d` in `/srv/data/miracena` starts it again: the service now sits behind the compose profile `tunnel` (done 2026-11-02), so it starts only with `docker compose --profile tunnel up -d tunnel` once a new key exists (HB-099).  
 
 > **Correction (2026-10-13):** the previous claim — *"`standby` — Docker Swarm worker node holding dormant failover containers"* — was **materially wrong**. Verified live: `docker info` reports `Swarm: pending`, and the Swarm manager (`kavure`) lists only **psicopompo / kavure / ybyra** as nodes. The dormant `sae-edge_*` standby replicas are scheduled on **kavure** (`node.labels.edge_backup == true`), never on kuaray.
 
@@ -39,12 +43,11 @@ pending: [HB-013]
 
 | Container | Image | Ports | Responsibility |
 |---|---|---|---|
-| miracena-postgres | `postgres:16-alpine` | `5432` (internal) | PostgreSQL database for Directus and n8n |
+| miracena-postgres | `postgres:16-alpine` | `5432` (internal) | PostgreSQL database for n8n |
 | miracena-mariadb | `mariadb:11` | `3306` (internal) | MariaDB database for WordPress |
-| miracena-redis | `redis:7-alpine` | `6379` (internal) | Redis caching layer for Directus |
-| ~~miracena-directus~~ | ~~`directus/directus`~~ | ~~`100.94.209.99:8055`~~ | **Retired 31/10/2026** (replaced by the Frappe platform, loopback `127.0.0.1:8081`); its volumes are kept until 2026-11-30 (HB-093) |
+
 | miracena-wordpress | `wordpress:latest` | `100.94.209.99:8085` | WordPress content management engine |
-| miracena-nuxt | `node:22-alpine` | `100.94.209.99:3003` | Nuxt 3 web frontend |
+
 | miracena-n8n | `docker.n8n.io/n8nio/n8n:stable` | `100.94.209.99:5678` | Workflow automation server |
 | miracena-nginx-proxy-manager | `jc21/nginx-proxy-manager:latest` | `81`, `8180`, `8445` | Reverse proxy and SSL management |
 | miracena-tunnel | `tailscale/tailscale:latest` | HTTPS 443 | Ingress Tailscale Funnel endpoint |

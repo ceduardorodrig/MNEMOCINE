@@ -46,6 +46,16 @@ tags: [homelab, server, psicopompo, gaming, docker, storage, power, gpu, nvidia,
 ### Audio Pipeline: GB207 HDMI Audio Disablement
 The NVIDIA proprietary driver spawns 6 duplicate HDMI audio sinks for a single display. WirePlumber disables the redundant GB207 controller via `~/.config/wireplumber/wireplumber.conf.d/51-disable-gb207.conf` (`device.disabled = true` on `alsa_card.pci-0000_01_00.1`), preserving built-in analog audio, Bluetooth headphones, and Punktfunk virtual outputs.
 
+### Bleeding-Edge Bluetooth Stack Tuning (2026-11-02)
+To guarantee seamless multi-device coexistence without preemption or pairing lockups across Wayland/Hyprland (Noctalia shell), `/etc/bluetooth/main.conf` was tuned and canonized into `/etc/config-backup.conf` (`GOLDEN_FILES` mirrored to NAS):
+- **`MultiProfile = multiple`**: Enables simultaneous Multi-Profile Multiple-Devices (MPMD) configurations, preventing concurrent audio devices (e.g. JBL Flip 6 speaker + JBL Tune 770NC headset + Xbox Wireless Controller) from preempting or resetting each other's A2DP/HFP endpoints.
+- **`FastConnectable = true`**: Activates page scan parameter acceleration to cut reconnect latency from ~3s to sub-second.
+- **`AlwaysPairable = true` & `PairableTimeout = 0`**: Prevents the adapter from dropping into `Pairable: no` when no DE pairing agent is running, enabling instant headless/Noctalia pairing.
+- **`JustWorksRepairing = always`**: Automatically authorizes BLE Just-Works repair handshakes for keyless peripherals without blocking on absent desktop confirmation dialogues.
+- **`Experimental = true` & `KernelExperimental = true`**: Enables official BlueZ `BatteryProvider` D-Bus export alongside CachyOS kernel experimental features: Simultaneous Central & Peripheral roles, and Bluetooth Quality Report (BQR) link monitoring.
+- **`AutoEnable = true`**: Guarantees default powered state across boots and resumes.
+- **PipeWire Codec Suite**: Native SPA modules active for LDAC, AAC, AptX, AptX HD/LL, Opus, FastStream, and SBC-XQ.
+
 ## Primary Roles & Services
 
 - **Tailnet NAS (NFSv4):** Exports `/mnt/BACKUP/media/music` and `/media/books` + `/mnt/BACKUP/sumaenima-server-kavure` to kuaray and kavure (see [`network/nfs.md`](../network/nfs.md)).
