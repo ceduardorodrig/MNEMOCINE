@@ -1,6 +1,6 @@
 ---
 tags: [homelab, env, sops, backup, secrets]
-pending: [HB-026, HB-051, HB-072]
+pending: [HB-026, HB-051, HB-072, HB-103]
 ---
 
 # Centralized Secrets Management (.env) with SOPS/age
@@ -254,7 +254,13 @@ entries unchanged. The removal is a host change and was deliberately **not** per
 
 ### Automated Governance Enforcement (`SEC-SECRETS` Rule)
 
-StenioSentinel enforces `SEC-SECRETS` across the `homelab` and `vault` scopes. Any unencrypted credential discovered in a markdown or configuration file triggers an immediate fatal error during pre-commit passes.
+StenioSentinel (v4.14.0) enforces `SEC-SECRETS` and `SEC-PLAINTEXT-SECRET` across the `homelab`, `vault` and `fork` scopes. Any unencrypted credential in a markdown or configuration file triggers an immediate fatal error during pre-commit passes. Coverage:
+
+- Files: markdown, YAML, JSON, shell and compose files, plus `.env`, `.env.*`, `*.env`, `*.pem`, `*.key` and the phone-synced `.obsidian/*.json` and `.pandoc/*.json`, including git-ignored ones.
+- Shapes, in any file type: GitHub (`gh[opsur]_`, `github_pat_`), AWS (`AKIA`), Tailscale (`tskey-auth-`, `tskey-api-`), Google (`AIza`), Slack (`xox[baprs]-`), GitLab (`glpat-`), JWT, `Authorization: Bearer` and SSH/EC/DSA/RSA private-key headers; plus keys named `*_PASSWORD`, `*_PASS`, `*_PWD`, `*_SECRET`, `*_SECRET_KEY`, `*_API_KEY`, `*_ACCESS_KEY`, `*PRIVATE_KEY`, `*_AUTHKEY`, `*_AUTH_KEY`, `*_CREDENTIALS` and `*_TOKEN` with a literal value (every hit is reported).
+- `SEC-PERM-LEAK`: `.env`, `*.env`, `*.pem`, `*.key` and `.docker/config.json` must not be group-writable or readable by others; `secrets.env`, `keys.txt` and SSH keys must be 0600.
+- SOPS ciphertext (`ENC[AES256_GCM,...]`, `sops_mac=`, `sops_version=`) never fires.
+- **Remaining limit:** the git history is not scanned by default. A secret committed and later deleted is still public once pushed; run `stenio --history --path <repo>` (opt-in, slow) to scan `git log -p --all`. Details: [`governance/stenio-troubleshooting.md`](../../governance/stenio-troubleshooting.md) section 9.
 
 ### Minimum File Permissions
 

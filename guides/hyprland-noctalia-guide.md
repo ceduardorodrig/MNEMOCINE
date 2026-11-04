@@ -307,6 +307,95 @@ Unfocused applications drop to `dmem.low = 0`, allowing the kernel to evict back
 
 ---
 
+## Multi-Monitor & Tablet Virtual Display — Punktfunk (2026-11-03)
+
+psicopompo integrates an external Samsung Galaxy Tab S9 FE+ ("Anansi") as an extended secondary display (`PF-1`) via **Punktfunk**:
+
+- **Hardware Specs:** 12.4" TFT/IPS LCD display (2880x1800 native resolution, 90Hz, 16:10 aspect ratio). As an LCD, it carries zero risk of OLED burn-in during static extended desktop usage.
+- **Mathematical Scale Alignment (Scale 1.8):**
+  - $2880 \div 1.8 = 1600$ logical width.
+  - $1800 \div 1.8 = 1000$ logical height.
+  - Generates integer logical pixel dimensions matching the 1080p height of the primary monitor (`HDMI-A-4`) without subpixel rounding artifacts or fractional scaling warnings.
+- **Automated Scale Enforcement:** Punktfunk internally defaults headless displays to `scale = 1`. Hyprland overrides this automatically via [`~/.config/hypr/config/monitors.lua`](file:///home/edu/.config/hypr/config/monitors.lua) using an event hook on `monitor.added` and staggered timers (`hl.timer(enforce_tablet_scale, { timeout = 500, type = "oneshot" })`).
+- **Dedicated Dynamic Workspaces:** Workspaces `4`, `5` and `6` are bound to `MONITOR2` (`PF-1` / `PF-*`) in [`~/.config/hypr/config/workspaces.lua`](file:///home/edu/.config/hypr/config/workspaces.lua) via `sync_secondary_workspaces()`. They set `persistent = connected` dynamically: while the tablet is connected they remain open on `PF-*`; when disconnected (`monitor.removed`), persistence is disabled, any windows on `4, 5, 6` are moved silently to workspace `1`, and `hl.exec_scheduled_prop_refresh_immediately()` destroys workspaces `4, 5, 6` immediately.
+- **Navigation Shortcuts:** `Super + 2` focuses monitor `PF-1`; `Super + Shift + 2` moves active window to tablet workspace.
+
+---
+
+## Native Parallel Session Persistence & Restoration (2026-11-03)
+
+Wayland compositors lack the legacy X11 Session Management Protocol (XSMP). To enable seamless, instant restoration of open applications across reboots without blocking the compositor:
+
+### 1. Architectural Design & Rejection of `hyprresume`
+- **Why `hyprresume` was discarded:** Upstream `hyprresume` relies on a sequential 15-second timeout loop per window waiting on `socket2.sock` events, does not support Hyprland's native `scrolling` layout, and traps restored windows inside Hyprland's hidden scratchpad overlay (`special:special`), making applications like Kitty appear invisible.
+- **Native Implementation:** Replaced with a lightweight, asynchronous script + Systemd User timer (`OnCalendar=*:0/2`), a `hyprland.shutdown` hook, and Hyprland's native `[workspace <id> silent] <cmd>` execution mechanism.
+
+### 2. Components
+- **Snapshot Generator (`~/.local/bin/hypr-session-save`):**
+  - Queries active clients directly from Hyprland via `hyprctl clients -j`.
+  - Filters out system UI, overlay daemons, portals, and Noctalia (`is_system`).
+  - **Scratchpad Normalization:** Resolves windows parked in `special:special` back to their primary visible workspaces, ensuring no window restores as an invisible orphan.
+  - Maps classes (`md.obsidian.Obsidian`, `zen`, `steam`, `chromium`, `kitty`) directly to their desktop executables and writes atomic JSON to `~/.config/hypr/saved-session.json`.
+- **Systemd User Units (`~/.config/systemd/user/`):**
+  - `hypr-session-save.service` (`Type=oneshot`, without `RemainAfterExit` so the timer can re-trigger it continuously): Runs `/home/edu/.local/bin/hypr-session-save`.
+  - `hypr-session-save.timer` (`OnCalendar=*:0/2`): Periodically saves state every 2 minutes so unexpected crashes/power cuts retain the active desktop state.
+- **Parallel Instant Boot Loader & Shutdown Hook (`~/.config/hypr/config/autostart.lua`):**
+  - Saves session immediately on `hyprland.shutdown` (`os.execute(os.getenv("HOME") .. "/.local/bin/hypr-session-save")`).
+  - Reads `~/.config/hypr/saved-session.json` on Hyprland startup, clamping workspaces `4, 5, 6` to `1` if the secondary monitor (`PF-*`) is not connected at boot:
+    ```lua
+    local has_secondary = is_secondary_connected()
+    for ws, cmd in content:gmatch('"workspace":%s*"([^"]+)",%s*"cmd":%s*"([^"]+)"') do
+        local target_ws = (not has_secondary and (ws == "4" or ws == "5" or ws == "6")) and "1" or ws
+        hl.exec_cmd(string.format("[workspace %s silent] %s", target_ws, cmd))
+    end
+    ```
+  - Dispatches all application processes simultaneously in parallel (< 0.1s total launch overhead).
+
+---
+
+## Noctalia Theming & Wallpaper Screen-Flicker Elimination (2026-11-03)
+
+### The Defect (Screen Blink on Wallpaper Rotation)
+When changing wallpapers via Noctalia, Noctalia extracts Material You 3 colors and executes templates. The default template catalog included `"hyprland"`, which ran `/usr/share/noctalia/assets/templates/hyprland/apply.sh` to physically rewrite `~/.config/hypr/noctalia.lua` on disk. 
+Because Hyprland uses inotify file-watching on `~/.config/hypr/`, any disk write triggers a full compositor reload. On NVIDIA drivers under Wayland, a compositor reload forces a pipeline modeset and shader reload, resulting in an irritating black flash across all screens and triggering XIO fatal errors in Xwayland clients (e.g. Steam).
+
+### Canonical Remediation
+1. **Template Decoupling:** Removed `"hyprland"` from Noctalia's runtime template emission (`theme.templates.builtin_ids` in `~/.local/state/noctalia/settings.toml` and `~/.config/noctalia/export/merged-config.toml`):
+   ```bash
+   noctalia msg config-set theme.templates.builtin_ids '["alacritty", "btop", "gtk3", "gtk4", "kcolorscheme", "kitty", "qt"]'
+   ```
+2. **Dynamic Theming Preserved:** All user applications (GTK3/4, Qt5/6, Kitty, Alacritty, Btop) and the entire Noctalia shell (bar, launcher, dock, clock) continue to adapt their color palettes dynamically to wallpaper changes.
+3. **Autonomous Hyprland Borders:** Window border colors are statically defined in [`~/.config/hypr/config/decorations.lua`](file:///home/edu/.config/hypr/config/decorations.lua#L11-L15), completely insulating Hyprland from disk write reloads during wallpaper transitions.
+
+---
+
+## Scratchpad Focus-Stealing Prevention & Steam CEF Fix (2026-11-03)
+
+### 1. Scratchpad Protection Against Notification Activation, Scroll-Wheel Ejection & Dock Double-Click
+- **Wayland Activation Suppression (`xdg-activation-v1`):** Added `activate activatefocus` to the global `suppress-maximize-events` rule in [`~/.config/hypr/config/windowrules.lua`](file:///home/edu/.config/hypr/config/windowrules.lua#L188-L192):
+  ```lua
+  hl.window_rule({
+      name  = "suppress-maximize-events",
+      match = { class = ".*" },
+      suppress_event = "maximize activate activatefocus",
+  })
+  ```
+- **Antigravity CLI Notification Suppression:** Disabled `"notifications": false` in [`~/.gemini/antigravity-cli/settings.json`](file:///home/edu/.gemini/antigravity-cli/settings.json) so `agy` does not emit desktop notifications or terminal bells on every turn, preventing notification clicks (`hl.dsp.focus({ window = "address:..." })`) from pulling the `special:special` overlay onto the screen.
+- **Scroll-Wheel Move Guard (`moveWinIfNotSpecial`):** In [`~/.config/hypr/config/binds.lua`](file:///home/edu/.config/hypr/config/binds.lua#L63-L82), `Super + Shift + mouse_up/down` (`window.move({ monitor = "-1/+1" })`) and `Super + Control + Shift + mouse_up/down` (`window.move({ workspace = "m-1/m+1" })`) are wrapped with `moveWinIfNotSpecial`. Touching the scroll wheel while holding `Super + Shift` inside `special:special` is ignored, preventing accidental ejection onto the normal workspace.
+- **Noctalia Dock Double-Click Note:** Clicking a pinned app icon (e.g. `kitty`) twice within 8 seconds in the Noctalia Dock triggers Noctalia's built-in "bring window to current monitor" action (`hl.dsp.window.move({ monitor = "...", window = "address:...", follow = false })`), which moves the first matching instance out of `special:special` into the active workspace.
+- **Manual Toggle Preserved:** `Super + Shift + S` (`toggleScratchpad` in [`~/.config/hypr/config/binds.lua`](file:///home/edu/.config/hypr/config/binds.lua#L207-L217)) remains the intentional manual toggle between the scratchpad and the active workspace (`+0`).
+
+### 2. Steam CEF XWayland Corruption Fix (`-cef-disable-gpu`)
+- **The Defect:** Steam's embedded Chromium UI (`steamwebhelper`) clashes with NVIDIA proprietary drivers under XWayland, producing horizontal sliced buffer artifacts across the client window.
+- **Canonical Fix:** Added `-cef-disable-gpu` to `Exec=/usr/bin/steam -cef-disable-gpu -pipewire %U` in [`~/.local/share/applications/steam.desktop`](file:///home/edu/.local/share/applications/steam.desktop). This isolates software rendering strictly to the `steamwebhelper` web UI while leaving game processes (Proton/Vulkan/DXVK) on 100% hardware acceleration on the RTX 5050.
+
+### 3. Hyprland Lua API Invariants & Dynamic Punktfunk Workspaces (Anti-Regression)
+- **`hl.bind` Signature:** Always takes **2 or 3 arguments**: `hl.bind(key_combo_string, action_fn, [options_table])`, e.g., `hl.bind("XF86AudioRaiseVolume", hl.dsp.exec_cmd(...), { locked = true, repeating = true })`. Passing an empty modifier string as a first argument (`hl.bind("", "XF86...", ...)`) is invalid in Hyprland's Lua API, triggers the red config error bar, and breaks media/volume keys.
+- **Dynamic Secondary Monitor Workspaces (`sync_secondary_workspaces` in [`workspaces.lua`](file:///home/edu/.config/hypr/config/workspaces.lua#L15-L71)):** Workspaces `1, 2, 3` are permanently pinned (`persistent = true`) on `MONITOR1` (`HDMI-A-4`). Workspaces `4, 5, 6` (`MONITOR2` / `PF-*` via Punktfunk) set `persistent = connected` dynamically on `config.reloaded`, `monitor.added`, and `monitor.removed`. When the tablet disconnects (`connected == false`), `sync_secondary_workspaces()` disables persistence on `4, 5, 6`, moves any open windows from `4, 5, 6` silently to workspace `1` (`hl.dsp.window.move({ workspace = "1", window = w, follow = false })`), and calls `hl.exec_scheduled_prop_refresh_immediately()` so workspaces `4, 5, 6` are immediately destroyed instead of lingering on `HDMI-A-4`.
+- **Enforced by Hook:** `scripts/agent-hooks/rust-tools-guard.sh` (`config-clobber-guard`) blocks full-file overwrites of `~/.config/hypr/config/*.lua`, and `scripts/agent-hooks/hypr-config-verify.sh` verifies `luac -p` + `hyprctl configerrors` before an agent can finish a turn.
+
+---
+
 ## NVIDIA Display & Gaming Invariants
 
 1. **Kernel Parameters:** `nvidia-drm.modeset=1`, `nvidia.NVreg_EnableResizableBar=1` (ReBAR enabled), `resume_offset` for zstd hibernation.

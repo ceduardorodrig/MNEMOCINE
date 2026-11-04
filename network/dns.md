@@ -11,7 +11,7 @@ Domain name resolution architecture across the homelab ecosystem.
 > [`../guides/dns-consistency-map.md`](../guides/dns-consistency-map.md). Since **2026-10-13**
 > all five reachable hosts run the **same** host-resolver topology: `systemd-resolved` in
 > **stub mode** + Tailscale on the **`systemd-resolved`** backend. `kururu` is still unmapped
-> (no administrative path — see the map §4.2).
+> (administrative path restored 2026-11-03, HB-060 resolved — see the map §4.2).
 
 > **Invariant (2026-10-13) — this is an invariant, not a preference.** Every tailnet device MUST
 > keep resolving through the tailnet's own resolvers (`100.100.100.100` MagicDNS → Pi-hole on
@@ -195,7 +195,7 @@ Since **2026-10-08**, egress from kavure is **fully local recursive** (native `u
 ### Kururu
 | Component | Configuration |
 |---|---|
-| Resolver | **Unmapped** — L3-reachable (`tailscale ping` OK) but **no administrative path** from the audit session (no Tailscale SSH; Dropbear rejects the passphrase-protected audit key). It is **Alpine/musl with no systemd**, so the stub recipe does **not** apply verbatim; when reachable, the portable target is `CorpDNS=true` + a non-trampled `/etc/resolv.conf`. See [`../guides/dns-consistency-map.md`](../guides/dns-consistency-map.md) §4.2 |
+| Resolver | **Mapped 2026-11-03** (HB-060 resolved) — L3-reachable (`tailscale ping` OK) and reachable over SSH with the dedicated automation key; the passphrase-protected personal key from the earlier audit is no longer the only credential. It is **Alpine/musl with no systemd**, so the stub recipe does **not** apply verbatim; the applied target is `CorpDNS=true` + a non-trampled `/etc/resolv.conf`. See [`../guides/dns-consistency-map.md`](../guides/dns-consistency-map.md) §4.2 |
 
 ## Domain Namespace Routing
 

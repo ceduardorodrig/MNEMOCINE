@@ -1,5 +1,6 @@
 ---
 tags: [homelab, recovery, checklist, backup, psicopompo, sops, swarm, docker, tailscale, storage, server]
+pending: [HB-104]
 ---
 
 # psicopompo — From-Zero Rebuild Runbook
@@ -7,7 +8,9 @@ tags: [homelab, recovery, checklist, backup, psicopompo, sops, swarm, docker, ta
 > **Scope.** Step-by-step rebuild of `psicopompo` after a total host loss. It is the executable
 > counterpart of the dependency matrix in [`psicopompo-loss.md`](psicopompo-loss.md) (the *what stops,
 > what survives* analysis) and fills the §3 sketch of [`disaster-recovery.md`](disaster-recovery.md).
-> Drafted **2026-10-30** (closes the documentation half of HB-065).
+> Drafted **2026-10-30** (closes the documentation half of HB-065). Both documented gaps were closed
+> **2026-11-03** with live data: the storage/`fstab` layout (§2.1) and whether the tool installer
+> handles the systemd units (§2.6 — it does not).
 >
 > **Status of this document: written from the documented design and read-only inspection of the
 > live host; it has never been executed end to end.** Steps marked **⚠️ unverified** have not been
@@ -47,9 +50,35 @@ secrets ─▶ ops layer (MNEMOCINE-OPS) ─▶ backup circuit (in order) ─▶
 ### 2.1 OS, disks and Tailscale
 
 1. Install CachyOS; create the user `edu` (uid 1000, same as the NFS `anonuid`) and the sudoers rule.
-2. Recreate the three Btrfs filesystems/mountpoints. **⚠️ unverified:** the exact subvolume layout and `fstab` entries are **not** captured in the vault — if `/mnt/BACKUP` survived, `blkid` and the surviving disk's subvolumes are the authority; otherwise take the layout from the `etckeeper-psicopompo` bare repo (§3).
+2. Recreate the three data filesystems and the Btrfs subvolume layout. **Verified 2026-11-03** from the live `/etc/fstab` and `findmnt`; if a disk survived, reuse it as-is and take the UUID from `blkid` (do not reformat):
 3. Join the tailnet **by account login** (`tailscale up`); the control plane is Tailscale's. If tags are needed, re-tag the device per [`../guides/tailnet-tagging.md`](../guides/tailnet-tagging.md). The ACL is GitOps in `MNEMOCINE-ACL` and is **not** touched by a host rebuild.
 4. Confirm `tailscale status` shows kavure and kuaray before continuing — every later step reaches them over the tailnet.
+
+#### Verified storage layout (2026-11-03, live host)
+
+Root filesystem is one partition with Btrfs subvolumes; the three data disks are **single-partition
+Btrfs mounted at the top level** (`subvolid 5`), so a rebuild only needs the mount, not subvolume
+creation. `nofail` on every data mount is deliberate: a missing disk must not block boot.
+
+| Mount | Device | UUID | Subvolume | Options |
+|---|---|---|---|---|
+| `/boot` | ESP | `0D9A-9026` | — | `vfat umask=0077` |
+| `/` | `nvme0n1p2` | `ffc60b3e-2f31-47bb-b51e-4eb785af8647` | `@` | `noatime,compress=zstd:1` |
+| `/home` | same | same | `@home` | same |
+| `/root` | same | same | `@root` | same |
+| `/srv` | same | same | `@srv` | same |
+| `/var/cache` | same | same | `@cache` | same |
+| `/var/tmp` | same | same | `@tmp` | same |
+| `/var/log` | same | same | `@log` | same |
+| `/tmp` | tmpfs | — | — | `mode=1777` |
+| `/mnt/NVME_PCI` | `nvme1n1p5` | `315290c7-7556-4a5f-ac6c-cc4d79d56c20` | top level | `nofail,noatime,compress=zstd` |
+| `/mnt/BACKUP` | `sda1` | `3cccdf84-6549-46c4-8f1c-d302a20b6584` | top level | `nofail,noatime,compress=zstd` |
+| `/mnt/HDD_SATA` | `sdc1` | `1866df07-62b5-467c-8771-99af2fb8eae4` | top level | `nofail,noatime,compress=zstd` |
+| `/mnt/SSD_SATA` | — | `2f59eee5-8bd6-4cd8-8ee4-96618b6c7541` | top level | `nofail` |
+| `/mnt/SSD_SATA/scryfall-mirror` | same | same | `@scryfall` | `compress=zstd:3,ssd,noatime,discard=async` |
+
+UUIDs change if a filesystem is recreated; with a surviving disk, mount it and read the real UUID
+with `blkid` instead of copying the one above.
 
 ### 2.2 Restore source (branch on `/mnt/BACKUP`)
 
@@ -91,7 +120,34 @@ cd ~/homelab/mnemocine-ops/provisioning/scripts
 ./install-homelab-tools.sh --all       # install the tools (Rust tools are compiled on psicopompo, the build node)
 ```
 
-Then copy the units from `provisioning/systemd/` to `/etc/systemd/system/`, `systemctl daemon-reload`, and enable the timers. **⚠️ unverified:** `install-homelab-tools.sh` installs the *tools*; whether it also installs and enables the *units* has not been confirmed — read `--list` output and the script before assuming. The Rust toolchain must exist on the rebuilt host (it is the build node, ADR-026).
+Then install the **systemd units** — the tool installer does not do it. **Verified 2026-11-03** by
+reading `install-homelab-tools.sh` in the repository: it distributes the operation tools to
+`/usr/local/bin` (and compiles the Rust ones on psicopompo, the build node, ADR-026) and contains
+no systemd handling at all. The units are a manual copy:
+
+```bash
+sudo cp ~/homelab/mnemocine-ops/provisioning/systemd/*.service \
+        ~/homelab/mnemocine-ops/provisioning/systemd/*.timer /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now \
+  hl-access-audit.timer hl-agentic-ai-backup.timer hl-arandu-sync.timer \
+  hl-arm-hunt.timer hl-arm-hunt-watchdog.timer hl-backlog-report.timer \
+  hl-ceduardorodrig-docs-sync.timer hl-config-backup.timer hl-configs-git-push.timer \
+  hl-container-check.timer hl-container-metrics.timer hl-docker-prune.timer \
+  hl-etckeeper-push.timer hl-health-metrics.timer hl-hygiene.timer \
+  hl-mnemocine-docs-sync.timer hl-netwatch-metrics.timer \
+  hl-rclone-gdrive-backup.timer hl-restic-configs-backup.timer \
+  hl-restic-configs-check.timer hl-smart-metrics.timer
+```
+
+Counts on the live host (2026-11-03): **52** `hl-*` unit files in `/etc/systemd/system` and **21**
+enabled `hl-*.timer` — exactly the list above. The repository holds **75** unit files: the
+difference belongs to kavure, kuaray and the edge nodes, so copying `*` is safe (a unit for another
+host simply never activates here) but do not enable timers you did not have enabled before.
+
+> **Gap closed by this section:** `install-homelab-tools.sh` installing the units was an open
+> question. It does not. A `--units` mode in the installer would remove 25 lines from this runbook —
+> tracked as HB-104.
 
 ## 3. Restarting the backup circuit — strict order
 
@@ -127,11 +183,11 @@ Run these from **another host** where possible (test as the end user — [`../..
 
 | Gap | Tracked as |
 |---|---|
-| Btrfs subvolume layout and `fstab` of psicopompo are not recorded in the vault | to document from the live host (read-only) |
-| Whether `install-homelab-tools.sh` installs/enables the units | verify by reading the script and `--list` |
+| ~~Btrfs subvolume layout and `fstab` of psicopompo are not recorded in the vault~~ — **closed 2026-11-03**: §2.1 records the verified layout | — |
+| ~~Whether `install-homelab-tools.sh` installs/enables the units~~ — **closed 2026-11-03**: it does not; §2.6 carries the manual copy and the 21 timers | HB-104 (`--units` mode) |
 | No second, independent freshness witness for the off-site pipeline | HB-066 |
 | No failover for the NFS exports (rebuild is the only path) | HB-067 |
-| The runbook was never executed | run it in a recovery drill |
+| **The runbook was never executed** — the only remaining blocker to closing HB-065 | run it in a recovery drill |
 
 ## References
 

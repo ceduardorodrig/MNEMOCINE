@@ -66,7 +66,7 @@ domain (`doubleclick.net`) come back filtered (`0.0.0.0`/`::`) on each path?
 | **kavure** | `true` | `systemd-resolved` | symlink → `stub-resolv.conf` | same | default · **yes** | ✅ `::` | ✅ `0.0.0.0` + `::` | ⚠️ doc silent on the host's own resolver (Pi-hole role only) |
 | **ybyra** | `true` | `systemd-resolved` | symlink → `stub-resolv.conf` | `9.9.9.9#dns.quad9.net 1.1.1.1#cloudflare-dns.com` + `DNSOverTLS=opportunistic` | default · **yes** | ✅ `::` | ✅ `0.0.0.0` + `::` | ✅ (fallback added 2026-10-13) |
 | **ybytu** | `true` | **`systemd-resolved`** | symlink → `/run/systemd/resolve/stub-resolv.conf` | `9.9.9.9#dns.quad9.net 1.1.1.1#cloudflare-dns.com` + `DNSOverTLS=opportunistic` | default (`yes`) · **yes** (`127.0.0.53`) | ✅ `::` | ✅ `0.0.0.0` + `::` | ✅ (unified 2026-10-13) |
-| **kururu** | — | — | — | — | — | — | — | **unmapped** (L3-reachable, no admin path — §4.2) |
+| **kururu** | — | — | — | — | — | — | — | **mapped** 2026-11-03 (L3-reachable, admin path restored — HB-060, §4.2) |
 
 Notes that refine the table:
 
@@ -213,19 +213,25 @@ three lines (`DNS=…`, `FallbackDNS=`, `DNSOverTLS=opportunistic`) were added a
 **Rollback:** pre-change copies of every edited file are in
 `/root/dns-unification-backup-2026-10-13/` on `ybytu` (and the `resolved.conf` copy on `ybyra`).
 
-### 4.2 kururu — unmapped (no administrative path)
+### 4.2 kururu — mapped & verified (2026-11-03, HB-060 resolved)
 
-`kururu` is **L3-reachable** (`tailscale ping` → `pong … 4 ms`; Dropbear on `192.168.3.55:22`)
-but the audit session has **no admin path**: it runs **no Tailscale SSH server** (unlike the
-other nodes) and its Dropbear rejects the audit key (the only local key is
-**passphrase-protected** and no agent is loaded). Nothing was changed — by design ("do not
-invent"). When it becomes reachable:
+After restoring the tailnet TCP/22 path (`HB-106`, ACL PR #17 + `--ssh=false`) and provisioning a
+dedicated automation SSH key (`HB-107`), `kururu` (`100.127.188.45`) was audited live over the
+tailnet on 2026-11-03:
 
-- The systemd-resolved stub recipe **does not apply verbatim**: `kururu` is **Alpine/musl**
-  with **no systemd**. The portable equivalent is *Tailscale DNS enabled (`CorpDNS=true`) with
-  the libc path (`/etc/resolv.conf`) pointing at a resolver that also receives the Tailscale
-  config* — i.e. ensure `resolv.conf` is not a Tailscale-trampled static file and that MagicDNS
-  answers. Its `HB-015` note already documents `--netfilter-mode=off` on this kernel.
+- **No `systemd-resolved` (by design):** `kururu` runs Alpine Linux v3.20 (`musl libc`) in a chroot
+  with no systemd.
+- **Portable fleet equivalent active:** `tailscale dns status` reports `Tailscale DNS: enabled`
+  (`CorpDNS=true`), forwarding in parallel to `100.115.253.109` (AdGuard/ybytu) and
+  `100.124.146.77` (Pi-hole/kavure) with split-DNS for `chimaera-heptatonic.ts.net`.
+- **Single libc path:** `/etc/resolv.conf` points to `nameserver 100.100.100.100` and
+  `nameserver fd7a:115c:a1e0::53` with `search chimaera-heptatonic.ts.net`.
+- **Five-test verification on `kururu` (2026-11-03):**
+  - `tailscale dns status` → ✅ `100.115.253.109` + `100.124.146.77`
+  - `/etc/resolv.conf` → ✅ `100.100.100.100` (Quad100 forwarder)
+  - `getent hosts doubleclick.net` → ✅ `::` (`nslookup` → `0.0.0.0`)
+  - MagicDNS (`getent hosts kavure.chimaera-heptatonic.ts.net`) → ✅ `100.124.146.77`
+  - `tailscale status` health → ✅ clean (`--netfilter-mode=off` documented in `HB-015`).
 - It stays **untagged** until it hosts a service (see `network/tailscale.md`).
 
 **Doc follow-ups — ✅ resolved (2026-10-13):** the AdGuard `:53` bind was still stale in

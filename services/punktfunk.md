@@ -59,6 +59,16 @@ sudo ufw allow punktfunk-web      # TCP 47992, 47993
 - **Logs:** `journalctl --user -u punktfunk-host -f`
 - **Status:** `systemctl --user status punktfunk-host punktfunk-web punktfunk-scripting`
 
+## Virtual Display Integration with Hyprland & Tablet (Anansi)
+
+psicopompo streams an extended desktop to a Samsung Galaxy Tab S9 FE+ ("Anansi", 2880x1800@90Hz TFT LCD) using Punktfunk virtual headless outputs:
+
+- **Virtual Output:** Designated as `PF-1` in Hyprland.
+- **Scale 1.8 Alignment:** Calculated as $2880 / 1.8 = 1600$ by $1800 / 1.8 = 1000$ logical resolution, perfectly aligning with the 1080p vertical viewport of primary monitor `HDMI-A-4` with zero subpixel distortion.
+- **Scale Enforcement:** Punktfunk hardcodes `scale = 1` when creating headless monitors. Hyprland listens to `monitor.added` in `~/.config/hypr/config/monitors.lua` and schedules `enforce_tablet_scale()` via asynchronous `hl.timer` calls, enforcing scale 1.8 automatically on connection.
+- **Workspaces:** Workspaces `4`, `5`, `6` are permanently assigned to `PF-1` (`MONITOR2`) with persistence in `~/.config/hypr/config/workspaces.lua`.
+- **Display Safety:** The tablet's IPS/TFT LCD panel has zero risk of OLED burn-in.
+
 ## See also
 
 - [[psicopompo]] — Host workstation node

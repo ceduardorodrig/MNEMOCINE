@@ -87,8 +87,19 @@ When running frame generation via `NVPRESENT_ENABLE_SMOOTH_MOTION=1`, Hyprland's
 
 | Title / Utility | Host Location | Target Proton | Launch Profile | Functionality |
 |---|---|---|---|---|
-| **Azimuth (Forza PC)** | `/mnt/NVME_PCI/azimuth (forza_pc)/azimuth.exe` | System Default | `dx12_smooth_motion` | Xbox One to DX12 translation with descriptor heap, Reflex low latency, and NVIDIA Smooth Motion frame generation |
+| **Azimuth (Forza PC)** | `/mnt/NVME_PCI/azimuth (forza_pc)/azimuth.exe` | `GE-Proton11-12-x86_64` | `dx12_smooth_motion` | Xbox One to DX12 translation with descriptor heap, Reflex low latency, and NVIDIA Smooth Motion frame generation |
 | **PCSX2** | `/usr/bin/pcsx2-qt` (AUR `pcsx2` 2.8.2, maintainer xiota) | Native Linux (no Proton) | `game-performance` | Native PS2 emulation, Vulkan renderer; DLSS 5 experiment via `DLSS5VKLayer` planned |
+
+#### Azimuth (Forza PC) Architecture
+- **Shortcut & AppID (2026-11-03):** Non-Steam shortcut under AppID `3758807005` (`-536160291` signed). Canonized in `~/.config/steam-launch-options/games.toml` with profile `dx12_smooth_motion` and `proton = "GE-Proton11-12-x86_64"`.
+- **Target Proton:** `GE-Proton11-12-x86_64` (updated from GE-Proton 11-11 on 2026-11-03 across all 9 GE profiles).
+- **Launch Options & Wayland Nativo:**
+  - `PROTON_ENABLE_WAYLAND=1`: executa sob `winewayland.drv` nativo, eliminando a camada XWayland, scaling artifacts e latência de IPC.
+  - `VKD3D_CONFIG=descriptor_heap`: alocação de descritores diretamente na GPU via `VK_EXT_descriptor_heap` (NVIDIA 570+ / RTX 5050), reduzindo overhead de CPU na tradução DX12.
+  - `PROTON_VKD3D_LOWLATENCY=1`: NVIDIA Reflex DX12 nativo dentro do VKD3D-Proton para mínima latência de amostragem.
+  - `systemd-run --user --scope game-performance`: governor de desempenho CachyOS e priorização de VRAM (`dmem.low`) via `hyprland-focused-booster`.
+  - `with-smooth-motion`: wrapper Rust RAII que suspende `direct_scanout = 0` no Hyprland durante a execução e injeta `NVPRESENT_ENABLE_SMOOTH_MOTION=1` para interpolação de quadros fluida sem half-rate lock.
+- **Hyprland Window Rule (2026-11-03):** mapeado para `workspace = name:gaming` e `content = "game"`. Em `~/.config/hypr/config/windowrules.lua`, `emulatorApps` casa com `^(pcsx2.*|PCSX2.*|[Aa]zimuth.*|steam_app_3758807005)$` posicionado *após* a regra genérica de `.*\\.exe`, impedindo o sequestro da janela para a workspace 1 via `monitor = PRIMARY_MONITOR`.
 
 #### PCSX2 (native) Architecture
 - **Replaced (2026-11-01):** the Windows build `pcsx2-qt.exe` under Proton plus the UNCANNY STRATA stack were removed entirely. Reasons: UNCANNY is a closed-source, unsigned Windows alpha whose PowerShell-based installer cannot run under Wine, and the Windows build with `Renderer = -1` (Auto) selected D3D12/VKD3D, which failed on `Method 'Load' for structured buffers` and produced a black screen. `Renderer = 11` is the *Null* renderer, not D3D12.

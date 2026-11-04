@@ -14,9 +14,9 @@ Autonomous power outage detection, coordinated safe shutdown, and closed-loop Wa
 
 ---
 
-## 1. Overview & Architecture
+## 1. Overview & Architecture (verified 2026-11-03)
 
-Kururu acts as the dedicated **Physical Power Guardian** for the homelab. Because it is a battery-powered tablet consuming <0.8W with an integrated AXP228 PMIC, it remains 100% operational during complete mains power failures without relying on external UPS units.
+Kururu acts as the dedicated **Physical Power Guardian** for the homelab. Because it is a battery-powered tablet consuming <0.8W with an integrated **Summit SMB327/SMB328 charger** (plus an **88PM822** fuel gauge — not an `axp20x` PMIC; see [`servers/kururu.md`](../servers/kururu.md) § Hardware), it remains 100% operational during complete mains power failures without relying on external UPS units.
 
 ```
                               ┌────────────────────────────────────────┐
@@ -50,7 +50,7 @@ To prevent erratic grid fluctuations ("power flapping" and auto-reclosers) from 
 * If power cuts again while residual debit exists, accumulation resumes from the remaining debit rather than starting from zero.
 * Once the cumulative debit reaches **180 seconds (3 minutes)**, the safe shutdown is triggered immediately.
 
-### C. Physical Motion & Dock Baseline Discrimination (Physics-Based Immunity)
+### C. Physical Motion & Dock Baseline Discrimination (Physics-Based Immunity) — verified 2026-11-03
 To prevent false positives when unplugging Kururu for handheld use while preserving 100% detection for real blackouts:
 * While charging on AC (`ac_online == 1`), Kururu's daemon continuously calibrates its **resting dock orientation vector** $\vec{V}_{dock} = (X, Y, Z)$ using a low-pass filter on the hardware 3-axis accelerometer (`/sys/class/sensors/accelerometer_sensor/raw_data`).
 * When AC disconnects:
@@ -61,13 +61,13 @@ To prevent false positives when unplugging Kururu for handheld use while preserv
   - If smart lamps are online $\rightarrow$ transitions to `CableFault` (standing by).
   - If smart lamps are dead $\rightarrow$ transitions to `BlackoutPending(StaticDockLostAc)` (countdown to safe shutdown).
 
-### D. Multi-Variable Confidence Matrix & Decision Weights
+### D. Multi-Variable Confidence Matrix & Decision Weights — verified 2026-11-03
 
 To eliminate ambiguity and real-world edge cases, Kururu Sentinel evaluates five independent physical, hardware, and network vectors:
 
 | Vector | Probe Source | Evaluation Weight | Role |
 |---|---|---|---|
-| **AC Mains Power** | Hardware PMIC (`axp20x-battery/ac_online`) | **Mandatory Gatekeeper** | If AC is online (`1`) and debit is `0`, confidence is strictly **0%**. |
+| **AC Mains Power** | Hardware PMIC (`/sys/class/power_supply/ac/online`) | **Mandatory Gatekeeper** | If AC is online (`1`) and debit is `0`, confidence is strictly **0%**. |
 | **Mains Grid Witness** | Tuya Local TCP `:6668` (`192.168.3.36-39`) | **Mains Physical Veto** | 4 wall-powered smart bulbs without UPS. If any respond, mains power is healthy. |
 | **Dock Orientation Shift** | 3-axis accelerometer ($\|\vec{V} - \vec{V}_{dock}\|$) | **Primary Discriminator (60%)** | Distinguishes static dock placement ($\Delta < 180$) from human handling ($\Delta \ge 180$). |
 | **WAN Internet Reachability** | ICMP probe to `1.1.1.1` and `8.8.8.8` | **Secondary Corroborator (40%)** | Verifies upstream network vitality without relying on local lamp IPs. |

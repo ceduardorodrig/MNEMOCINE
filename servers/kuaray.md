@@ -1,6 +1,6 @@
 ---
 tags: [homelab, server, kuaray, docker, storage, media, home-assistant, automation]
-pending: [HB-013, HB-099, HB-101]
+pending: [HB-013, HB-099]
 ---
 
 # kuaray

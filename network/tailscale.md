@@ -346,7 +346,7 @@ Tailscale picks its Linux DNS backend at **every `tailscaled` start** from the c
 | `kavure` | symlink → `/run/systemd/resolve/stub-resolv.conf` | **`systemd-resolved`** | stub listener active |
 | `ybyra` | symlink → `/run/systemd/resolve/stub-resolv.conf` | **`systemd-resolved`** | stub listener active |
 | `ybytu` | symlink → `/run/systemd/resolve/stub-resolv.conf` | **`systemd-resolved`** | AdGuard no longer binds `0.0.0.0:53` (tailnet IP + loopback only) → stub active (**fixed 2026-10-13**) |
-| `kururu` | — (Alpine/musl, no systemd) | **unmapped** | no admin path from the audit session; see the map §4.2 |
+| `kururu` | — (Alpine/musl, no systemd) | **mapped** (2026-11-03) | administrative path restored — HB-060 resolved; see the map §4.2 |
 
 > ⚠️ **`resolvconf` shim trap (upstream [`tailscale/tailscale#19062`](https://github.com/tailscale/tailscale/issues/19062)).**
 > On Ubuntu/Debian the `systemd-resolved` package ships `/usr/sbin/resolvconf` as a symlink to

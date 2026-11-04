@@ -177,21 +177,15 @@ claims to follow); [Tailscale — Auth keys](https://tailscale.com/kb/1085/auth-
 
 ---
 
-## D6 — `kururu` has no administrative path
+## D6 — `kururu` administrative path & DNS audit — RESOLVED 2026-11-03
 
-> **Referenced, not duplicated:** this is **[HB-060](../backlog.md)**, with the node detail in
+> **Referenced, not duplicated:** resolved via **[HB-060](../backlog-archive.md)**, **[HB-106](../backlog-archive.md)**, and **[HB-107](../backlog-archive.md)**, with the node detail in
 > [`servers/kururu.md`](../servers/kururu.md) §DNS and
 > [`dns-consistency-map.md`](dns-consistency-map.md) §4.2.
 
-**(a) What it is (one line).** `kururu` is L3-reachable (`tailscale ping` → `pong … 4 ms`; Dropbear
-on `192.168.3.55:22`) but runs **no Tailscale SSH server** and its Dropbear rejects the audit key
-(the only local `id_ed25519` is passphrase-protected, no agent loaded) — so it cannot be audited or
-patched from the tailnet and its resolver topology stays unmapped.
+**(a) What it was.** `kururu` had lost its tailnet TCP/22 path from `tag:server` hosts after the Phase 3 ACL tighten (`HB-049`) and `tailscaled --ssh` port-22 interception (`HB-106`), and its only SSH credential was passphrase-locked (`HB-107`).
 
-**(b)/(c) Options + recommendation.** (i) install a Tailscale SSH server (Alpine/musl) to match the
-fleet, or (ii) provision a non-interactive (agent-loadable) key for Dropbear — the smaller change
-for an audit path. Candidate recommendation and trade-off in the HB-060 row.
-**Decision:** _open — owner (tracked by HB-060)._
+**(b)/(c) Decision & resolution (2026-11-03).** Option **(ii)** implemented: added explicit ACL grant `tag:server -> 100.127.188.45` on `tcp:22` (`MNEMOCINE-ACL` PR #17), disabled `tailscaled` SSH interception (`--ssh=false` in `/system/etc/install-recovery.sh`) so Dropbear serves `:22` over `tailscale0`, and provisioned a dedicated passwordless automation key (`~/.ssh/kururu_agent_ed25519`, stored encrypted as `KURURU_SSH_PRIVATE_KEY_B64` in SOPS and restored via `scripts/kururu-unlock.sh`). DNS topology audited and verified compliant (`CorpDNS=true`, `/etc/resolv.conf` → `100.100.100.100`, ad-blocking and MagicDNS active).
 
 **(d) Official source to consult first.**
 [Tailscale SSH](https://tailscale.com/kb/1193/tailscale-ssh);
