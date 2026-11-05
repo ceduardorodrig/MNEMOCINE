@@ -46,7 +46,7 @@ All workloads execute as Docker containers managed via Docker Compose:
 | promtail | `grafana/promtail:3.2.0` | — | Log shipping agent forwarding to Loki on kavure |
 | uptime-kuma | `louislam/uptime-kuma:latest` | `0.0.0.0:3002` (`host` net) | Service availability monitor |
 | changedetection | `dgtlmoon/changedetection.io:latest` | `0.0.0.0:8082` | Web page alteration alerts |
-| ntfy | `binwiederhier/ntfy:latest` | `0.0.0.0:8083` | Push notification service |
+| ntfy | `binwiederhier/ntfy:latest` | `100.115.253.109:8083` (tailnet only) | Push notification service |
 | watchtower | `containrrr/watchtower:latest` | — | Automated container image updater |
 | autoheal | `willfarrell/autoheal:latest` | — | Restarts unhealthy containers automatically |
 

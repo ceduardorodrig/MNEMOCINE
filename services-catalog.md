@@ -118,11 +118,11 @@ Standby mirror / media + **Miracena** client stack. **Standalone Docker — not 
 
 | service | what it does (1 line) | how | port(s) + bind | why it exists | who depends on it | owner |
 |---|---|---|---|---|---|---|
-| miracena-wordpress | WordPress content engine | container | `100.94.209.99:8085` | Miracena public site | miracena-tunnel (Funnel) | edu · Miracena |
+| miracena-wordpress | WordPress content engine (historical: retired 2026-10-31) | container | `100.94.209.99:8085` | Miracena public site (historical) | miracena-tunnel (Funnel, disabled) | edu · Miracena |
 
 | miracena-n8n | Workflow automation (Miracena) | container | `100.94.209.99:5678` | Miracena automations | owner | edu · Miracena |
 | miracena-nginx-proxy-manager | Reverse proxy + SSL manager | container | `100.94.209.99:81`, `8180`, `8445` | ingress for the Miracena stack | Miracena services | edu · Miracena |
-| miracena-tunnel | Tailscale Funnel ingress | container | HTTPS 443 (Funnel) | public URL for Miracena | external visitors | edu · Miracena |
+| miracena-tunnel | Tailscale Funnel ingress (historical: disabled since 2026-10-29, compose profile `tunnel`; reopening planned, HB-091) | container | HTTPS 443 (Funnel), when enabled | public URL for Miracena (historical) | none while disabled | edu · Miracena |
 | miracena-postgres / -mariadb | X container | internal `5432` / `3306` | state | WordPress, n8n | edu · Miracena |
 | transmission | BitTorrent client | container | `0.0.0.0:9091`, `51413` | download engine | prowlarr/lidarr pipelines | edu |
 | prowlarr | Indexer proxy manager | container | `0.0.0.0:9696` | central indexer hub | lidarr | edu |
@@ -155,7 +155,7 @@ Cloud utility node (OCI Always Free): exit node, DNS failover, dashboard, notifi
 | adguardhome | Filtering DNS + admin console | container | `100.115.253.109:53` + `127.0.0.1:53`, `0.0.0.0:3000` | network-wide ad-blocking DNS | all DNS clients; Homepage tile | edu |
 | uptime-kuma | Uptime monitoring + status pages (host net) | container | `0.0.0.0:3002` (nft → tailnet) | external HTTP/port probes + incident alerts | owner | edu |
 | changedetection | Web page change monitor | container (Compose) | `0.0.0.0:8082` | watch portals/notices/job boards | owner | edu |
-| ntfy | Self-hosted push notification gateway | container | `0.0.0.0:8083` | deliver systemd/backup/alert push to phones | Alertmanager (kavure); host webhooks | edu |
+| ntfy | Self-hosted push notification gateway | container | `100.115.253.109:8083` (tailnet only) | deliver systemd/backup/alert push to phones | Alertmanager (kavure); host webhooks | edu |
 | glances | Host telemetry agent | container | `100.115.253.109:61208` | at-a-glance host health | Homepage tile | edu |
 | watchtower | Image auto-updater | container | — | keep images current | — | edu |
 | autoheal | Restart unhealthy containers | container | — | self-healing | all local containers | edu |

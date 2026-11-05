@@ -82,6 +82,7 @@ All active plugins operate **entirely on the server side** — vanilla clients c
 | Server_devcommands | 1.115 | Administrative console commands and remote dev tools |
 | FuelEternal | 1.2.1 | Continuous combustion for domestic campfires and braziers |
 | NoodlesMcDoodles | **1.0.12** | Authoritative server simulation of active zones, monsters, and physics (mitigates rubberbanding and desync) |
+| ValheimEnhancedEdition | **1.1.0** | Server-side piece provider for client-side Far View (distant bases to 2 km); 100% transparent to vanilla clients |
 
 > **NoodlesMcDoodles (Deployed 2026-10-04):**  
 > Transfers real-time zone simulations (spawns, creature AI, crafting stations) to the dedicated server hardware, preventing the first player entering an area from acting as a fragile peer-to-peer simulation host for neighboring clients. Configured in `FarOrShared` mode with full server authority. Stability parameters tuned via hot-reload: `T9_PingInflationMs = 100`, `T1_GlobalRateBps = 524288` (512 KB/s bandwidth ceiling per client), and `T9_LossThreshold = 0.95`.

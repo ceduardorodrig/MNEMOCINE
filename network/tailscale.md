@@ -369,7 +369,7 @@ Tailscale Funnels expose designated local ports publicly via TLS without requiri
 |---|---|---|
 | kavure | `kavure.chimaera-heptatonic.ts.net:10000` | AioStreams (`kavure:3000`) |
 | sumaenima (tunnel) | `sumaenima.chimaera-heptatonic.ts.net` | StênioBOT (via container tunnel `sae-edge_tunnel` proxying to `api:9090` on kavure) |
-| miracena (tunnel) | `miracena.chimaera-heptatonic.ts.net` | WordPress (via container tunnel `miracena-tunnel` proxying to NPM `:80` → WordPress `:8085`) |
+| miracena (tunnel) | `miracena.chimaera-heptatonic.ts.net` | (histórico, desligado desde 2026-10-29; reabertura planejada, HB-091) WordPress (via container tunnel `miracena-tunnel` proxying to NPM `:80` → WordPress `:8085`) |
 
 > 🔒 **Regra de Simetria de Funnel (Hairpinning & MagicDNS):** Membros conectados à Tailscale resolvem `*.chimaera-heptatonic.ts.net` para o IP interno do nó via MagicDNS. Para evitar timeout na malha WireGuard, a tríade completa de portas oficiais do Funnel (`tcp:443`, `tcp:8443`, `tcp:10000`) é autorizada permanentemente para `autogroup:member` em nós `tag:edge` no repositório `MNEMOCINE-ACL` (PRs #15 e #16).
 

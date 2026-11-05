@@ -1,5 +1,6 @@
 ---
 tags: [homelab, service, steam, gaming, server, psicopompo, tutorial]
+pending: [HB-111]
 ---
 
 # psicopompo-gaming

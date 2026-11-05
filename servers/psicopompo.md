@@ -104,7 +104,7 @@ Operates as a Swarm worker (`role=gpu`) attached to the `sae-net` overlay networ
 | `libvirtd` + `dnsmasq` | native systemd | `192.168.122.1:53` (`virbr0`) | KVM hypervisor + NAT DNS/DHCP for the isolated guest network |
 | `waydroid-container` | native systemd | — | Android-in-container runtime |
 | `nfsd` / `rpcbind` / `rpc.mountd` | native systemd | `100.82.51.112:2049`, `111`, `20048` | NFSv4 NAS exports (`/mnt/BACKUP`) |
-| `hl-wol-relay` | native systemd | `127.0.0.1:9096` + `tailscale serve` | Wake-on-LAN relay (wakes kavure) |
+| `hl-wol-relay` | native systemd | `0.0.0.0:9096` (UFW: `192.168.3.55` and `192.168.3.41` on the LAN, any on `tailscale0`) | WoL relay and emergency shutdown receiver — the LAN leg is what keeps it reachable when the WAN is down (HB-074, verified 2026-11-04) |
 | `syncthing` | **user** systemd (`edu`) | `127.0.0.1:8384` + tailnet `8384` + `22000` | Vault P2P synchronization |
 | `punktfunk-host` | **user** systemd (`edu`) | `0.0.0.0:47990` (ufw-scoped) + `9777/udp` | Low-latency game/desktop streaming host |
 | `punktfunk-web` | **user** systemd (`edu`) | `0.0.0.0:47992` (ufw-scoped) | Punktfunk management web console |

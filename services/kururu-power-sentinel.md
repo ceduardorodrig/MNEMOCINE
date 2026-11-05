@@ -1,6 +1,6 @@
 ---
 tags: [homelab, service, kururu, wol, power, monitoring]
-pending: [HB-074]
+pending: []
 ---
 
 # Kururu Power Sentinel
@@ -16,7 +16,7 @@ Autonomous power outage detection, coordinated safe shutdown, and closed-loop Wa
 
 ## 1. Overview & Architecture (verified 2026-11-03)
 
-Kururu acts as the dedicated **Physical Power Guardian** for the homelab. Because it is a battery-powered tablet consuming <0.8W with an integrated **Summit SMB327/SMB328 charger** (plus an **88PM822** fuel gauge — not an `axp20x` PMIC; see [`servers/kururu.md`](../servers/kururu.md) § Hardware), it remains 100% operational during complete mains power failures without relying on external UPS units.
+Kururu acts as the dedicated **Physical Power Guardian** for the homelab. Because it is a battery-powered tablet drawing **≈0.68 W measured** (design ceiling < 0.8 W, 14 h discharge test 2026-11-04) with an integrated **Summit SMB327/SMB328 charger** (plus an **88PM822** fuel gauge — not an `axp20x` PMIC; see [`servers/kururu.md`](../servers/kururu.md) § Hardware), it remains 100% operational during complete mains power failures without relying on external UPS units.
 
 ```
                               ┌────────────────────────────────────────┐
@@ -61,29 +61,81 @@ To prevent false positives when unplugging Kururu for handheld use while preserv
   - If smart lamps are online $\rightarrow$ transitions to `CableFault` (standing by).
   - If smart lamps are dead $\rightarrow$ transitions to `BlackoutPending(StaticDockLostAc)` (countdown to safe shutdown).
 
-### D. Multi-Variable Confidence Matrix & Decision Weights — verified 2026-11-03
+### D. Decision Table & Confidence Labels — implemented 2026-11-04 (was documentation-only)
 
-To eliminate ambiguity and real-world edge cases, Kururu Sentinel evaluates five independent physical, hardware, and network vectors:
+The guardian is a **table, not a weighted score**. `assess(moved, witness, wan, battery)` in
+`crates/kururu-sentinel/src/main.rs` is the single source of truth, and
+`the_documented_matrix_is_the_binary_and_the_binary_is_the_matrix` walks every row — a change to one
+is a change to the other. The confidence figures are **labels attached to the row that fired**, not an
+arithmetic sum over the vectors: for a safety interlock, "this row, this evidence" is auditable and a
+weighted blur is not. An earlier version of this section claimed weights of 60 % (dock) and 40 % (WAN);
+no such computation ever existed in the binary (HB-109).
 
-| Vector | Probe Source | Evaluation Weight | Role |
-|---|---|---|---|
-| **AC Mains Power** | Hardware PMIC (`/sys/class/power_supply/ac/online`) | **Mandatory Gatekeeper** | If AC is online (`1`) and debit is `0`, confidence is strictly **0%**. |
-| **Mains Grid Witness** | Tuya Local TCP `:6668` (`192.168.3.36-39`) | **Mains Physical Veto** | 4 wall-powered smart bulbs without UPS. If any respond, mains power is healthy. |
-| **Dock Orientation Shift** | 3-axis accelerometer ($\|\vec{V} - \vec{V}_{dock}\|$) | **Primary Discriminator (60%)** | Distinguishes static dock placement ($\Delta < 180$) from human handling ($\Delta \ge 180$). |
-| **WAN Internet Reachability** | ICMP probe to `1.1.1.1` and `8.8.8.8` | **Secondary Corroborator (40%)** | Verifies upstream network vitality without relying on local lamp IPs. |
-| **Battery Charge Capacity** | Sysfs gauge (`battery/capacity`) | **Safety Watchdog (Veto)** | If battery falls to $\le 20\%$ during battery operation, escalates to `CriticalBattery` shutdown. |
+Kururu Sentinel evaluates five independent physical, hardware, and network vectors:
 
-#### Confidence Scoring Matrix
+| Vector | Probe Source | Role |
+|---|---|---|
+| **AC Mains Power** | Hardware PMIC (`/sys/class/power_supply/sec-charger/online`) | **Gatekeeper.** AC online with zero debit means `AcNormal`, and the table is never consulted. |
+| **Mains Grid Witness** | Tuya Local TCP `:6668` (`192.168.3.36-39`) | **Physical veto, three-valued.** Four wall-powered bulbs without UPS. Any answer ⇒ `Healthy`. No answer **while the rest of the network answers** ⇒ `Dead`. No answer *and* nothing else answers ⇒ `Unknown`, which is not evidence of anything. |
+| **Dock Orientation Shift** | 3-axis accelerometer ($\|\vec{V} - \vec{V}_{dock}\|$) | **Primary discriminator.** Static dock ($\Delta < 180$) versus human handling ($\Delta \ge 180$). |
+| **WAN Internet Reachability** | ICMP probe to `1.1.1.1` and `8.8.8.8` | **Corroborator.** Never sufficient on its own, and it shares the tablet's uplink, so it is used to grade confidence, not to decide. |
+| **Battery Charge Capacity** | Sysfs gauge (`battery/capacity`) | **Override.** $\le 20\%$ escalates to `CriticalBattery` regardless of every other vector — the one reading that does not travel over the network. |
 
-| AC State | Dock Shift ($\Delta$) | Smart Lamps | WAN State | Battery | Assessment | Confidence | Action / FSM State |
+#### Decision matrix (mirrors `assess()` row for row)
+
+| AC State | Dock Shift ($\Delta$) | Witness | WAN | Battery | Assessment | Confidence | Action / FSM State |
 |---|---|---|---|---|---|---|---|
-| **Online (1)** | Any | Any | Any | Any | Mains grid power healthy | **0%** | `AcNormal` (Dynamic dock calibration) |
-| **Offline (0)** | $\ge 180$ (Moved) | Any | **Online** | $> 20\%$ | Handheld portable usage | **10%** | `PortableUsage` (Standby, 0 debit) |
-| **Offline (0)** | $< 180$ (Static) | **Online** | Any | $> 20\%$ | Cable fault / loose charger (mains UP) | **0%** | `CableFault` (Standby, 0 debit) |
-| **Offline (0)** | $< 180$ (Static) | **Offline** | **Online** | Any | Power grid lost, router on UPS | **90%** | `BlackoutPending(StaticDockLostAc)` |
-| **Offline (0)** | $\ge 180$ (Moved) | **Offline** | **Offline** | Any | Power lost while handheld / Wi-Fi lost | **85%** | `BlackoutPending(WanLostInPortable)` |
-| **Offline (0)** | Any | Any | Any | $\le 20\%$ | Tablet battery critically low | **95%** | `BlackoutPending(CriticalBattery)` |
-| **Offline (0)** | $< 180$ (Static) | **Offline** | **Offline** | Any | Full grid, lamps & WAN outage on dock | **100%** | `BlackoutPending(StaticDockLostAc)` |
+| **Online (1)** | Any | Any | Any | Any | Mains present; table not consulted | **0%** | `AcNormal` (dynamic dock calibration) |
+| **Offline (0)** | Any | Any | Any | $\le 20\%$ | Tablet battery critically low — outranks every vector | **95%** | `BlackoutPending(CriticalBattery)` |
+| **Offline (0)** | $\ge 180$ (Moved) | **Healthy** | Any | $> 20\%$ | Lifted while the grid is healthy | **10%** | `PortableUsage` |
+| **Offline (0)** | $\ge 180$ (Moved) | **Dead** | Any | $> 20\%$ | Lifted with the grid down | **85%** | `BlackoutPending(WanLostInPortable)` |
+| **Offline (0)** | $\ge 180$ (Moved) | **Unknown** | Any | $> 25\%$ | Lifted, cannot see the network: portable use, not a blackout | **30%** | `PortableUsage` |
+| **Offline (0)** | $\ge 180$ (Moved) | **Unknown** | Any | $\le 25\%$ | Lifted, blind and out of time: the battery clock decides | **80%** | `BlackoutPending(StaticDockLostAc)` |
+| **Offline (0)** | $< 180$ (Static) | **Healthy** | Any | $> 20\%$ | Cable fault / loose charger, mains UP | **0%** | `CableFault` |
+| **Offline (0)** | $< 180$ (Static) | **Dead** | **Online** | $> 20\%$ | Grid lost, router still on UPS | **90%** | `BlackoutPending(StaticDockLostAc)` |
+| **Offline (0)** | $< 180$ (Static) | **Dead** | **Offline** | $> 20\%$ | Grid lost and WAN also down | **100%** | `BlackoutPending(StaticDockLostAc)` |
+| **Offline (0)** | $< 180$ (Static) | **Unknown** | Any | $> 25\%$ | Blind spot: nothing answers, so nothing proves a blackout | **0%** | `CableFault` (standing by, **never** escalates) |
+| **Offline (0)** | $< 180$ (Static) | **Unknown** | Any | $\le 25\%$ | Blind and out of time | **80%** | `BlackoutPending(StaticDockLostAc)` |
+
+`Unknown` is the row the old matrix lacked, and its absence was the defect: "all lamps silent" was
+read as "the grid fell" whether or not the tablet could see anything at all.
+
+#### The shutdown race is dual-path, and both legs were measured (HB-074, 2026-11-04)
+
+`trigger_node_shutdown` fires **two threads at once** — `http://<lan_ip>:9096/power/shutdown` and
+`http://<tailnet_ip>:9096/power/shutdown` — and commits on the first HTTP 200, so a dead WAN (Tailscale
+down) does not remove the only way to ask a host to power off. Measured from Kururu itself, `GET
+/health` answered **200 on all four legs**: psicopompo `192.168.3.100` and `100.82.51.112`, kavure
+`192.168.3.41` and `100.124.146.77`. Both relays listen on `0.0.0.0:9096` with UFW scoped to
+`192.168.3.55` (Kururu) plus the peer, which is what makes the LAN leg work at all — psicopompo's own
+document said `127.0.0.1` and was corrected.
+
+The `POST` itself is still never exercised without a real host: the relay has no dry-run endpoint, so
+the commit-on-first-200 logic rests on review and on the reachability above, not on a fired shutdown.
+
+#### Exercising the table without an outage: `--assess`
+
+The guardian reads its vectors, prints them and the assessment it *would* make, then exits — it never
+claims the pid file and never enters the FSM, so it is safe beside the live daemon:
+
+```sh
+kururu-sentinel --assess                      # real vectors
+kururu-sentinel --assess --lamps 127.0.0.1:1 --sim-ac 0            # DEAD, real network probes
+kururu-sentinel --assess --lamps 127.0.0.1:1 --sim-ac 0 --moved    # DEAD while lifted
+kururu-sentinel --assess --sim-witness unknown --sim-ac 0          # blind spot: stands by
+```
+
+Flags: `--lamps a:6668,b:6668` (override the probe list), `--moved` (the tablet is in hand),
+`--sim-ac 0|1` and `--sim-witness healthy|dead|unknown` (simulate an input the one-shot process cannot
+observe). Every simulated value is printed with `(simulated)` next to it, because the point is to
+classify a scenario, not to claim the world changed. Measured 2026-11-04:
+
+```
+DEAD, static   -> Blackout(StaticDockLostAc) 90%   "mains witness dead while the network answers"
+DEAD, moved    -> Blackout(WanLostInPortable) 85%  "lifted with the grid down"
+UNKNOWN, static-> CableFault 0%                    "witness unknown: standing by, not escalating"
+UNKNOWN, moved -> PortableUsage 30%                "lifted, witness unknown: portable use"
+```
 
 #### Anti-Bounce Hysteresis & Leaky Bucket Drain
 To prevent state thrashing between `PortableUsage`, `CableFault` and `BlackoutPending`:
@@ -108,6 +160,61 @@ When mains power returns:
 3. **Closed-Loop Feedback:** Kururu polls their Tailscale IPs every 10 seconds. If a node does not respond within 40 seconds, it re-emits the WoL packet automatically until confirmed alive.
 
 ---
+
+### Known gaps — audit 2026-11-04 (HB-109)
+
+A full read of `crates/kururu-sentinel/src/main.rs` against this document. The decision model above
+is **documentation, not behaviour**:
+
+| Documented | In the binary | Verdict |
+|---|---|---|
+| Five vectors with weights (dock 60 %, WAN 40 %) and a computed confidence | `if/else` branches; the percentages are hardcoded `log_event` strings (`main.rs:635-667`) | **not implemented** — the matrix describes a model the code never computes |
+| `CableFault`: pickup → `PortableUsage`; lamps die → escalate immediately | both checks exist (`Check 2`, `Check 3`), but `Check 3` trusted a bare `!mains` | **implemented, unsound** — a Wi-Fi drop read as a grid outage (corrected 2026-11-04) |
+| `StaticDockLostAc` de-escalates (human lifts **and** WAN alive) | `deescalate` block present | ok |
+| `WanLostInPortable` de-escalates when WAN returns | present | ok |
+| `CriticalBattery` never de-escalates | present (`false`) | ok |
+| §E LAN ⚡ Tailscale race, first HTTP 200 wins | `trigger_node_shutdown` threads, 200 check (`:453-470`, called at `:881`) | ok |
+| §F 180 s quarantine, parallel WoL, 10 s polling, re-emit every 40 s | `for attempt in 1..=12`, 10 s sleeps, re-emit every 4 (`:940-962`) | ok |
+| Charge cap via SMB327 reg `0x02` | implemented 2026-11-04 (HB-105) | ok |
+
+**G1 — the mains witness is not independent of the network it watches.** The only physical evidence
+of grid power is four Tuya lamps probed over TCP `:6668`, i.e. over the same Wi-Fi the tablet uses.
+"All four silent" therefore means *either* "the grid is down" *or* "my Wi-Fi/router is down", and the
+code reads both as mains dead.
+
+**G2 — the failure chain that shuts the homelab down for nothing:**
+
+```
+1. charger unplugged or loose        → ac_online = 0        → CableFault (safe)
+2. Wi-Fi drop / router outage        → 4 lamps unreachable  → mains = false
+3. static on dock                    → BlackoutPending(StaticDockLostAc), 90-100 %
+4. 180 s later                       → POST /power/shutdown to Kavure and Psicopompo
+```
+
+The grid never failed. Nothing is notified before the kill. The documented matrix has no row for
+"the witness is unreachable because the network is gone" — that ambiguity is the bug.
+
+**Fix plan**
+
+1. ✅ **Tri-state witness** (2026-11-04). `Some(true)` a lamp answered · `Some(false)` none answered **while the LAN
+   itself answers** · `None` cannot probe at all. `None` ⇒ **never** `BlackoutPending` while the
+   tablet has battery to wait with; the battery veto (≤ 20 %) and the 25 % unknown-witness
+   threshold are the only escalations. Applied in both places that trusted a bare `!mains`:
+   `AcNormal` and `CableFault Check 3`. Live proof in the heartbeat: `witness=HEALTHY`.
+2. ✅ **Compute the score** (2026-11-04). `assess(moved, witness, wan, battery)` is pure, lives in
+   `main.rs`, and the FSM has no other path to a decision; the doc's matrix was rewritten to mirror it
+   row for row, and `the_documented_matrix_is_the_binary_and_the_binary_is_the_matrix` walks all of
+   them. The 60/40 arithmetic the doc used to claim never existed and was removed rather than invented:
+   for a safety interlock, the audit trail of the row that fired is worth more than a weighted blur.
+3. ✅ **`CableFault` re-evaluation** was already there (`Check 2`/`Check 3`); the audit's first pass
+   said otherwise and was wrong. What it needed was (1).
+4. ✅ **Notify before acting.** `push_alert` fires on the unknown/blind-spot paths and when the grid
+   outage is confirmed, deduplicated inside a 10-minute window so a lasting blind spot cannot flood
+   the fleet topic.
+5. ✅ **Tests**: `unknown_escalates` covers 90 %, 26 %, none, 25 %, 8 % and both conclusive
+   witnesses. The shutdown path stays untested live, by design — it is the one thing that must
+   never be exercised by accident, and the `Dead`/`Unknown` classification cannot be simulated
+   without cutting the very link used to observe it.
 
 ## 3. Finite State Machine (FSM)
 

@@ -117,7 +117,7 @@ A **Política Híbrida em 4 Camadas** equilibra segurança máxima onde há dado
 | `miracena-postgres` | `postgres:16-alpine` | Camada 1 | `postgres:16-alpine` | Bloqueado |
 
 | `miracena-nginx-proxy-manager` | `jc21/nginx-proxy-manager:latest` | Camada 1 | `jc21/nginx-proxy-manager:2.11` | Bloqueado |
-| `miracena-tunnel` | `tailscale/tailscale:latest` | Camada 4 | `:latest` | Habilitado |
+| `miracena-tunnel` | `tailscale/tailscale:latest` | Camada 4 | `:latest` | Desabilitado de propósito desde 2026-10-29 (HB-099) |
 | `prowlarr` | `lscr.io/linuxserver/prowlarr:latest` | Camada 3 | `:latest` | Habilitado |
 | `transmission` | `lscr.io/linuxserver/transmission:latest` | Camada 3 | `:latest` | Habilitado |
 | `lidarr` | `lscr.io/linuxserver/lidarr:latest` | Camada 3 | `:latest` | Habilitado |

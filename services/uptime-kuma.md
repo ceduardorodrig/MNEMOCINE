@@ -104,7 +104,7 @@ Recreation also wiped **notification channels**. Reconstructed via Socket.IO `ad
 | Field | Value |
 |---|---|
 | Type | `ntfy` |
-| Server | `http://127.0.0.1:8083` (Uptime Kuma runs on the same host under `network_mode: host`) |
+| Server | `http://100.115.253.109:8083` (tailnet address; ntfy no longer listens on loopback since HB-047; corrected 2026-11-04, HB-104) |
 | Topic | **`alerts`** (shared with Alertmanager — `http://ybytu…:8083/alerts`) |
 | Authentication | None (ntfy runs unauthenticated on tailnet) |
 | Priority | 3 |

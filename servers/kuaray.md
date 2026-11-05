@@ -1,6 +1,6 @@
 ---
 tags: [homelab, server, kuaray, docker, storage, media, home-assistant, automation]
-pending: [HB-013, HB-099]
+pending: [HB-013, HB-099, HB-104]
 ---
 
 # kuaray
@@ -50,7 +50,7 @@ pending: [HB-013, HB-099]
 
 | miracena-n8n | `docker.n8n.io/n8nio/n8n:stable` | `100.94.209.99:5678` | Workflow automation server |
 | miracena-nginx-proxy-manager | `jc21/nginx-proxy-manager:latest` | `81`, `8180`, `8445` | Reverse proxy and SSL management |
-| miracena-tunnel | `tailscale/tailscale:latest` | HTTPS 443 | Ingress Tailscale Funnel endpoint |
+| miracena-tunnel | `tailscale/tailscale:latest` | HTTPS 443 | Ingress Tailscale Funnel endpoint (historical: disabled since 2026-10-29, HB-099) |
 
 ### Multimedia Suite & Homelab Services (`/home/kuaray/homelab/`)
 
@@ -80,6 +80,7 @@ pending: [HB-013, HB-099]
 - **Primary Media NFS Mount:** Audio libraries mount over NFSv4 from psicopompo (`/mnt/nas/media/music`). Local playback and Lidarr tagging do not depend on the failing local HDD.
 - **Secondary Storage (`/dev/sdb1`):** Formatted with an MBR partition starting at sector 2048, bypassing physical sector errors at LBAs 8, 32, and 34–39. Mounts with options `nofail,errors=continue`.
 - **Automated Backups:** Daily rsync passes export Miracena databases and compose definitions to NAS storage at 05:35.
+- **Backup failure alert (2026-11-04, HB-104):** `hl-miracena-backup.service` has `OnFailure=notify-backup-failure@%n.service` and `miracena-backup` runs a preflight (Frappe `backend` and `db` running, else exit 1 with a clear log line). Details: [`backups/backup-rituals.md`](../backups/backup-rituals.md).
 
 ## Network Hardware Remediation (Realtek RTL810xE, 2026-10-04)
 
@@ -97,3 +98,5 @@ Tailscale reported `resolvconf … Failed to resolve interface "tailscale": No s
 - [`services/miracena-stack.md`](../services/miracena-stack.md) — Client stack architecture
 - [`network/nfs.md`](../network/nfs.md) — NFS remote storage mounts
 - [`services/syncthing.md`](../services/syncthing.md) — Syncthing peer configuration
+
+> **2026-11-04 (HB-104):** kuaray runs Linux Mint with automatic upgrades (`mintupdate-automation-upgrade` daily, no `apt-mark` holds). The owner decided to keep Docker upgrades automatic; the safeguard is `restart: unless-stopped` on the Frappe stack plus the Kuma, ntfy and backup-failure alerts. A `docker-ce` upgrade on 2026-11-04 00:35 stopped the daemon for about 10 hours. The role line above is partly historical: the WordPress/n8n stack was retired on 2026-10-31; the Miracena platform (Frappe) is the live stack.

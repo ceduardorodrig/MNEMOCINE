@@ -84,6 +84,15 @@ Not a "backup outage" but its worst cousin: the **GitHub off-site copy was froze
 
 **Rule extracted:** a backup job without (a) a freshness stamp and (b) an `OnFailure` alert is a silent-failure candidate. Audit any new job against both. Full detail: [`config-backup.md`](config-backup.md) §Incident.
 
+## miracena-backup: preflight and failure alert (2026-11-04, HB-104)
+
+On 2026-11-04 `hl-miracena-backup.service` failed at 05:35 (Frappe containers stopped after a Docker auto-upgrade) and sent no alert because the unit had no `OnFailure=`. Fixed on kuaray and in the repo (`mnemocine-ops`, commit `ba430d7`):
+
+- `hl-miracena-backup.service` now has `OnFailure=notify-backup-failure@%n.service` (ntfy topic `backup`, template resolves `ybytu.chimaera-heptatonic.ts.net:8083` to the tailnet IP, so it works).
+- `/usr/local/bin/miracena-backup` starts with a preflight: `docker compose -f /srv/data/miracena/frappe/compose.yml ps --status running --services` must list `backend` and `db`; otherwise it logs `PREFLIGHT FAILED: ... backup NOT attempted` and exits 1 (the alert fires). Test modes: `MIRACENA_BACKUP_PREFLIGHT_ONLY=1` (check only) and `MIRACENA_BACKUP_SIMULATE_DOWN=1` (force the failure).
+- Backups of the replaced files on kuaray: `/usr/local/bin/miracena-backup.bak-20261104` and `/etc/systemd/system/hl-miracena-backup.service.bak-20261104`.
+- Verified: preflight OK on the live stack (rc 0), simulated down (rc 1), and `systemctl start notify-backup-failure@hl-miracena-backup.service.service` delivered one test message to ntfy.
+
 ## Change Management Procedure
 
 1. Edit the relevant runbook (`config-backup.md`, `snapshots-psicopompo.md`) FIRST.

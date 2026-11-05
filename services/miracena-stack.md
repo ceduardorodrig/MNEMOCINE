@@ -27,13 +27,15 @@ pending: [HB-091, HB-092]
 | WordPress | miracena-wordpress | 8085 | wordpress:6.6.2-php8.3-apache | 512 MB | 0.5 |
 | MariaDB | miracena-mariadb | 3306 (internal) | mariadb:11 | 512 MB | 0.25 |
 | n8n | miracena-n8n | 5678 | docker.n8n.io/n8nio/n8n:stable | 1 GB | 0.5 |
-| Tailscale Tunnel | miracena-tunnel | 443 | tailscale/tailscale:latest | 128 MB | 0.25 |
+| Tailscale Tunnel (historical: disabled since 2026-10-29) | miracena-tunnel | 443 | tailscale/tailscale:latest | 128 MB | 0.25 |
 | StenioSentinel | miracena-stenio | 9099 | ghcr.io/ceduardorodrig/stenio-sentinel:4 | 128 MB | 0.25 |
 
 ## Access Routes
 
-### External (Public Internet via Tailscale Funnel)
-- **Public Domain:** `https://miracena.chimaera-heptatonic.ts.net/`
+### External (Public Internet via Tailscale Funnel) — historical
+> **Status (2026-11-04): historical, not active.** This public design is **disabled since 2026-10-29** (the `miracena-tunnel` container is intentionally off and sits behind the compose profile `tunnel`; the WordPress stack it exposed was retired on 2026-10-31). The current platform is reachable only inside the tailnet. Reopening is planned: see `HB-091` in the homelab backlog and [`clients/miracena/plataforma/public-access.md`](../../clients/miracena/plataforma/public-access.md) for the decided design. The text below is kept as history.
+
+- **Public Domain (historical):** `https://miracena.chimaera-heptatonic.ts.net/`
 - **Architecture:** Tailscale Funnel (ephemeral node `miracena` with `tag:edge`) → `miracena-nginx-proxy-manager:80`.
 - **WAF & Split-Horizon Protection:**
   - Public visitors can access public website assets and front-facing content.
@@ -90,7 +92,9 @@ previous platform still exists on the instance and is still dumped by `miracena-
 
 **Rationale:** Memory-constrained environment (5.7 GB on Kuaray); a single database engine minimizes daemon overhead.
 
-## Tailscale Funnel
+## Tailscale Funnel (historical)
+
+> **Historical: disabled since 2026-10-29** (key revoked after the WordPress incident; the container is stopped and behind compose profile `tunnel`). Reopening is planned, see `HB-091` and [`clients/miracena/plataforma/public-access.md`](../../clients/miracena/plataforma/public-access.md). The design below (WordPress-era, port 443 to NPM) is kept as history and is not the current design.
 
 The `miracena-tunnel` container attaches to the tailnet with hostname `miracena` and exposes NPM via Funnel on port 443.
 
