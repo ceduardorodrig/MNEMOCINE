@@ -27,13 +27,13 @@ pending: [HB-091, HB-092]
 | WordPress | miracena-wordpress | 8085 | wordpress:6.6.2-php8.3-apache | 512 MB | 0.5 |
 | MariaDB | miracena-mariadb | 3306 (internal) | mariadb:11 | 512 MB | 0.25 |
 | n8n | miracena-n8n | 5678 | docker.n8n.io/n8nio/n8n:stable | 1 GB | 0.5 |
-| Tailscale Tunnel (historical: disabled since 2026-10-29) | miracena-tunnel | 443 | tailscale/tailscale:latest | 128 MB | 0.25 |
+| Tailscale Tunnel (active since 2026-11-05: Funnel published for the platform) | miracena-tunnel | 443 | tailscale/tailscale:latest | 128 MB | 0.25 |
 | StenioSentinel | miracena-stenio | 9099 | ghcr.io/ceduardorodrig/stenio-sentinel:4 | 128 MB | 0.25 |
 
 ## Access Routes
 
 ### External (Public Internet via Tailscale Funnel) — historical
-> **Status (2026-11-04): historical, not active.** This public design is **disabled since 2026-10-29** (the `miracena-tunnel` container is intentionally off and sits behind the compose profile `tunnel`; the WordPress stack it exposed was retired on 2026-10-31). The current platform is reachable only inside the tailnet. Reopening is planned: see `HB-091` in the homelab backlog and [`clients/miracena/plataforma/public-access.md`](../../clients/miracena/plataforma/public-access.md) for the decided design. The text below is kept as history.
+> **Status (2026-11-05): active, and verified from outside.** The `miracena-tunnel` sidecar is up with `# Funnel on` serving `https://miracena.chimaera-heptatonic.ts.net` → NPM → Frappe. Verified the same day: `dig @8.8.8.8` returns the Tailscale relay addresses, `curl --resolve` to the relay returns 200 with a valid certificate for the name. The WordPress stack this entry exposed in the past was retired on 2026-10-31; today the destination is the Miracena platform. Rule for opening/closing: `HB-091` in the homelab backlog; Miracena side in [`clients/miracena/plataforma/public-access.md`](../../clients/miracena/plataforma/public-access.md). One caveat worth keeping: a `curl` without `--resolve` answers from MagicDNS inside the tailnet and does **not** test the Funnel.
 
 - **Public Domain (historical):** `https://miracena.chimaera-heptatonic.ts.net/`
 - **Architecture:** Tailscale Funnel (ephemeral node `miracena` with `tag:edge`) → `miracena-nginx-proxy-manager:80`.
@@ -146,6 +146,23 @@ miracena_default (172.x.x.x/16)
 ├── miracena-tunnel
 └── miracena-stenio
 ```
+
+## Read-only agent account (2026-11-05)
+
+The Frappe site has one machine account, created so an agent can verify a delivery without asking a person for
+credentials. The account is `agente.leitura@miracena.com`, with role **Miracena Auditor** + Desk User: it reads,
+it does not write.
+
+- **API key, not password.** Frappe authenticates an API key per request (`frappe/auth.py:639`), so no session,
+  cookie or TOTP is in the path of an API call. Use `scripts/miracena-api.sh <path>` in the vault.
+- **Secrets live in the sops store** (`MIRACENA_AGENT_EMAIL`, `_PASSWORD`, `_API_KEY`, `_API_SECRET`,
+  `_TOTP_SECRET`), never in the vault, never in a commit. The TOTP secret exists so a human flow can be completed
+  if one is ever needed; the agent never types a code.
+- **Visual gate.** For a screenshot, the same token goes into the browser session header
+  (`cdp('Network.setExtraHTTPHeaders', {'Authorization': 'token <key>:<secret>'})`). The Desk renders the whole
+  page; a "Session Expired" modal sits on top because the header path creates no session cookie — noise, not a
+  page defect. Verified on `/desk/miracena/manual` at rc107.
+- **Turn it off by disabling the User**; nothing else references the account.
 
 ## Management Commands
 
