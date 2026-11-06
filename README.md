@@ -13,11 +13,6 @@ tags: [homelab, meta]
 
 > **"A resilient, 5-node hybrid cloud and sovereign AI infrastructure designed to operate free from foreign corporate cloud monopolies."**
 
-🛡️ Human-in-the-Loop Agentic Engineering
-
-Developed by Carlos Eduardo Rodrigues with AI coding agents.
-Every change is verified by the deterministic quality gate StenioSentinel.
-
 ---
 
 ## 📑 Table of Contents
@@ -154,3 +149,10 @@ stenio --health
 ## 📜 License
 
 This project and its public infrastructure manifests are licensed under the [GNU General Public License v3.0 (GPL-3.0)](LICENSE).
+
+---
+
+🛡️ Human-in-the-Loop Agentic Engineering
+
+Developed by Carlos Eduardo Rodrigues with AI coding agents.
+Every change is verified by the deterministic quality gate StenioSentinel.
