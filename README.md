@@ -16,7 +16,7 @@ tags: [homelab, meta]
 🛡️ Human-in-the-Loop Agentic Engineering
 
 Developed by Carlos Eduardo Rodrigues with AI coding agents.
-Every change is verified by the deterministic quality gate StenioSentinel
+Every change is verified by the deterministic quality gate StenioSentinel.
 
 ---
 
