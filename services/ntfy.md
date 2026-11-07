@@ -1,6 +1,6 @@
 ---
 tags: [homelab, service, ntfy, monitoring, ybytu]
-pending: [HB-006]
+pending: [HB-006, HB-117]
 ---
 
 # Ntfy

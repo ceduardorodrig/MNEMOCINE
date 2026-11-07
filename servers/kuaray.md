@@ -1,6 +1,6 @@
 ---
 tags: [homelab, server, kuaray, docker, storage, media, home-assistant, automation]
-pending: [HB-013, HB-099, HB-104]
+pending: [HB-013, HB-099, HB-104, HB-112, HB-113]
 ---
 
 # kuaray
@@ -92,6 +92,32 @@ pending: [HB-013, HB-099, HB-104]
 ### Tailscale DNS health — HB-013 (2026-10-12, persistence confirmed 2026-10-13)
 
 Tailscale reported `resolvconf … Failed to resolve interface "tailscale": No such device`. Root cause: **`systemd-resolved` was installed but disabled**, so at boot `tailscaled` fell back to the broken `resolvconf` path (log: `dns: [rc=resolvconf resolvconf=openresolv ret=openresolv]`). **Fix (durable):** `systemctl enable --now systemd-resolved` + `/etc/resolv.conf` → `/run/systemd/resolve/stub-resolv.conf` (stub listener active) + restart `tailscaled`. The host now runs in **`systemd-resolved`** mode (`resolv.conf mode: stub`, `nameserver 127.0.0.53`), so the DNS manager is re-detected correctly on every boot. `ybytu` was brought onto the **same** stub topology on 2026-10-13 (its AdGuard no longer holds `0.0.0.0:53`) — see [`ybytu.md`](ybytu.md). Detected by `homelab_tailscale_health` (see [`../network/observability.md`](../network/observability.md)).
+
+## Crash canary — HB-113 (2026-11-06)
+
+kuaray stops dead with no trace to read: no clean shutdown, no OOM, no MCE, no thermal event, empty pstore. This host has **no battery** (`ACPI: battery: Slot [BAT0] (battery absent)`), so any DC interruption is an instantaneous off and the page cache dies with the mains. **The disk does not record its own power cut**, so the decision evidence has to be written *before* the cut.
+
+| | |
+|---|---|
+| script | `/usr/local/bin/kuaray-canary.sh` |
+| unit | `/etc/systemd/system/kuaray-canary.service` (`Type=simple`, `Restart=always`, `RestartSec=5`, root) |
+| log | `/var/log/kuaray-canary.log` (rotates to `.log.1` past ~2 MB) |
+| interval | one line every 10 s, `sync -d` after every line |
+| cost | ~0.09 % of one core, ~0.8 MB RSS (`CPUUsageNSec`: 162 ms over 180 s) |
+
+Each line is self-describing and pipe-separated — `timestamp | boot=<8 hex> | up=<s>s | load=<1min> | pkg=<C>C | fan=<rpm>rpm | pwr=<supply(type:online,status)> | mem=<kB>kB | k=<age>[<msgs>]`. `k=-` means the kernel tail was not sampled on that tick (it is sampled every 2 min); `k=age=Ns` is how long before the write the newest kernel record appeared, followed by up to 5 of them, with firewall rejects and Docker veth churn filtered out.
+
+**Read this first when the host returns from a stop:**
+
+```
+tail -50 /var/log/kuaray-canary.log
+```
+
+The last line names the second, the load, the package temperature, the fan speed and the AC state immediately before the cut. A **gap larger than 10 s between two lines** means the machine stopped writing at the earlier timestamp (power or board), not that the collector was slow — that gap is the measurement. `systemctl status kuaray-canary` shows whether the collector itself is alive; it restarts by itself, so a `START` line in the middle of the file marks a collector restart, not a host reboot (compare `boot=`).
+
+Why the sync: an unsynced canary looks perfect in normal operation and comes back truncated at the one moment it is needed, so every line is `sync -d`-ed to `/dev/sda2` before the next sleep (cost of that fsync alone: ~0.06 % of a core).
+
+This is the **instrument, not the conclusion**: it does not say what turns the host off. HB-113 stays open until the load test (step 2 of the item) either reproduces a stop or completes with the canary showing margin.
 
 ## See Also
 

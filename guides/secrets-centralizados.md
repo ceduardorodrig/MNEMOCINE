@@ -1,6 +1,6 @@
 ---
 tags: [homelab, env, sops, backup, secrets]
-pending: [HB-026, HB-051, HB-072, HB-103]
+pending: [HB-026, HB-051, HB-072, HB-103, HB-115]
 ---
 
 # Centralized Secrets Management (.env) with SOPS/age
@@ -223,6 +223,25 @@ the master `secrets.env` to keep the re-encrypt workflow lossless.
 > key names before and after (`cut -d= -f1 | sort -u`), or merge additively instead of overwriting.
 > A key that exists only in the store and not in the master is the signal to reconcile before
 > encrypting.
+
+> ➕ **2026-11-06 — `OPENCODE_GO_API_KEY` entered the store (108 keys), and the drift it exposed.**
+> The key used by Hermes and by the OpenCode harness on psicopompo existed **only** in
+> `~/.hermes/.env` (plaintext) and `~/.local/share/opencode/auth.json` — byte-identical in both
+> (same length and value SHA-256) — while the master and the encrypted store each held 107 keys and
+> **no** `OPENCODE*` name. It was added to the master from that authoritative copy and re-encrypted
+> with the documented step (never `--age` on the CLI; **2 recipients** confirmed after). The key also
+> makes `https://opencode.ai/zen/go/v1/models` answer **200 with 30 models**, which is how a keyed
+> provider can replace a free tier that rate-limits. Two consequences worth remembering:
+> 1. **kavure's mirror was stale** — `~/.config/mnemocine/secrets.enc.env` dated `2026-10-13 18:10`
+>    against a `2026-11-05 20:16` vault copy, so the second host could not have used a key added to
+>    the store. Refreshed today (0600, `kavure:kavure`); the previous file is kept as
+>    `secrets.enc.env.bak-20261106` for rollback and should be shredded once the change is settled.
+> 2. **Nothing detects this class of drift.** The store, the master, the mirrors and the live
+>    consumers are never compared, so a key can live outside the store indefinitely. Guard: **GB-177**
+>    (name + per-key value-hash comparison across master / encrypted / mirror).
+>
+> Consumers that need this key must read it **by name** (`sops-decrypt OPENCODE_GO_API_KEY`), never
+> from a checked-in `.env`; `hl-autopilot`'s `AUTOPILOT_SECRETS` remains the place to declare it.
 
 ### (c) SSH `authorized_keys` inventory — recommendation only (files NOT modified)
 
