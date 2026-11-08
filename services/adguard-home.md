@@ -86,6 +86,17 @@ Investigated and resolved a cascade failure where a residential link drop (01:40
 3. **Outbound Docker Routing & Persistent IPTables:** Purged stale `172.17.0.2` DNAT rules left over from earlier container recreation. Added generic outbound rules (`DOCKER-USER` acceptance + `POSTROUTING` MASQUERADE for `172.16.0.0/12`) in `/etc/iptables/rules.v4` on ybytu, preventing Oracle Cloud host firewall from dropping dynamic container bridge packets.
 4. **Verified Live:** Simulated Kavure packet drop (`OUTPUT -d 100.124.146.77 -p tcp --dport 5053 -j DROP`) confirmed resolution smoothly degrades to DoT in ~95–245 ms without service interruption or container crashes.
 
+### Immortality Hardening (2026-11-08)
+
+A 952 MiB host plus an unbounded daily `apt` run cost this service **32 h 46 m of silence** without a single alert. On 2026-11-06 21:29:57Z the kernel's global OOM killer took `AdGuardHome` (PID 852692); Docker never recorded the exit, so the container reported `Up 4 days (unhealthy)`, `RestartCount=0`, `Running=true` over a dead PID, while `:53` answered `connection refused` — the sockets belonged to orphaned `docker-proxy` processes pointing at a `172.22.0.2` that no longer existed. Full forensics: [`../servers/ybytu.md`](../servers/ybytu.md); fleet item: **HB-118**.
+
+Three consequences, now applied:
+
+1. **OOM priority, not luck.** `oom_score_adj: -500` in the host compose (`/home/ubuntu/homelab/adguardhome/compose.yml`, backup `.bak-20261108-oomadj`). It **cannot** be set on a live container: `docker update` rejects it (`unknown flag: --oom-score-adj`, verified 2026-11-08), so the key lives in the compose file and requires a recreate. AdGuard now loses the OOM race last instead of tying with everything else at `0`.
+2. **A probe that lives outside the host it watches.** `hl-adguard-probe.timer` on **kavure** runs `/usr/local/bin/adguard-probe.sh` every 2 min and asks `doubleclick.net` of `100.115.253.109:53`, expecting `0.0.0.0`. A port that answers is not proof — a filtered answer is. It classifies `OK` / `FILTER_OFF` / `DOWN`, exports `homelab_adguard_*` textfile metrics to Prometheus, and posts to ntfy `/alerts` on `OK→DOWN` (after 3 consecutive failures) and on recovery. Delivery failure is logged, never swallowed. **Alert-only on purpose:** the repair is a privileged cross-host action (`docker rm -f` + recreate) and is waiting on the owner's decision in HB-118.
+3. **A corpse is not repairable by `docker start`.** See *Operational Commands* below — `stop`/`start`/`restart` address a state Docker no longer has.
+4. **Healthcheck caveat (pending).** The image stopped shipping a `HEALTHCHECK` in v0.107.34, and AdGuard's own docs recommend probing the reserved name `healthcheck.adguardhome.test` (expect `NODATA`). This compose still runs `nslookup example.com 127.0.0.1`, which needs a working upstream and therefore reports `unhealthy` during a WAN outage — a false alarm, and one more reason `unhealthy` was not trusted. Switching it is part of HB-118.
+
 ## Query Logging & Retention Tuning
 
 - Configuration: `querylog.interval: 7d`, `size_memory: 200` entries.
@@ -102,4 +113,9 @@ Investigated and resolved a cascade failure where a residential link drop (01:40
 docker ps --filter name=adguardhome
 docker logs --tail 100 adguardhome
 docker stop adguardhome && docker start adguardhome
+# ...but a CORPSE (Running=true over a dead PID, `docker exec` -> "cannot exec in a
+# stopped state") is not repairable by stop/start/restart. Recreate it; the volumes
+# are external, so config and query history survive:
+docker rm -f adguardhome && docker compose -f /home/ubuntu/homelab/adguardhome/compose.yml up -d
+dig +short @100.115.253.109 doubleclick.net   # the acceptance test: 0.0.0.0
 ```

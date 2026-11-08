@@ -1,5 +1,6 @@
 ---
 tags: [homelab, network, dns, tailscale]
+pending: [HB-118]
 ---
 
 # DNS Consistency Map — the whole fleet
