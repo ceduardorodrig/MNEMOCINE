@@ -1,5 +1,6 @@
 ---
 tags: [homelab, server, psicopompo, gaming, docker, storage, power, gpu, nvidia, rebar]
+pending: [HB-120]
 ---
 
 # psicopompo
@@ -61,6 +62,48 @@ To guarantee seamless multi-device coexistence without preemption or pairing loc
 - **Tailnet NAS (NFSv4):** Exports `/mnt/BACKUP/media/music` and `/media/books` + `/mnt/BACKUP/sumaenima-server-kavure` to kuaray and kavure (see [`network/nfs.md`](../network/nfs.md)).
 - **Workstation & Gaming Host:** Hyprland Wayland environment with native scrolling layout; games executed locally; dedicated multiplayer servers offloaded to kavure.
 - **Sumænimá GPU Inference & Build Node:** Runs local AI transcription (`steniorec` with Whisper in Rust + CUDA) and standalone GPU vision/audio services. Sole authorized container build node.
+
+## Wayland Session — Hyprland Lua Configuration (2026-11-08)
+
+Hyprland 0.56+ reads a Lua config tree: `~/.config/hypr/hyprland.lua` `require()`s
+`~/.config/hypr/config/{animations,autostart,colors,decorations,variables,environment,inputs,binds,misc,monitors,windowrules,workspaces}.lua`
+plus the HyprMod-generated `~/.config/hypr/hyprland-gui.lua`. Session start is owned by
+`greetd` → `/usr/bin/start-hyprland` (uwsm, `wayland-wm@hyprland.desktop.service`).
+
+**Failure fixed here (HB-119).** On 2026-11-08 the session aborted four times in a row
+(`SIGABRT`, `coredumpctl list`) at `CConfigManager::postConfigReload` →
+`Config::Supplementary::CPropRefresher::executeScheduledRefreshImmediately` →
+`CInputManager::setKeyboardLayout`, and greetd fell back to a Plasma session. The trigger was
+`hl.exec_scheduled_prop_refresh_immediately()` at the end of `sync_secondary_workspaces()` in
+`config/workspaces.lua`: that file runs the function at top level (and again from its
+`config.reloaded` handler, which fires inside `postConfigReload`, i.e. during
+`CCompositor::initManagers`, before any input device exists), so a prop refresh that touches
+keyboard layouts ran against a half-initialised input manager: `PropRefresher.cpp` calls
+`g_pInputManager->setKeyboardLayout()` with no null guard (every sibling branch checks its
+pointer) and `CCompositor::initManagers` builds the ConfigManager (`Compositor.cpp:678`) before
+the InputManager (`:737`), so the forced refresh dereferences a null `g_pInputManager` — the
+crash handler turns that SIGSEGV into the SIGABRT seen in `coredumpctl`. The block is still
+unguarded on `main`, so there is no version to upgrade to and no downgrade that helps. Hyprland
+already executes one
+scheduled prop refresh at the end of the event, so the explicit call was redundant on the load
+path and the statement was removed. Backup of the previous file:
+`~/.config/hypr/config/workspaces.lua.bak-20261108`. **Confirmed in the real session:** the
+owner logged in from the greeter at **14:09:33** and the compositor has run since with no
+coredump at all (`loginctl show-session 4 -p Desktop` → `Hyprland`;
+`coredumpctl list --since "2026-11-08 14:09"` → none). HB-119 archived 2026-11-08.
+
+**Diagnostic recipe (reusable).** `Hyprland -c <cfg>` runs nested inside the current Wayland
+session and reproduces start-up aborts with the crash report in `~/.cache/hyprland/` — this is
+what made bisecting the `require()` list possible (`coredumpctl list` alone only shows the
+stack). `Hyprland --verify-config` and `--systeminfo` are **not** usable as health checks on
+0.57.1-1.1: both dump core on their own (destructor and `Helpers::SystemInfo::getSystemInfo`
+respectively).
+
+### Session save / restore
+
+- **Saver:** `~/.config/systemd/user/hypr-session-save.service` (oneshot, `PartOf=`/`After=graphical-session.target`) runs `~/.local/bin/hypr-session-save`, which reads `hyprctl clients -j`, drops system classes (noctalia, portals, polkit, hyprlock), maps `class` to an executable and writes `~/.config/hypr/saved-session.json` as `[{workspace, cmd}]` — **one entry per app, no pid, geometry or floating state**. It refuses an *empty* list but accepts any shrunken one.
+- **Restorer:** `~/.config/hypr/config/autostart.lua` (`restore_saved_session()`, called from `hl.on("hyprland.start")`) re-launches each entry with `hl.exec_cmd("[workspace N silent] cmd")`, remapping workspaces 4/5/6 to 1 when no second monitor is present. Purely Lua at start — no service, no timer.
+- **Incident 2026-11-08 (HB-120):** the periodic trigger `hypr-session-save.timer` (`OnCalendar=*:0/2`, `Persistent=true`) had already been replaced by the `hyprland.shutdown` hook in `autostart.lua`, but it was still enabled, so at 14:38:02 it saved a degraded one-window session over the real six-entry list. The four crashed starts at 13:41–13:42 did **not** write the file (`hyprctl` had no socket, the script exits early) — the timer did. **Fixed:** timer stopped and disabled 2026-11-08; `saved-session.json` restored from `/mnt/BACKUP/configs-homelab/psicopompo/hypr/saved-session.json` (6 entries) with the damaged copy kept as `saved-session.json.bak-20261108`. Rollback: `systemctl --user enable --now hypr-session-save.timer` (only after the shrink guard of GB-236 exists).
 
 ## Maximum Performance & Energy Configuration (2026-10-03)
 
