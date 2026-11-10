@@ -26,6 +26,7 @@ tags: [homelab, server, ybyra, docker, monitoring, tailscale]
 
 - **Primary Edge Ingress:** Terminating external public traffic via Tailscale Funnel.
 - **Frontend SPA Hosting:** Serving the static production build of the Sumænimá web application (`/var/www/sumaenima`).
+  - **Deploy 2026-11-09:** `stenio --deploy front` rebuilt the frontend and pushed it to `ybyra` (and the standby `kavure`), nginx reloaded, active bundle `assets/index-DRZofKRW.js`, parity confirmed. Pre-deploy snapshot on ybyra: `~/backups/sumaenima.bak-20261109.tar.gz` (4.3 MB) — rollback is `tar xzf` over `/var/www/` and a nginx reload. Rationale: the edge had been serving the 2026-10-31 02:50 build while the sources had moved on (purifier chips, i18n).
 - **Reverse Proxy Routing:** Nginx reverse proxy multiplexing frontend routes, backend APIs, and web analytics.
 
 ## Public Ingress & Tailscale Funnels

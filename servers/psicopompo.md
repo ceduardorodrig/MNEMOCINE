@@ -1,6 +1,6 @@
 ---
 tags: [homelab, server, psicopompo, gaming, docker, storage, power, gpu, nvidia, rebar]
-pending: [HB-120]
+pending: [HB-121]
 ---
 
 # psicopompo
@@ -28,7 +28,7 @@ pending: [HB-120]
 | **Tailscale IP** | 100.82.51.112 |
 | **Tailscale DNS** | psicopompo.chimaera-heptatonic.ts.net |
 | **Network** | Intel I219-LM Gigabit Ethernet |
-| **MTU (PPPoE)** | **1492** (NetworkManager) configured 2026-10-07 to eliminate MTU mismatch drops across WAN |
+| **MTU (PPPoE)** | **1492** (NetworkManager) configured 2026-10-07 to eliminate MTU mismatch drops across WAN. **Effective UDP ceiling is 1464 B** (`1492 − 20 IPv4 − 8 UDP`): any application that needs a 1472-byte UDP payload is unsatisfiable on this host regardless of route, and `tailscale0` sits at 1280 giving a 1233-byte QUIC budget (see [`../network/mtu-pppoe.md`](../network/mtu-pppoe.md) and HB-122) |
 
 > **External drive (HB-001, resolved 12/10):** the `EXPANSION-2TB` (Seagate `ST2000LM007`) was a **USB external** connected for staging; it reported 25,296 reallocated sectors and was flagged by `SmartDiskError`. It is **disconnected** and the owner confirmed it is known/remediated. Current internal disks: `sda`/`sdc` (1 TB HDDs), `sdb` (480 GB SSD), `nvme0n1` (1.8 TB), `nvme1n1` (465 GB).
 
@@ -101,9 +101,35 @@ respectively).
 
 ### Session save / restore
 
-- **Saver:** `~/.config/systemd/user/hypr-session-save.service` (oneshot, `PartOf=`/`After=graphical-session.target`) runs `~/.local/bin/hypr-session-save`, which reads `hyprctl clients -j`, drops system classes (noctalia, portals, polkit, hyprlock), maps `class` to an executable and writes `~/.config/hypr/saved-session.json` as `[{workspace, cmd}]` — **one entry per app, no pid, geometry or floating state**. It refuses an *empty* list but accepts any shrunken one.
+**Current (2026-11-09): `hl-hypr-session-track.service`.** A Rust daemon in
+`MNEMOCINE-OPS/provisioning/hypr-session-track` (commits `07158e9`, `972cfcc`) keeps
+`saved-session.json` exact by reading `$XDG_RUNTIME_DIR/hypr/<sig>/.socket2.sock`: every
+`openwindow` / `closewindow` / `movewindow` / workspace event is applied to an in-memory map and,
+when the resulting list differs from what was last written, the file is replaced atomically
+(temp + rename) with the previous version kept as `.prev`. No timer, no polling and no shutdown
+hook — so a crash or a power cut leaves the last true state, which is the entire point. Verified
+on the live session: **2 760 kB RSS, 1 thread, zero CPU ticks**; the bash+jq timer it replaced
+spent 40 ms of CPU per run, 720 runs a day. Event payloads were read from the v0.57.1 source
+(`Window.cpp:1434`): `openwindow` carries the workspace **addressable** name, while the wiki still
+documents a display name. Commands: `systemctl --user status hl-hypr-session-track.service`,
+`journalctl --user -u hl-hypr-session-track.service -f`, `hypr-session-track --once` (print the
+list), `--write` (repair a stale file immediately), `--dry-run` (log instead of write).
+**Retired 2026-11-09:** `hypr-session-save.service`, `hypr-session-save.timer` and the
+`~/.local/bin/hypr-session-save` script were moved to
+`~/.local/state/hypr-session-save-retired-20261109/` (timer disabled first, `daemon-reload`
+afterwards). Rollback: move them back, `systemctl --user daemon-reload && systemctl --user enable
+--now hypr-session-save.timer`, then disable the daemon unit.
+
+- **Saver (retired 2026-11-09, kept as history):** `~/.config/systemd/user/hypr-session-save.service` (oneshot, `PartOf=`/`After=graphical-session.target`) runs `~/.local/bin/hypr-session-save`, which reads `hyprctl clients -j`, drops system classes (noctalia, portals, polkit, hyprlock), maps `class` to an executable and writes `~/.config/hypr/saved-session.json` as `[{workspace, cmd}]` — **one entry per app, no pid, geometry or floating state**. It refuses an *empty* list, and since 2026-11-09 it also refuses a save that would leave fewer than half of the current entries.
 - **Restorer:** `~/.config/hypr/config/autostart.lua` (`restore_saved_session()`, called from `hl.on("hyprland.start")`) re-launches each entry with `hl.exec_cmd("[workspace N silent] cmd")`, remapping workspaces 4/5/6 to 1 when no second monitor is present. Purely Lua at start — no service, no timer.
-- **Incident 2026-11-08 (HB-120):** the periodic trigger `hypr-session-save.timer` (`OnCalendar=*:0/2`, `Persistent=true`) had already been replaced by the `hyprland.shutdown` hook in `autostart.lua`, but it was still enabled, so at 14:38:02 it saved a degraded one-window session over the real six-entry list. The four crashed starts at 13:41–13:42 did **not** write the file (`hyprctl` had no socket, the script exits early) — the timer did. **Fixed:** timer stopped and disabled 2026-11-08; `saved-session.json` restored from `/mnt/BACKUP/configs-homelab/psicopompo/hypr/saved-session.json` (6 entries) with the damaged copy kept as `saved-session.json.bak-20261108`. Rollback: `systemctl --user enable --now hypr-session-save.timer` (only after the shrink guard of GB-236 exists).
+- **Guard (2026-11-09, owner decision: keep the automatic save).** `hypr-session-save` now refuses a save that would replace N entries with fewer than half of them, prints `hypr-session-save: refused to replace N entries with M …` to the journal and exits 0 (a guard, not a failure); `--accept-shrink` forces a legitimate big shrink. Every accepted save first copies the previous file to `saved-session.json.prev`, so one bad save is always one command away from undo. Verified both ways in a throwaway `HOME`: 10→4 refused with the file untouched, 10→4 with `--accept-shrink` accepted with `prev: 10`; the unit itself ran green (`Result=success`, `ExecMainStatus=0`). Timer re-enabled (`systemctl --user enable --now hypr-session-save.timer`).
+- **Consequence to keep in mind:** with the periodic save on, the file mirrors what is open **when it fires** — it is a snapshot of reality, not a wish list. Today it holds `gale@3, kitty@1, steam@3, zen-browser@1`; the richer six-entry set survives at `saved-session.json.prev` and in the 05:00 mirror.
+- **Incident 2026-11-08 (HB-120, resolved 2026-11-09):** the periodic trigger `hypr-session-save.timer` (`OnCalendar=*:0/2`, `Persistent=true`) had already been replaced by the `hyprland.shutdown` hook in `autostart.lua`, but it was still enabled, so at 14:38:02 it saved a degraded one-window session over the real six-entry list. The four crashed starts at 13:41–13:42 did **not** write the file (`hyprctl` had no socket, the script exits early) — the timer did. **Fixed:** timer stopped and disabled 2026-11-08; `saved-session.json` restored from `/mnt/BACKUP/configs-homelab/psicopompo/hypr/saved-session.json` (6 entries) with the damaged copy kept as `saved-session.json.bak-20261108`. Rollback: `systemctl --user enable --now hypr-session-save.timer` — done on 2026-11-09, now that the shrink guard exists.
+
+- **Incident 2026-11-09 (self-inflicted, no data lost):** an agent cleaning up after a subagent that had launched a nested compositor deleted `/run/user/1000/hypr/` — the **live** session's IPC tree. The desktop kept drawing and `wayland-1` survived, so nothing looked wrong, but `hyprctl` and the event socket died for the rest of that session (status bar live state and any `hyprctl`-based script included) and the sockets cannot be re-bound without a relogin. Rule recorded in the agent runbook: never touch that tree for an instance you did not create; identify the live signature via `hyprctl instances` or a session process's `HYPRLAND_INSTANCE_SIGNATURE`. Fixed by the next login.
+- **Cutover to the event-sourced tracker (done 2026-11-09):** the replacement is a Rust daemon that listens to `$XDG_RUNTIME_DIR/hypr/<sig>/.socket2.sock` and keeps `saved-session.json` continuously current, writing on **every** window event (no debounce, so the file has no temporal gap; no timer, no shutdown hook, so a crash or a power cut leaves the last real state). It has to be validated against a **live** socket, so the order is: reboot → log into Hyprland → run it with `--dry-run` and compare against `hyprctl clients` → enable `hypr-session-track.service` and disable `hypr-session-save.timer`. **Done on 2026-11-09:** the `hl.on("hyprland.shutdown")` hook was removed from `autostart.lua` (backup `autostart.lua.bak-20261109`, `luac -p` clean) — it never fired on SIGTERM/reboot and could not have completed inside the 50 ms Lua callback watchdog anyway (GB-239); until the daemon is enabled the periodic guarded timer is the only writer.
+
+- **Hyprland 0.57.2 (released 2026-11-09, tag `11cbc6c5`) — does not fix our defects, does not break the tracker.** Verified independently by hashing the files at both tags: `PropRefresher.cpp` (the unguarded `g_pInputManager->setKeyboardLayout()` behind the 2026-11-08 abort) and `helpers/SystemInfo.cpp` (`--systeminfo` core) are **byte-identical** between v0.57.1 and v0.57.2, and so is `src/ipc/s2/Unix.cpp` — the event layer the session tracker parses is unchanged, and workspace payloads stay addressable. No `hl.*` removals and no new required keys; the one Lua behaviour change (window-destroy callbacks now receive a possibly-expired window ref) does not touch our config, which uses `fullscreen_state` in **window rules**, not `window.destroy` handlers. What 0.57.2 does change is unrelated: the expired-Lua-window crash fix, keybind modifier remap, XDG-activation urgent tokens, two config limits — and **realtime scheduling removed entirely** (`gainRealTime()` gone, `HYPRLAND_NO_RT` now inert), which is a deliberate upstream call worth knowing on a workstation before upgrading. Decision: upgrade is optional and must be its own change (revalidate the session afterwards), never stacked on another change. **Status 2026-11-09: the package is installed (`0.57.2-1.1`, 14:50:14) but NOT running** — the live compositor is still 0.57.1 (`hyprctl version` → `0.57.1`, commit `acc1aa0b`, pid 4060 started 14:49:23). It takes effect at the next boot, so when troubleshooting anything on this host, check `hyprctl version` (running) and not `Hyprland --version` (the binary on disk).
 
 ## Maximum Performance & Energy Configuration (2026-10-03)
 
