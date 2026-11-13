@@ -232,7 +232,7 @@ something other than the client makes the call — which is why the engine must 
 the `opencode` CLI instead of calling an endpoint itself.
 
 **Our egress is a shared, rotating CGNAT pool — measured 2026-11-06.** Both hosts leave through one
-ZTE CPE (`192.168.3.1`), yet 20 rapid flows from a single host used **four** public IPv4s
+Huawei router (`WS7001-40`, `192.168.3.1`), yet 20 rapid flows from a single host used **four** public IPv4s
 (`179.48.47.48/49/50/53`, AS271114 Global Link, Brasília) and the address changes **per flow**. No
 hop is in `100.64.0.0/10` — the translation happens upstream of the CPE (the CPE's own WAN is
 login-gated, so CGNAT is established behaviourally, not from the router). Consequence, and the

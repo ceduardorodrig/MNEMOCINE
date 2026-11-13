@@ -1,5 +1,6 @@
 ---
 tags: [homelab, network, tailscale, docker, storage, env]
+pending: [HB-123]
 ---
 
 # Network Topology
