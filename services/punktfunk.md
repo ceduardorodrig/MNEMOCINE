@@ -117,14 +117,18 @@ chase capture or the decoder without reading the handoff first: capture, NVENC a
 every session (`loss_windows=0`, `sock_drops=0`), and a `grim` capture of the live streamed head shows a
 real image.
 
-## Virtual Display Integration with Hyprland & Tablet (Anansi)
+## Virtual Display Integration with Hyprland, Tablet (Anansi) & Phone (Pira-Nuya)
 
-psicopompo streams an extended desktop to a Samsung Galaxy Tab S9 FE+ ("Anansi", 2880x1800@90Hz TFT LCD) using Punktfunk virtual headless outputs:
+psicopompo streams via Punktfunk virtual headless outputs (`PF-*`) to both the Samsung Galaxy Tab S9 FE+ ("Anansi", `2880x1800@90Hz`) and the Android phone ("Pira-Nuya", `2712x1220`).
 
-- **Virtual Output:** Designated as `PF-1` in Hyprland.
-- **Scale 1.8 Alignment:** Calculated as $2880 / 1.8 = 1600$ by $1800 / 1.8 = 1000$ logical resolution, perfectly aligning with the 1080p vertical viewport of primary monitor `HDMI-A-4` with zero subpixel distortion.
-- **Scale Enforcement:** Punktfunk hardcodes `scale = 1` when creating headless monitors. Hyprland listens to `monitor.added` in `~/.config/hypr/config/monitors.lua` and schedules `enforce_tablet_scale()` via asynchronous `hl.timer` calls, enforcing scale 1.8 automatically on connection.
-- **Workspaces:** Workspaces `4`, `5`, `6` are permanently assigned to `PF-1` (`MONITOR2`) with persistence in `~/.config/hypr/config/workspaces.lua`.
+- **Virtual Output:** Designated dynamically as `PF-1` / `PF-2` in Hyprland.
+- **Per-Device Scaling (`~/.config/hypr/config/monitors.lua`):** Punktfunk hardcodes `scale = 1` when creating headless monitors. Hyprland listens to `monitor.added` and `config.reloaded` and runs `enforce_virtual_scale()` via `hl.timer` calls:
+  - **Anansi (`2880x1800`):** enforces `2880x1800@90`, `position = "auto-right"`, `scale = 1.8` ($1600 \times 1000$ logical resolution, aligning with `HDMI-A-4` 1080p vertical viewport).
+  - **Pira-Nuya (`2712x1220`):** enforces `2712x1220@<hz>` (preserves negotiated refresh rate instead of `preferred`, which falls back to `1920x1080` on headless outputs), `position = "auto-right"`, `scale = 2.0` ($1356 \times 610$ exact integer logical resolution).
+  - No static `mode = "2880x1800@90"` rule is pinned to `MONITOR2` (`PF-1`), so non-tablet clients never have their resolution overwritten.
+- **Topology & Workspaces (`~/.config/punktfunk/display-settings.json` & `~/.config/hypr/config/workspaces.lua`):**
+  - `display-settings.json` defaults to `"topology": "auto"` with `"pnp_disable_monitors": true`, which resolves to `"exclusive"` (disables `HDMI-A-4` so the streamed output is the sole display — used by default for Pira-Nuya). Anansi has a per-client override (`"topology": "extend"`, keeping `HDMI-A-4` lit as primary and using the tablet as a second screen, switchable via `punktfunk-host ctl` or web console `:47992`).
+  - `workspaces.lua` (`get_display_topology()` + `sync_secondary_workspaces()`) creates persistent workspaces `4`, `5`, `6` on `PF-*` **only when both `HDMI-A-4` and `PF-*` are active simultaneously** (`extend`). In single-screen mode (`exclusive`, where `HDMI-A-4` is disabled), workspaces `1`, `2`, `3` bind to the active `PF-*` screen and `4`, `5`, `6` are torn down.
 - **Display Safety:** The tablet's IPS/TFT LCD panel has zero risk of OLED burn-in.
 
 ## See also
