@@ -1,6 +1,7 @@
 ---
 tags: [homelab, hyprland, noctalia, tutorial, cachyos, gpu]
 created: 2026-09-21
+pending: [GB-258]
 ---
 
 # Hyprland + Noctalia Desktop Guide — CachyOS (psicopompo)
@@ -301,9 +302,53 @@ The system leverages Linux kernel cgroup v2 memory controllers to dynamically pr
 | Component | Responsibility | Status |
 |---|---|---|
 | `dmemcg-booster` | Enables the `dmem` controller and exposes GPU memory limits | ✅ Active |
-| `hyprland-focused-booster` (AUR) | Monitors Hyprland focus events via IPC socket and grants maximum `dmem.low` (~8 GB) to active window | ✅ Active |
+| `hyprland-focused-booster` (local fork + AUR unit) | Monitors Hyprland focus events via IPC socket and grants maximum `dmem.low` (~8 GB) to active window in `app.slice` | ✅ Active (patched fork) |
 
 Unfocused applications drop to `dmem.low = 0`, allowing the kernel to evict background assets to RAM when demanding games require dedicated VRAM.
+
+### Local Fork & Upstream Lifecycle (2026-11-14)
+- **Why a local fork is running:** Upstream `hyprland-focused-booster` `0.1.7` uses `hyprland = "0.4.0-beta.3"`, which panics on Hyprland `0.57.2` (`WorkspaceAddedV2: invalid integer error` on named workspaces like `name:gaming`) and fails with `missing field id` on `activewindow` when focusing windows in `special:special`.
+- **Fork & fix:** `ceduardorodrig/hyprland-focused-booster` cloned at `/mnt/NVME_PCI/homelab/hyprland-focused-booster/` (branch `fix/hyprland-ipc-activewindow`) carries the local patch stack on top of `main`:
+  - `addfb0e`: direct Unix socket IPC (`.socket2.sock` `activewindowv2>>` + `.socket.sock` `j/activewindow` deserializing only `pid`), startup active-window sync, and error-path revert;
+  - `58d2978`: canonical `Human-in-the-Loop Agentic Engineering` disclaimer in `README.md`;
+  - `50677a0`: remove `.expect()` panics (`RUST-NO-UNWRAP` compliant) and noisy clean-exit log;
+  - `435692e`: non-blocking `dmem.low` retries with `AtomicU64` generation cancellation, poisoned-mutex recovery, and unit tests (`cargo test`);
+  - `8b36c92`: `Fork Changes (fix/hyprland-ipc-activewindow)` summary added to `README.md`;
+  - `8ca0407`: `clippy::pedantic` cleanups (`let ... else`, `PoisonError::into_inner`), `cargo fmt`, and `.github/workflows/ci.yml` (`cargo fmt --check`, `clippy -D warnings`, `cargo test`).
+- **Systemd override (safe across updates):** Keep the AUR package installed (preserves `dmemcg-booster` dependency and `.service` unit); `~/.config/systemd/user/hyprland-focused-booster.service.d/override.conf` overrides `ExecStart` to run `/mnt/NVME_PCI/homelab/hyprland-focused-booster/target/release/hyprland-focused-booster` and adds `Restart=on-failure` (`RestartSec=2`) so the daemon recovers automatically if Hyprland reloads or drops the IPC socket. Updates via **Shelly**, `paru`, or CachyOS package managers only touch `/usr/` and **never** overwrite `~/.config/systemd/user/`.
+- **Scope note (`app.slice`):** `write_cgroup_dmem` only boosts cgroups under `app.slice` (such as games launched via `systemd-run --user --scope game-performance`), not apps running directly inside `session.slice/wayland-wm@hyprland.desktop.service`.
+- **Upstream repo & OSS contribution:** Canonical upstream is Codeberg (`https://codeberg.org/tumrin/hyprland-focused-booster`); `github.com/tumrin/hyprland-focused-booster` is a read-only mirror (`hasIssuesEnabled: false`, PRs disabled). Because the owner has no Codeberg account, sharing fixes upstream is done politely via `git format-patch main..HEAD` (excluding the personal README commit) sent to the author's public commit email (`tuomas.rin@protonmail.com`) or by sharing the GitHub branch link.
+- **When upstream accepts the fix and releases a new AUR version:**
+  1. Update the system package via Shelly / `paru -Syu`.
+  2. Remove the local override and restart with the official binary:
+     ```sh
+     rm ~/.config/systemd/user/hyprland-focused-booster.service.d/override.conf
+     systemctl --user daemon-reload && systemctl --user restart hyprland-focused-booster.service
+     ```
+  3. Sync your fork cleanly without opening GitHub in a browser:
+     ```sh
+     gh repo sync ceduardorodrig/hyprland-focused-booster
+     ```
+- **Agent Workflow — Keeping Parity with Upstream (even as branches open/close):**
+  Even if upstream opens and closes temporary feature branches on Codeberg, parity is maintained against `upstream/main` (which receives all merged work). Note: `upstream` currently points to the GitHub mirror (`github.com/tumrin/hyprland-focused-booster.git`), or can be pointed to `https://codeberg.org/tumrin/hyprland-focused-booster.git` for direct read-only `git fetch` without an account. Future agents asked to sync the fork should run:
+  1. Check upstream updates without touching `main` directly:
+     ```sh
+     cd /mnt/NVME_PCI/homelab/hyprland-focused-booster
+     git fetch upstream && git log --oneline main..upstream/main
+     ```
+  2. Fast-forward `main` and mirror to `origin/main`:
+     ```sh
+     git checkout main && git merge --ff-only upstream/main && git push origin main
+     ```
+  3. Rebase our patch branch onto the updated `main` (drop `addfb0e` if upstream already fixed `WorkspaceAddedV2`/`activewindow`; keep unit tests, non-blocking retries, `RUST-NO-UNWRAP` fixes, and README notes/disclaimer as needed):
+     ```sh
+     git checkout fix/hyprland-ipc-activewindow && git rebase main
+     stenio --path /mnt/NVME_PCI/homelab/hyprland-focused-booster
+     cargo test && cargo clippy --all-targets -- -D warnings && cargo build --release
+     systemctl --user restart hyprland-focused-booster.service
+     git push --force-with-lease origin fix/hyprland-ipc-activewindow
+     ```
+  4. Verify live: `stenio --gaming` (must show `hyprland-focused-booster active` and `0 IPC/deserialization errors since activation`) and `journalctl --user -u hyprland-focused-booster.service -n 20`.
 
 ---
 
@@ -366,6 +411,7 @@ Because Hyprland uses inotify file-watching on `~/.config/hypr/`, any disk write
    ```
 2. **Dynamic Theming Preserved:** All user applications (GTK3/4, Qt5/6, Kitty, Alacritty, Btop) and the entire Noctalia shell (bar, launcher, dock, clock) continue to adapt their color palettes dynamically to wallpaper changes.
 3. **Autonomous Hyprland Borders:** Window border colors are statically defined in [`~/.config/hypr/config/decorations.lua`](file:///home/edu/.config/hypr/config/decorations.lua#L11-L15), completely insulating Hyprland from disk write reloads during wallpaper transitions.
+4. **Recurrence & Ephemeral Workspace 8 Carry-Over (2026-11-14):** `"hyprland"` reappeared in runtime `~/.local/state/noctalia/settings.toml` (`theme.templates.builtin_ids`) and `state.toml` (`applied_builtin_ids`) even though `~/.config/noctalia/config.toml` and `export/merged-config.toml` excluded it. Every 300s wallpaper rotation rewrote `~/.config/hypr/noctalia.lua`, triggering `config.reloaded`, NVIDIA modeset stalls, and Punktfunk direct-capture loss (`compositor failed the capture frame (reason 1)`), causing `punktfunk-host` to rebuild `PF-*` heads and carry ephemeral workspace `8` across heads (`carried the streamed workspace onto the replacement head workspace=8`). Removing `"hyprland"` again via `noctalia msg config-set theme.templates.builtin_ids ...` deleted `noctalia.lua` and stopped the reload loop (verified across all 4 Noctalia config/state files).
 
 ---
 

@@ -1,6 +1,6 @@
 ---
 tags: [homelab, service, kururu, wol, power, monitoring]
-pending: []
+pending: [HB-124]
 ---
 
 # Kururu Power Sentinel
