@@ -90,6 +90,7 @@ When running frame generation via `NVPRESENT_ENABLE_SMOOTH_MOTION=1`, Hyprland's
 |---|---|---|---|---|
 | **Azimuth (Forza PC)** | `/mnt/NVME_PCI/azimuth (forza_pc)/azimuth.exe` | `GE-Proton11-12-x86_64` | `dx12_smooth_motion` | Xbox One to DX12 translation with descriptor heap, Reflex low latency, and NVIDIA Smooth Motion frame generation |
 | **PCSX2** | `/usr/bin/pcsx2-qt` (AUR `pcsx2` 2.8.2, maintainer xiota) | Native Linux (no Proton) | `game-performance` | Native PS2 emulation, Vulkan renderer; DLSS 5 experiment via `DLSS5VKLayer` planned |
+| **World of Warcraft: Forever (Battle.net)** | `~/.local/share/Steam/steamapps/compatdata/3922165683/.../Battle.net Launcher.exe` (installer em `/mnt/NVME_PCI/blizzard launcher (wow_forever)/`) | `GE-Proton11-12-x86_64` | `battlenet_dx12` | Battle.net + WoW DX12 (`PROTON_ENABLE_WAYLAND=0`, `WINE_SIMULATE_WRITECOPY=1`, `descriptor_heap`, Reflex DX12, `--in-process-gpu` p/ login CEF) |
 
 #### Azimuth (Forza PC) Architecture
 - **Shortcut & AppID (2026-11-03):** Non-Steam shortcut under AppID `3758807005` (`-536160291` signed). Canonized in `~/.config/steam-launch-options/games.toml` with profile `dx12_smooth_motion` and `proton = "GE-Proton11-12-x86_64"`.
@@ -122,6 +123,23 @@ When running frame generation via `NVPRESENT_ENABLE_SMOOTH_MOTION=1`, Hyprland's
   - **Performance (2026-11-02):** with DLSS 5 on, PCSX2 runs ~80% speed vs 100% off (shared RTX 5050). Per project source, `workingscale` = fraction of the frame the model works at (0.25-2.0); cost scales roughly with its square (community report). Measure with `DLSSNR_TIME=1` (helper log `[time] ... flow= eval= total= ms`).
   - **Verified working 2026-11-01:** helper log shows `Feature=18 created=true path=vulkan-snippet size=1920x1080`, `neural ready 1920x1080` and optical-flow passes while Burnout 3 runs; `GetFeatureRequirements -> 0xbad00005` is logged but harmless. **Caveats:** experimental third-party stack; no source documents PCSX2 specifically; Smooth Motion layer ordering (`VK_LAYER_NV_present`) is not configured. The effect is neural post-processing of the final frame, not DLSS-native motion data.
 - **Steam Grid Artwork:** capsule (`3162449111p.png`), hero, logo, icon and landscape files live in the Steam userdata `grid/` folder; the shortcut icon is `~/.config/PCSX2/icon.png`.
+
+### Non-Steam & External Gaming Inventory (Verified 2026-11-15)
+
+Inventário completo de atalhos não-Steam, emuladores e launchers externos em `psicopompo` (~130 GiB no total):
+
+| Item | Tipo / AppID | Onde estão os arquivos | Prefixo / Config | Tamanho | Como desinstalar |
+|---|---|---|---|---|---|
+| **Azimuth (Forza PC)** | Proton (`3758807005`) | `/mnt/NVME_PCI/azimuth (forza_pc)` (FH2 39 GiB + FH3 51 GiB) | `compatdata/3758807005` (546 MiB) | **~90.5 GiB** | Remover atalho no Steam + `rm -rf "/mnt/NVME_PCI/azimuth (forza_pc)" ~/.local/share/Steam/steamapps/compatdata/3758807005 ~/.local/share/Steam/userdata/115099278/config/grid/3758807005*` + remover de `games.toml` e `windowrules.lua` |
+| **PCSX2** | Nativo (`3162449111`) | `/mnt/NVME_PCI/pcsx2-games` (4 ISOs: Burnout 3, NFS Carbon, NFS Most Wanted, SotC) | `~/.config/PCSX2` (38 MiB: saves/BIOS) | **~12.0 GiB** | Remover atalho no Steam + `yay -Rns pcsx2` + apagar `/mnt/NVME_PCI/pcsx2-games`, `~/.config/PCSX2` (se não quiser saves) e `grid/3162449111*` |
+| **(Minecraft) Prism Launcher** | Nativo (`3651350099`) | `~/.local/share/PrismLauncher` (instância `Dominium` 5.4 GiB + assets 1.4 GiB) | `~/.local/share/icons/prismlauncher.png` | **7.3 GiB** | Remover atalho no Steam + `pacman -Rns prismlauncher` + `rm -rf ~/.local/share/PrismLauncher` e `grid/3651350099*` |
+| **WoW: Forever (Battle.net)** | Proton (`3922165683`) | `/mnt/NVME_PCI/blizzard launcher (wow_forever)` (4.6 MiB + jogo se instalado em `Z:\...`) | `compatdata/3922165683` (1.4 GiB) | **~1.4 GiB+** | Remover atalho no Steam + `rm -rf ~/.local/share/Steam/steamapps/compatdata/3922165683 "/mnt/NVME_PCI/blizzard launcher (wow_forever)" ~/.local/share/Steam/userdata/115099278/config/grid/3922165683*` + remover de `games.toml` e `windowrules.lua` |
+| **Winboat (Windows VM)** | Fora do Steam | `/mnt/NVME_PCI/winboat` (`data.img` 18 GiB) | — | **18 GiB** | Desinstalar pacote Winboat + `rm -rf /mnt/NVME_PCI/winboat` |
+| **Bottles (Flatpak)** | Fora do Steam | `~/.var/app/com.usebottles.bottles` (runners 627 MiB) | — | **905 MiB** | `flatpak uninstall com.usebottles.bottles` + `rm -rf ~/.var/app/com.usebottles.bottles` |
+| **Lutris** | Fora do Steam | `~/.local/share/lutris` (runtime 471 MiB; `~/Games` vazio) | — | **472 MiB** | `pacman -Rns lutris` + `rm -rf ~/.local/share/lutris ~/Games` |
+| **Heroic Games Launcher** | Fora do Steam | `~/.config/heroic` (tools 115 MiB; sem jogos em `~/Games/Heroic`) | — | **256 MiB** | `pacman -Rns heroic-games-launcher-bin` (ou pacote instalado) + `rm -rf ~/.config/heroic` |
+
+> **Nota sobre `compatdata/`:** em `~/.local/share/Steam/steamapps/compatdata/` existem ainda `0` (547 MiB, prefixo genérico do Steam) e `1493710` (378 MiB, *Proton Experimental*). O Steam **não** apaga `compatdata/<AppID>` nem `grid/<AppID>*` automaticamente quando um jogo não-Steam é removido da biblioteca.
 
 
 ## See Also
