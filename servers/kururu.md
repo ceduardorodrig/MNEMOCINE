@@ -119,7 +119,7 @@ The chroot has **no `init.d` and no systemd**: the daemon is launched by the And
 
 **Where the log lives (v1.3, 2026-11-04).** `log_event()` resolves **one** path once at startup and prints it as the last line of the banner — read that line, never assume. Candidates are `/data/kururu-sentinel.log` (chosen, because `/data` exists in the chroot) and `/var/log/kururu-sentinel.log` (fallback). Before v1.3 the loop broke at the first writable candidate **silently**, so `/var/log/kururu-sentinel.log` froze on 2026-10-05 with 466 bytes while the live log sat in `/data` — a whole session concluded the guardian was silent while it logged every 60 s (HB-108). The file rotates at **2 MiB keeping 3 generations** (`.1` … `.3`); before that it grew unbounded (9.6 MB in 30 days on an 8 GB eMMC).
 
-**Fleet heartbeat (v1.3).** Every 5 minutes the daemon POSTs one line to the fleet's ntfy topic (`/alerts` on ybytu): `kururu guardian: state=… ac=… bat=…% float_reg_0x02=… debit=…s`. The guardian reports **in**, so silence is the alarm — nothing polls it. Push failures are logged and swallowed; a broken network never takes the guardian down.
+**Fleet heartbeat (v1.3, updated 2026-11-16).** Every 5 minutes the daemon POSTs one line to `/kururu-heartbeat` on ybytu with `Priority: min` (`kururu guardian: state=… ac=… bat=…% float_reg_0x02=… debit=…s`), keeping `/alerts` reserved for real blackout/witness escalations (changed from `/alerts` on 2026-11-16 to stop 288 daily noise notifications). The guardian reports **in**, so silence is the alarm — nothing polls it. Push failures are logged and swallowed; a broken network never takes the guardian down.
 
 ```sh
 # Restart. The binary owns its log: redirecting stdout to the same file duplicates every line.

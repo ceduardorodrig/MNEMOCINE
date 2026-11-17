@@ -135,6 +135,8 @@ Between 06:54Z and 21:53Z the host stayed powered, stayed up on the wire, and be
 
 **Applied 2026-11-08 — the two bounds that address the cause directly.** (1) `apt-daily-upgrade.service` is capped by the drop-in `/etc/systemd/system/apt-daily-upgrade.service.d/50-limits.conf`: `MemoryHigh=192M`, `MemoryMax=256M`, `CPUQuota=50%`, `Nice=19`, `IOWeight=50` — read back with `systemctl show`, `MemoryHigh=201326592`, `MemoryMax=268435456`, `CPUPerSecUSec=500ms`. A runaway unpack now kills only what runs inside that unit; the 14 h 58 m stall can no longer take the resolver with it. (2) `adguardhome` carries `oom_score_adj: -500` in its compose, so it loses the global OOM race last. Still open from HB-117: moving `ntfy`/`uptime-kuma` off this host, the swappiness tuning, the external dead-man's switch, and the RAM margin itself (see the Ranked cuts below).
 
+**Recurrence 2026-11-16/17 (HB-117).** `hl-uptime-kuma-backup.service` (running `sqlite3 ... kuma.db .backup ...` against a 397 MiB `kuma.db` while `uptime-kuma` was actively writing, growing `kuma.snapshot-wal` to 404 MiB) and post-invoke `apt-check` stalled in `D` state (`folio_wait_bit_common`) since Nov 14, saturating zram swap (`951 MiB / 952 MiB`, `node_load1` 14.5–16.8, `wa` 88–92%) and causing >2s DNS probe latency that triggered false `adguard-probe.sh` recovery alerts. `hl-uptime-kuma-backup.{timer,service}` and `apt-daily-upgrade.service` were stopped on 2026-11-17; `uptime-kuma` (PID `1014841`) and `apt-check` (PID `2941229`) remained in `D` state pending a clean reboot or `uptime-kuma` teardown.
+
 ## Backup & Storage Mounts
 
 - **NFS Mounts:** Configuration backups export to NAS mirror on psicopompo using soft mounts (`soft,timeo=30,retrans=2` with `nofail`).
