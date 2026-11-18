@@ -81,6 +81,7 @@ pending: [HB-013, HB-099, HB-104, HB-112, HB-113]
 - **Secondary Storage (`/dev/sdb1`):** Formatted with an MBR partition starting at sector 2048, bypassing physical sector errors at LBAs 8, 32, and 34–39. Mounts with options `nofail,errors=continue`.
 - **Automated Backups:** Daily rsync passes export Miracena databases and compose definitions to NAS storage at 05:35.
 - **Backup failure alert (2026-11-04, HB-104):** `hl-miracena-backup.service` has `OnFailure=notify-backup-failure@%n.service` and `miracena-backup` runs a preflight (Frappe `backend` and `db` running, else exit 1 with a clear log line). Details: [`backups/backup-rituals.md`](../backups/backup-rituals.md).
+- **Automated `docker-ce` upgrade outage (2026-11-17):** `mintupdate-automation-upgrade.service` upgraded `docker-ce` (`29.9.3` → `29.10.0`) at `00:33 BRT`; `docker.service` hit `TimeoutStopUSec=10s` (`SIGKILL`), leaving `miracena-frappe-frontend-1`, `miracena-frappe-scheduler-1`, `miracena-stenio` (`Exit 137`) and `miracena-n8n` (`Exit 143`) stopped with their `restart-manager` terminated. All 4 were started and verified healthy (`200 OK` on `/api/method/ping`, `/healthz`, `/health`) on 2026-11-17.
 
 ## Network Hardware Remediation (Realtek RTL810xE, 2026-10-04)
 

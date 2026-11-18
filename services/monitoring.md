@@ -92,8 +92,8 @@ Custom metrics exported via the **textfile collector** (homelab standard — zer
 | `n8nDown` / `PrometheusDown` | scrape target unreachable | critical |
 | `NetworkCarrierDown` | physical NIC `carrier == 0` (20 s) | warning |
 | `NetworkRxErrors` | `increase(node_network_receive_errs_total[5m]) > 0` | warning |
-| `NetworkRxMissed` | `delta(homelab_nic_errors{type=~"rx_missed.*"}[5m]) > 20` | warning |
-| `NetPingLoss` | `homelab_net_ping_loss_ratio >= 0.5` (30 s) | warning |
+| `NetworkRxMissed` | `delta(homelab_nic_errors{type=~"rx_missed.*"}[5m]) > 100` (`for: 5m`, `keep_firing_for: 5m`, updated 2026-11-17) | warning |
+| `NetPingLoss` | `homelab_net_ping_loss_ratio >= 0.5` (`for: 2m`, updated 2026-11-17) | warning |
 | `TailscaleHealthDegraded` | `homelab_tailscale_health == 0` (30 m) | warning |
 | `HlInferDown` | `up{job="hl-infer"} == 0` for 5m | critical |
 | `HlInferVramExhausted` | `hl_infer_vram_effective_free_bytes < 512 MiB` for 15m | warning |
@@ -111,6 +111,8 @@ Custom metrics exported via the **textfile collector** (homelab standard — zer
 > **False Positives Remediated (09/10/2026):** (a) `n8nDown`/`PrometheusDown` fired every 4 hours because the Prometheus `n8n` job scraped the deprecated kavure target — Miracena stack (including n8n) moved to **kuaray** on 04/10; scrape target updated to `100.94.209.99:5678` (instance relabeled `kuaray`). (b) `BackupNotRun` on scryfall-mirror was false: The rewritten `scryfall-sync` Rust binary (29/09) omitted touching the health stamp — fixed via `ExecStartPost` in the systemd unit (see [`scryfall-mirror`](scryfall-mirror.md)).
 
 > **Known-and-accepted silence (2026-10-30):** `SmartDiskError` for `kuaray` `/dev/sdb` (dying HDD, already known; the host is being retired from the homelab — HB-087) is **silenced for 90 days** in Alertmanager (silence `5582a8e6-3742-48f4-a4c6-342c7b3c4d7a`, matchers `alertname`+`instance`+`device`). It is a runtime silence (not in `alertmanager.yml`), so it **expires on its own on 2027-01-28** and the alert returns if the disk is still monitored. Scoped to that one disk: temperature, `NodeDown` and backup alerts for kuaray still fire. List/remove: `curl http://100.124.146.77:9093/api/v2/silences` · `DELETE /api/v2/silence/<id>`.
+>
+> **Known-and-accepted silence (2026-11-17):** `SmartDiskError` for `psicopompo` `/dev/sdf` (`EXPANSION-2TB` `ST2000LM007-1R8174`, serial `ZDZ6D6X9`, unmounted external USB dying since HB-001 with 25,320 reallocated / 32 pending / 32 uncorrectable sectors) is **silenced for 30 days** (`720h`, silence `89fae8ed-3550-4a6e-bb39-936cfe66f788`, expires `2026-12-17`) until physically unplugged. Scoped strictly to `device="/dev/sdf"`; internal disks (`sda`, `sdb`, `sdc`) remain active.
 
 ## Long-Term Retention & Recording Rules (12/09)
 

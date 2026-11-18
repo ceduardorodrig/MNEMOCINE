@@ -77,6 +77,11 @@ The Realtek RTL8168H (`enp1s0`, driver `r8169`) was investigated after intermitt
 
 Link verified at **1000 Mb/s full-duplex** after the change; no downtime (EEE was already off on this host).
 
+### NIC RPS & Backup Automount Fixes (2026-11-17)
+
+- **Receive Packet Steering (`enp1s0`):** `r8169` on RTL8168H fixes the RX ring at 256 descriptors (`ethtool -g`) and previously routed all `enp1s0` IRQs/`NET_RX` softirqs to CPU3 (`rps_cpus=0`), dropping packets (`rx_missed`) under high-pps Tailscale/NFS bursts. Enabled RPS across all 4 cores (`rps_cpus=f`) and persisted via `/etc/udev/rules.d/99-enp1s0-rps.rules`.
+- **Backup `x-systemd.automount` trigger:** `valheim-backup`, `monitoring-backup`, and `sumaenima-backup` in `mnemocine-ops` now trigger `mount "$MNT"` before checking `findmnt -n -o FSTYPE "$MNT"` (avoiding false `autofs` aborts after reboot). `hl-valheim-backup.service` `TimeoutStartSec` raised from `300` to `1200` (above `timeout 900 rsync`). Both `hl-monitoring-backup` and `hl-valheim-backup` verified `status=0/SUCCESS` on 2026-11-17.
+
 ## Container Healthchecks
 
 All standalone containers on this node implement explicit healthcheck definitions, integrated with `autoheal` for autonomous remediation.
