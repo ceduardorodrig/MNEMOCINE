@@ -97,6 +97,7 @@ graph TD
 | `3000/tcp` | `127.0.0.1` + `100.124.146.77` / `tailscale0` | **AioStreams** | Stream aggregation server (tailnet + public Funnel :10000) | [`../services/aiostreams.md`](../services/aiostreams.md) |
 | `3001/tcp` | `100.124.146.77` / `tailscale0` | **Zomboid Control Panel** | Web administrative interface for Project Zomboid dedicated server | [`../servers/kavure.md`](../servers/kavure.md) |
 | `3002/tcp` | `100.124.146.77` / `tailscale0` | **Grafana** | Central telemetry dashboard and metrics visualization | [`../services/`](../services/) |
+| `3003/tcp` | `100.124.146.77` + `127.0.0.1` | **Homepage** | Central homelab service navigation dashboard (migrated from ybytu 2026-11-18, `HB-095`) | [`../services/homepage.md`](../services/homepage.md) |
 | `3100/tcp` | `100.124.146.77` / `tailscale0` | **Loki** | Distributed log aggregation and storage daemon | [`../services/`](../services/) |
 | `4533/tcp` | `100.124.146.77` / `tailscale0` | **Navidrome** | Subsonic-compatible personal music streaming service | [`../servers/kavure.md`](../servers/kavure.md) |
 | `5678/tcp` | `100.124.146.77` / `tailscale0` | **n8n (Homelab)** | Standalone Homelab workflow engine (reactivated 2026-10-09; tailnet-only bind) | [`../services/n8n.md`](../services/n8n.md) |
@@ -149,7 +150,6 @@ graph TD
 |---|---|---|---|---|
 | `53/udp,tcp` | `100.115.253.109` + `127.0.0.1` | **AdGuard Home** | Network-wide filtering DNS — active peer in the parallel Tailscale race. **Re-bound 2026-10-13 (HB-013 root fix)** — publishes on the tailnet IP + loopback; the in-container `bind_hosts` stays `0.0.0.0` (`docker-proxy` forwards host `IP:53` → container `172.22.0.2:53`), freeing `127.0.0.53` for the `systemd-resolved` stub | [`dns.md`](dns.md) |
 | `3000/tcp` | `100.115.253.109` | **AdGuard Web** | Web administration console and query audit log. **Re-bound 2026-10-13 (HB-047)** — compose publishes `100.115.253.109:3000:3000` (was all interfaces); nft INPUT tailnet-only | [`dns.md`](dns.md) |
-| `3001/tcp` | `0.0.0.0` (host nftables → tailnet only — see §4) | **Homepage** | Central homelab service navigation dashboard | [`../services/homepage.md`](../services/homepage.md) |
 | `3002/tcp` | `0.0.0.0` (host nftables → tailnet only — see §4) | **Uptime Kuma** | Multi-node uptime monitor and incident alerting | [`service-topology.md`](service-topology.md) |
 | `8082/tcp` | `100.115.253.109` | **ChangeDetection** | Web page update monitoring and alert engine. **Re-bound 2026-10-13 (HB-047)** — compose publishes `100.115.253.109:8082:5000` (was all interfaces); nft INPUT tailnet-only | [`service-topology.md`](service-topology.md) |
 | `8083/tcp` | `100.115.253.109` | **Ntfy** | Lightweight mobile push notification gateway. **Re-bound 2026-10-13 (HB-047)** — compose publishes `100.115.253.109:8083:80` (was all interfaces); nft INPUT tailnet-only | [`service-topology.md`](service-topology.md) |

@@ -33,8 +33,9 @@ System authentication is managed by the **Noctalia Greeter** (`greetd`, installe
 - `[idle] timeout = 300` (5-minute blank timeout in greeter mode).
 
 **Dual-DE Daemon Policy:** Redundant KDE daemons are suppressed in the Hyprland session:
-- ✅ Disabled: `akonadi`, `kalendarac`, `kactivitymanagerd`, `baloo` (indexing), and `powerdevil` (power management).
-- ✅ Preserved: `org.kde.kdeconnect.daemon`, `xdg-desktop-portal-kde` (installed, but see portal note below), and `gnome-keyring`.
+- ✅ Disabled: `akonadi`, `kalendarac`, `kactivitymanagerd`, `baloo` (indexing), `powerdevil` (power management), and `org.kde.kdeconnect.daemon` (stopped and suppressed 2026-11-18 via `~/.config/autostart/org.kde.kdeconnect.daemon.desktop` `Hidden=true`; package kept for KDE Plasma debugging).
+- ✅ Preserved: `xdg-desktop-portal-kde` (installed, but see portal note below) and `gnome-keyring`.
+- ✅ Polkit Agent (2026-11-18): `hyprpolkitagent.service` (`hyprpolkitagent 0.2.0-3.1`) enabled and active in user systemd for Wayland GUI elevation (`pkexec`, `cachyos-packageinstaller-git`).
 
 ## XDG Desktop Portal — FileChooser Backend (2026-10-13)
 
@@ -315,11 +316,11 @@ Unfocused applications drop to `dmem.low = 0`, allowing the kernel to evict back
   - `435692e`: non-blocking `dmem.low` retries with `AtomicU64` generation cancellation, poisoned-mutex recovery, and unit tests (`cargo test`);
   - `8b36c92`: `Fork Changes (fix/hyprland-ipc-activewindow)` summary added to `README.md`;
   - `8ca0407`: `clippy::pedantic` cleanups (`let ... else`, `PoisonError::into_inner`), `cargo fmt`, and `.github/workflows/ci.yml` (`cargo fmt --check`, `clippy -D warnings`, `cargo test`).
-- **Systemd override (safe across updates):** Keep the AUR package installed (preserves `dmemcg-booster` dependency and `.service` unit); `~/.config/systemd/user/hyprland-focused-booster.service.d/override.conf` overrides `ExecStart` to run `/mnt/NVME_PCI/homelab/hyprland-focused-booster/target/release/hyprland-focused-booster` and adds `Restart=on-failure` (`RestartSec=2`) so the daemon recovers automatically if Hyprland reloads or drops the IPC socket. Updates via **Shelly**, `paru`, or CachyOS package managers only touch `/usr/` and **never** overwrite `~/.config/systemd/user/`.
+- **Systemd override (safe across updates):** Keep the AUR package installed (preserves `dmemcg-booster` dependency and `.service` unit); `~/.config/systemd/user/hyprland-focused-booster.service.d/override.conf` overrides `ExecStart` to run `/mnt/NVME_PCI/homelab/hyprland-focused-booster/target/release/hyprland-focused-booster` and adds `Restart=on-failure` (`RestartSec=2`) so the daemon recovers automatically if Hyprland reloads or drops the IPC socket. Updates via **`cachyos-packageinstaller-git`** (replaced `Shelly` on 2026-11-18), `paru`, or CachyOS package managers only touch `/usr/` and **never** overwrite `~/.config/systemd/user/`.
 - **Scope note (`app.slice`):** `write_cgroup_dmem` only boosts cgroups under `app.slice` (such as games launched via `systemd-run --user --scope game-performance`), not apps running directly inside `session.slice/wayland-wm@hyprland.desktop.service`.
 - **Upstream repo & OSS contribution:** Canonical upstream is Codeberg (`https://codeberg.org/tumrin/hyprland-focused-booster`); `github.com/tumrin/hyprland-focused-booster` is a read-only mirror (`hasIssuesEnabled: false`, PRs disabled). Because the owner has no Codeberg account, sharing fixes upstream is done politely via `git format-patch main..HEAD` (excluding the personal README commit) sent to the author's public commit email (`tuomas.rin@protonmail.com`) or by sharing the GitHub branch link.
 - **When upstream accepts the fix and releases a new AUR version:**
-  1. Update the system package via Shelly / `paru -Syu`.
+  1. Update the system package via `cachyos-packageinstaller-git` / `paru -Syu`.
   2. Remove the local override and restart with the official binary:
      ```sh
      rm ~/.config/systemd/user/hyprland-focused-booster.service.d/override.conf

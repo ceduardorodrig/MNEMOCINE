@@ -15,7 +15,7 @@ pending: [HB-013, HB-117]
 | Component | Specification |
 |---|---|
 | **OS** | Ubuntu 24.04 LTS |
-| **Kernel** | 7.0.0-1012-oracle |
+| **Kernel** | 7.0.0-1016-oracle |
 | **CPU** | AMD EPYC 7551 (2 vCPUs — Oracle free tier shape `VM.Standard.E2.1.Micro`) |
 | **RAM** | 954 MB (ZRAM swap: **952.3 MB**, `zram0` / `lzo-rle` — measured 2026-11-06: swap is **1:1 of RAM**; the `477 MB` previously written here was stale) |
 | **Disk Storage** | 50 GB virtual block volume |
@@ -38,9 +38,8 @@ All workloads execute as Docker containers managed via Docker Compose:
 
 | Container | Image | Ports | Responsibility |
 |---|---|---|---|
-| adguardhome | `adguard/adguardhome:latest` | `100.115.253.109:53`, `127.0.0.1:53`, `0.0.0.0:3000` | DNS server & admin panel |
-| homepage | `ghcr.io/gethomepage/homepage:latest` | `0.0.0.0:3001` (`host` net) | Homelab portal interface |
-| glances | `nicolargo/glances:latest` | `100.115.253.109:61208` | Node telemetry metrics |
+| adguardhome | `adguard/adguardhome:latest` | `100.115.253.109:53`, `127.0.0.1:53`, `0.0.0.0:3000` | DNS server & admin panel (`mem_limit: 128m`, `oom_score_adj: -500`) |
+| glances | `nicolargo/glances:latest` | `100.115.253.109:61208` | Node telemetry metrics (`mem_limit: 64m`) |
 | dockerproxy | `tecnativa/docker-socket-proxy:latest` | `100.115.253.109:2375` | Secure socket gateway for Homepage |
 | node-exporter | `prom/node-exporter:v1.9.0` | `0.0.0.0:9100` (nft → tailnet) | Host performance metrics for Prometheus |
 | promtail | `grafana/promtail:3.2.0` | — | Log shipping agent forwarding to Loki on kavure |
@@ -54,6 +53,8 @@ All workloads execute as Docker containers managed via Docker Compose:
 > Verified live: both run on ybytu (the node ships host metrics to Prometheus and logs to Loki).
 > The `glances`/`dockerproxy` binds were also corrected to their real Tailscale-IP binds
 > (they do not listen on `0.0.0.0`/`127.0.0.1` as previously written).
+>
+> **2026-11-18 (`HB-095` + VM tuning):** `homepage` was migrated to `kavure:3003` (retired on `ybytu`, compose backup at `/home/ubuntu/homelab/homepage/docker-compose.yml.bak-20261119-migrated`). Applied `/etc/sysctl.d/99-homelab-vm.conf` (`vm.page-cluster=0`, `vm.swappiness=60`, `vm.watermark_scale_factor=100`, `vm.min_free_kbytes=32768`) and `mem_limit` across the compose-managed containers (`256m` changedetection, `192m` uptime-kuma, `128m` adguardhome/ntfy, `96m` promtail, `64m` glances, `48m` node-exporter, `32m` dockerproxy; `autoheal` and `watchtower` run via `docker run`).
 
 ## DNS Architecture & Upstream Resolution
 

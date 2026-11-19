@@ -13,11 +13,11 @@ tags: [homelab, server, ybyra, docker, monitoring, tailscale]
 | Component | Specification |
 |---|---|
 | **OS** | Ubuntu 24.04 LTS (KVM virtualized instance) |
-| **Kernel** | 6.17.0-1020-oracle |
+| **Kernel** | 7.0.0-1016-oracle |
 | **CPU** | AMD EPYC 7551 (2 vCPUs — Oracle free tier shape `VM.Standard.E2.1.Micro`) |
 | **RAM** | 954 MB |
 | **Boot Volume** | **50 GB** — Re-provisioned 2026-10-08 (downsized from 150 GB to release block storage for ARM capture) |
-| **Swap** | 4 GB |
+| **Swap** | 4 GB (`/swapfile`, `prio 10`) + **768 MB ZRAM** (`/dev/zram0`, `lz4`, `prio 100`, `systemd-zram-generator` — added 2026-11-18) |
 | **Tailscale IP** | 100.66.224.34 |
 | **Tailscale DNS** | ybyra.chimaera-heptatonic.ts.net |
 | **Network Interface** | Virtual network (`ens3`: 10.0.0.40/24) |
@@ -100,4 +100,6 @@ To release block storage quota for the Always Free ARM instance (`ybytyra`), yby
 - **SSH (OpenSSH)**: **key-only** — `PasswordAuthentication no` + `KbdInteractiveAuthentication no` (drop-in `/etc/ssh/sshd_config.d/00-homelab.conf`). O `:22` é alcançável da **internet pública**, mas só por **chave** (as ~34.000 tentativas de força bruta em 30 dias falharam todas: `passwordauth no`, `kbdinteractive no`, `permitemptypasswords no`).
 - **fail2ban** (1.0.2, ativo): jail `sshd` (`mode = aggressive`, `bantime 1h`, `findtime 10m`, `maxretry 5`). **`ignoreip` inclui a tailnet (`100.64.0.0/10`)** — o acesso normal é por ela e **nunca** deve ser banido.
 - **Acesso normal**: **Tailscale SSH** pela tailnet (não usa o OpenSSH). Detalhe: [`../network/tailscale.md`](../network/tailscale.md).
+- **`nginx2root` remediation (verified 2026-11-18, `HB-125` closed):** rebuilt `nginx-sumaenima:latest` against `nginx:stable-alpine` (`nginx/1.30.7`, `sha256:a3979c7c4fb8...`), force-updated `sae-edge_proxy` on `ybyra` and `sae-edge_proxy-standby` on `kavure`, upgraded `ybyra` OS packages (30 packages) and rebooted into kernel `7.0.0-1016-oracle`. Verified live `nginx/1.30.7`, `sae-edge_proxy` healthy, and `https://sumaenima.chimaera-heptatonic.ts.net` returning `HTTP/2.0 200 OK`.
+- **VM & APT tuning (verified 2026-11-18):** enabled `/dev/zram0` (`768M`, `lz4`, `prio 100` via `/etc/systemd/zram-generator.conf`), `/etc/sysctl.d/99-homelab-vm.conf` (`vm.page-cluster=0`, `vm.swappiness=60`, `vm.watermark_scale_factor=100`, `vm.min_free_kbytes=32768`), and `/etc/systemd/system/apt-daily-upgrade.service.d/limits.conf` (`MemoryHigh=192M`, `MemoryMax=256M`, `CPUQuota=50%`, `Nice=19`).
 - **Revisão de compromisso (13/10)**: **sem sinais** — todos os logins bem-sucedidos usam a **mesma chave do dono** (do ISP brasileiro), sem usuários/chaves/unidades/cron/conexões de saída fora do padrão.

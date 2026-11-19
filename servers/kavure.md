@@ -20,7 +20,7 @@ pending: [HB-100]
 | **Network** | Gigabit Ethernet (`enp1s0`, wired to gigabit switch) |
 | **LAN IP** | `192.168.3.41/24` via switch |
 | **MTU (PPPoE)** | **1492** (netplan `enp1s0`) aligned with WAN uplink |
-| **OS** | Ubuntu 24.04 LTS (kernel `6.8.0-142`) |
+| **OS** | Ubuntu 24.04 LTS (kernel `6.8.0-149-generic`) |
 | **Filesystem** | LVM + ext4 |
 | **Tailscale IP** | `100.124.146.77` — `kavure` |
 | **Access** | `tailscale ssh kavure@kavure` · **OpenSSH key-only** (sem senha desde 13/10 — [detalhe](../network/tailscale.md)) |
@@ -37,6 +37,7 @@ pending: [HB-100]
 - **Subnet Router (Activated 2026-10-05):** Advertises route `192.168.3.0/24` across the Tailnet, granting remote access to local IoT devices and home routers.
 - **DNS Core Resolver (2026-10-08):** Runs Pi-hole alongside a native **recursive `unbound`** instance (`127.0.0.1:5053`, DNSSEC validation). Monitored by a dedicated Rust watchdog (`hl-dns-watchdog.timer`).
 - **Social-media autopilot host (2026-10-19):** production scheduler for `SOCIAL-MEDIA-AUTOPILOT` — four `Type=oneshot` timers (publish/engage/metrics/learn). CPU-only: the LLM is cloud-first and the GPU fallback stays on psicopompo behind `hl-infer`. The **tenant** (packs, config, state) lives in `/home/kavure/autopilot/tenants/sumaenima/`; the repo is code only (HB-079). See [`../services/autopilot.md`](../services/autopilot.md).
+- **Homepage Dashboard (migrated 2026-11-18, `HB-095`):** standalone container at `/srv/data/homepage/` serving `100.124.146.77:3003->3000/tcp` (UFW tailnet-only, `mem_limit: 256m`), reading local `/var/run/docker.sock` and remote `dockerproxy` on `ybytu`/`psicopompo`/`ybyra`/`kuaray`.
 
 ## Storage Layout & Directory Structure
 

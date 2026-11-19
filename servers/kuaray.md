@@ -24,7 +24,7 @@ pending: [HB-013, HB-099, HB-104, HB-112, HB-113]
 | Component | Specification |
 |---|---|
 | **OS** | Linux Mint 22.3 (Zena) |
-| **Kernel** | 7.0.0-38-generic |
+| **Kernel** | 7.0.0-43-generic |
 | **CPU** | Intel Core i5-4200U @ 1.60 GHz (Turbo up to 2.60 GHz) — 2C/4T |
 | **GPU** | Intel HD Graphics (Haswell) + NVIDIA GeForce GT 740M |
 | **RAM** | 5.7 GB (3.4 GB in active use) |
@@ -125,5 +125,7 @@ This is the **instrument, not the conclusion**: it does not say what turns the h
 - [`services/miracena-stack.md`](../services/miracena-stack.md) — Client stack architecture
 - [`network/nfs.md`](../network/nfs.md) — NFS remote storage mounts
 - [`services/syncthing.md`](../services/syncthing.md) — Syncthing peer configuration
+
+> **2026-11-18 (`nginx2root` audit, verified 2026-11-18):** `miracena-nginx-proxy-manager` (`jc21/nginx-proxy-manager:2.16.0`, `openresty/1.31.1.1`) runs with `http2 off;` and `listen 80;` on both proxy hosts (`8.conf`, `9.conf`), and `miracena-frappe-frontend-1` (`miracena/frappe:0.1.0-rc127`) runs `nginx/1.26.3` behind Tailscale Funnel (`MB-051`). Upstream `jc21/nginx-proxy-manager` has no patched release as of 2026-11-18 (`v2.17.0` from 2026-11-12); `ZoeyVid/NPMplus:2026-11-18-r1` already ships the nginx fix. Remediation: update both images once upstream ships `1.30.7+`/`1.31.9+` (or migrate NPM to `NPMplus:2026-11-18-r1+`) and force-recreate containers (`nginx -s reload` does not replace the in-memory binary).
 
 > **2026-11-04 (HB-104):** kuaray runs Linux Mint with automatic upgrades (`mintupdate-automation-upgrade` daily, no `apt-mark` holds). The owner decided to keep Docker upgrades automatic; the safeguard is `restart: unless-stopped` on the Frappe stack plus the Kuma, ntfy and backup-failure alerts. A `docker-ce` upgrade on 2026-11-04 00:35 stopped the daemon for about 10 hours. The role line above is partly historical: the WordPress/n8n stack was retired on 2026-10-31; the Miracena platform (Frappe) is the live stack.

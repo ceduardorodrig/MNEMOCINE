@@ -1,21 +1,23 @@
 ---
 tags: [homelab, service, homepage, monitoring]
-pending: [HB-069, HB-095]
+pending: [HB-069]
 ---
 
 # Homepage
 
 Central homelab dashboard — aggregates links, live metrics, and real-time health across all services.
 
-**Server:** ybytu  
-**Port:** `3001`  
-**URL:** `http://ybytu.chimaera-heptatonic.ts.net:3001`  
+**Server:** kavure *(migrated from ybytu on 2026-11-18, `HB-095`)*  
+**Port:** `3003` (`100.124.146.77:3003->3000/tcp`, UFW tailnet-only)  
+**URL:** `http://kavure.chimaera-heptatonic.ts.net:3003`  
 
 ## Stack
 
 | Container | Image | Status |
 |---|---|---|
 | homepage | ghcr.io/gethomepage/homepage:latest | Up |
+
+> **Bridge DNS & `extra_hosts` on `kavure` (2026-11-18):** `/srv/data/homepage/compose.yml` runs on bridge network (`100.124.146.77:3003:3000`, `mem_limit: 256m`) with explicit `extra_hosts` mapping `kavure`, `ybytu`, `psicopompo`, `kuaray`, and `ybyra` to their Tailscale IPs (preventing `EAI_AGAIN` on short MagicDNS names and `127.0.1.1` `/etc/hosts` loopback collisions).
 
 > **`network_mode: host` + `PORT=3001` (07/10/2026):** Homepage transitioned from `ports: 3001:3000` (bridge) to **host networking** — identical rationale to Uptime Kuma: ybytu's `INPUT` iptables policy is **default-deny** (only loopback is accepted), so inside a bridge network the container **failed to reach** local host services (`EHOSTUNREACH` on `:3002`/`:8082`/`:61208`).  
 >  
