@@ -1,6 +1,6 @@
 ---
 tags: [homelab, service, agents, kavure]
-pending: [HB-078, HB-114, HB-116]
+pending: [HB-078, HB-114, HB-116, HB-126, HB-127]
 ---
 
 # Social-Media Autopilot (`SOCIAL-MEDIA-AUTOPILOT`)
@@ -198,7 +198,73 @@ hashes changed and the vault references were remapped. The 18:15 run published o
 secret scanning/push protection, vulnerability reporting and the **v0.1.0** release. The social
 preview is the only manual step left.
 
+## Fix record 2026-11-19 — the answer contract (HB-126)
+
+The 18:15 window was lost because an off-contract answer was fatal: the chain had already returned
+`Ok`, the stage parser then refused the shape **outside** the chain, so no retry applied and the local
+fail-safe never saw the answer. Three changes, one commit, built and tested on `kavure`.
+
+**1. The contract is resolved by shape, in one place.** `crates/autopilot-pipeline/src/json.rs` gains
+`list_members::<T>(value, key)` — envelope `{"<key>": …}`, bare array, single-element wrapper, and an
+object keyed by label (sorted by key, so A/B order is deterministic) — plus `adopt_labels`, which takes
+the label from the map key and **errors** when the key contradicts the member's own field (the label is
+the join key for the editor, the grounding review and publication; guessing would drift it). The four
+positional two-attempt matches are gone: `create.rs:parse_variants`, `editor.rs:parse_editor_response`,
+`triage.rs:parse_shortlist`, `grounding.rs:parse_grounding`. `extract_json` and every shape error now
+carry a bounded preview of the answer (`answer_preview`, 240 chars), because the raw answer is persisted
+nowhere else. `grounding::RawVerdict.reason` is `Option<String>` — `"reason": null` on an approval used
+to be a parse failure.
+
+**2. A contract breach is a chain outcome.** `crates/autopilot-providers/src/complete.rs` gains
+`complete_with_contract(registry, prompt, kind, timeout, validate)`: the validator runs *inside* the
+loop, a breach is re-asked once (`CONTRACT_MAX_ATTEMPTS = 2`, same 250 ms backoff as a 5xx) and then the
+chain advances to the next provider. The aggregate failure names the provider, the validator's complaint
+and a 200-char preview of the answer. `complete_with_chain` is now a thin wrapper over it
+(`validate = |_| Ok(())`), so there is one loop and one `FailureClass`. `ProviderConfig` gains an optional
+`binary` (the CLI path when it is not on `PATH`), which is also the test seam: the two new tests drive
+real stub CLIs and assert that the first provider is asked **twice** and the fallback once
+(`complete.rs::opencode_cli::an_off_contract_answer_is_reasked_once_then_the_chain_advances`).
+
+**3. The stages parse inside the chain.** `crates/autopilot-run/src/runner.rs` calls
+`complete_with_contract` with the stage parser as validator at `triage`, `create` and `grounding`. The
+journal detail is now `provider chain failed: … off-contract answer: … answer: <preview>` instead of an
+opaque `could not parse …`. The editor keeps its best-effort call (it already degrades to the originals)
+but inherits the shape normalizer.
+
+**Verification.** psicopompo: `cargo test --workspace` (28 suites, 0 failures), `cargo clippy
+--workspace --all-targets -- -D warnings` clean, `cargo fmt --check` clean. kavure (destination):
+`cargo build --release --locked` (40 s) and `cargo test --release --locked -p autopilot-pipeline -p
+autopilot-providers` → 44 + 32 passed. The binary the wrapper runs
+(`~/homelab/sumaenima-socialmedia-autopilot/target/release/autopilot`) was rebuilt at 19:33.
+
+**Deploy:** `rsync` of the engine source (personas/config/var untouched, as in §Deploy) + build on the
+destination; the wrapper rebuilds on every run anyway. **Rollback:** `git checkout dcc214c` in the
+engine repo, rsync again, and the next window rebuilds the previous code — `var/` is never touched by
+either direction.
+
+**Still open (declared, not silently dropped):** per-variant grounding (one bad answer currently costs
+the platform's whole slot — `runner.rs::stage_grounding` reviews every draft in one call) is the third
+move of HB-126 and is **not** in this change; and the `engage` wall-clock timeout is **HB-127**.
+
 ## Known gaps
+
+- **The answer contract is enforced by position, not by shape — and a breach is not a
+  `FailureClass` (2026-11-19, HB-126).** The 18:15 window was lost at `create` with
+  `invalid variants JSON … invalid type: map, expected a sequence at line 1 column 1`: the model
+  answered an **array whose single element is the A/B map**, and `parse_variants` tries two fixed
+  positions (`crates/autopilot-pipeline/src/create.rs:253-271`) while swallowing the first error —
+  the same shape exists in `editor.rs:184-191`, `triage.rs:64-71` and `grounding.rs:104-109`.
+  **4 of the 50 runs that reached `create` since 2026-10-22 (~8 %)**, all this persona. It never
+  reaches the fallback because `complete_with_chain` already returned `Ok`
+  (`autopilot-providers/src/complete.rs:259-265`) and the parse happens later in
+  `runner.rs:1372/:1620`; the workspace's only retry is `FailureClass::Server` (`:267-273`). The raw
+  answer is never journaled, which is why the earlier occurrences cannot be diagnosed. The fix is
+  documented in HB-126; the schema route is **not** available — `opencode run` 2.2.5 exposes only
+  `--format default|json` (the NDJSON event stream), and schema-constrained output exists only in
+  `@opencode-ai/sdk/v2`, absent from the 2.3.x docs and the current OpenAPI prompt body.
+- **The alert body is truncated at the source (2026-11-19):** `hl-autopilot-alert` cuts the detail at
+  ~221 chars, so the ntfy message ends mid-token (`… (expected an array or {\`). The full reason is in
+  `journalctl -u <unit> -n 50`, but the alert alone cannot be diagnosed from a phone.
 
 - **The alert path has no dead-man's switch (2026-11-06):** both signals deliver through ntfy on
   **ybytu**, which was offline during this work (tailnet `offline, last seen 6h`; port 8083 timing out
