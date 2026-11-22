@@ -1,6 +1,6 @@
 ---
 tags: [homelab, service, steam, gaming, server, psicopompo, tutorial]
-pending: [HB-111]
+pending: [HB-111, GB-277]
 ---
 
 # psicopompo-gaming
@@ -61,10 +61,9 @@ steam-launch-options ge-update  # Pull and unpack latest GE-Proton release
 
 | Category | Target Proton Tool | Assigned Profile |
 |---|---|---|
-| **Default / Stack Padrão** | `proton-cachyos-slr` (Proton CachyOS) | `vram` |
-| **AAA Titles / Heavy RTX** | `GE-Proton` (auto-updated) | `vram`, `dx12`, ou `rtx` |
+| **Default / Stack Padrão (incl. AAA & DX12)** | `proton-cachyos-slr` (Proton CachyOS — canonizado 2026-11-21) | `vram`, `dx12`, ou `rtx` |
+| **Fallback / Compatibilidade específica** | `GE-Proton` (mantido instalado e atualizado como fallback) | `vram`, `dx12`, ou `rtx` |
 | **Online Multiplayer / Anti-Cheat específico** | `proton_experimental` | `vram` |
-| Single Player com Coop Opcional | `GE-Proton` | `vram` |
 
 > 💡 **Valheim:** Segue o Proton padrão do sistema (`proton-cachyos-slr`). Anteriormente utilizava override para `proton_experimental`, mas o Proton CachyOS padrão provou entregar desempenho, frametime e estabilidade superiores com os mods via Gale/BepInEx e Wayland nativo.
 
@@ -138,6 +137,13 @@ Inventário completo de atalhos não-Steam, emuladores e launchers externos em `
 | **Heroic Games Launcher** | Fora do Steam | `~/.config/heroic` (tools 115 MiB; sem jogos em `~/Games/Heroic`) | — | **256 MiB** | `pacman -Rns heroic-games-launcher-bin` (ou pacote instalado) + `rm -rf ~/.config/heroic` |
 
 > **Nota sobre `compatdata/`:** em `~/.local/share/Steam/steamapps/compatdata/` existem ainda `0` (547 MiB, prefixo genérico do Steam) e `1493710` (378 MiB, *Proton Experimental*). O Steam **não** apaga `compatdata/<AppID>` nem `grid/<AppID>*` automaticamente quando um jogo não-Steam é removido da biblioteca.
+
+### 🎯 Returnal (`1649240`) & Direct Scanout `non_shader_cm = 0` (2026-11-21)
+
+- **Proton canonizado:** `proton-cachyos-slr` em `~/.config/steam-launch-options/games.toml:165-169` (substituindo `GE-Proton11-12-x86_64`, `profile = "dx12"`).
+- **Tela preta no `direct_scanout = 2` (NVIDIA Wayland):** com `PROTON_ENABLE_WAYLAND=1` + `render:direct_scanout = 2`, o Hyprland entrava em `solitary` (`directScanoutTo: "0"`) e a tela ficava preta até o compositor voltar a compor (ex.: ao abrir o scratchpad ou trocar de workspace).
+- **Fix canônico:** habilitado `non_shader_cm = 0` em `~/.config/hypr/config/misc.lua:57` mantendo `direct_scanout = 2` ativo. Validado ao vivo (`hyprctl getoption render:non_shader_cm → 0`, `render:direct_scanout → 2`, Returnal renderizando normalmente em `gaming`).
+- **SCSKiller (`v1.4.9`, instalado 2026-11-21):** AppImage em `~/.local/bin/SCSKiller-x86_64.AppImage` (`BlueHeisenberg/SCSKiller`) para pré-compilar shaders DX12/`vkd3d-proton` (warming offline + modo Recorder opcional) no cache NVIDIA antes de abrir os jogos.
 
 
 ## See Also
