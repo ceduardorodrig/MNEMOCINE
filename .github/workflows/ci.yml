@@ -1,16 +1,16 @@
 name: ci
 
-# Auditoria de governança pelo StenioSentinel — documentação do homelab.
+# Governance audit by StenioSentinel — homelab documentation.
 #
-# POR QUE MUDOU (29/09/2026): este repositório é PÚBLICO e não tinha CI algum.
-# Uma auditoria revelou uma senha em claro num guia (`Valheim`) — sem valor de
-# segurança real (o acesso é barrado pela tailnet, não pela senha), mas é
-# exatamente o tipo de inconsistência que o gate existe para pegar: valor de
-# segredo em repositório público deve virar referência ao cofre.
+# WHY IT CHANGED (2026-09-29): this repository is PUBLIC and had no CI at all.
+# An audit revealed a plaintext password in a guide (`Valheim`) — with no real
+# security value (access is blocked by the tailnet, not by the password), but it is
+# exactly the kind of inconsistency the gate exists to catch: a secret value
+# in a public repository must become a reference to the vault.
 #
-# Consome a composite action do motor, que baixa o binário já compilado da
-# release em vez de compilar Rust aqui. Ver:
-#   mnemocine/guides/stenio-ci-unificado.md e guides/ferramentas-de-operacao.md
+# Consumes the engine's composite action, which downloads the prebuilt binary from the
+# release instead of compiling Rust here. See:
+#   mnemocine/guides/stenio-ci-unificado.md and guides/ferramentas-de-operacao.md
 
 on: [push, pull_request]
 
