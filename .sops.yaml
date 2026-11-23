@@ -1,17 +1,17 @@
-# sops — encryption rules (age keys)
-# Decrypt: sops --decrypt <file>   (uses the private key in ~/.config/sops/age/keys.txt)
-# Edit:    sops <file>             (opens editor + re-encrypts)
+# sops — regras de criptografia (chaves age)
+# Decriptar: sops --decrypt <arquivo>   (usa a chave privada em ~/.config/sops/age/keys.txt)
+# Editar:    sops <arquivo>             (abre editor + re-encripta)
 #
-# TWO age recipients since 2026-10-13 (recovery plan — Route A):
-#   1. psicopompo  age1fgqzpez…  — primary key (host that creates/re-encrypts the store).
-#   2. kavure      age1u2c35fk…  — second recipient, so the store stays decryptable
-#                                  when psicopompo is lost (kavure is the always-on
-#                                  host that manages the Swarm).
-#   DR ref.: recovery/psicopompo-loss.md §2 G1 (item HB-064).
+# DOIS recipients age desde 2026-10-13 (plano de recuperação — Rota A):
+#   1. psicopompo  age1fgqzpez…  — chave primária (host que cria/re-encripta o store).
+#   2. kavure      age1u2c35fk…  — segundo recipient, para o store continuar decriptável
+#                                  quando o psicopompo for perdido (o kavure é o host
+#                                  sempre-ligado que gerencia o Swarm).
+#   Ref. de DR: recovery/psicopompo-loss.md §2 G1 (item HB-064).
 #
-# NEVER pass `--age` on the command line: it IGNORES this file and would replace the
-# recipients with a single one, locking kavure out. Let .sops.yaml drive (sops detects it
-# via the CWD; run the re-encrypt from inside mnemocine/).
+# NUNCA passe `--age` na linha de comando: isso IGNORA este arquivo e substituiria os
+# recipients por um só, derrubando o kavure. Deixe o .sops.yaml dirigir (sops detecta-o
+# pelo CWD; rode o re-encrypt de dentro de mnemocine/).
 creation_rules:
   - path_regex: \.env$
     encrypted_regex: "^(.*)$"

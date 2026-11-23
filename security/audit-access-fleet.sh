@@ -1,6 +1,6 @@
 #!/bin/bash
-# audit-access-fleet.sh — Scan of SSH keys and cron jobs across the whole Mnemocine fleet
-# Run periodically or via Stênio Sentinel. Notifies via ntfy on deviation.
+# audit-access-fleet.sh — Sweep of SSH keys and cron jobs across the whole Mnemocine fleet
+# Run periodically or via Stenio Sentinel. Notifies through ntfy on deviation.
 set -euo pipefail
 
 NTFY_TOPIC="/alerts"
@@ -15,7 +15,7 @@ log_alert() {
 }
 
 for H in "${HOSTS[@]}"; do
-  # 1. SSH keys check
+  # 1. Checagem de SSH keys
   KEYS=""
   if [ "$H" = "psicopompo" ]; then
     KEYS=$(cat ~/.ssh/authorized_keys 2>/dev/null || true)
@@ -29,7 +29,7 @@ for H in "${HOSTS[@]}"; do
   while IFS= read -r line; do
     [ -z "$line" ] && continue
     [[ "$line" =~ ^# ]] && continue
-    # Extract type and key
+    # Extrair tipo e chave
     KEY_BODY=$(echo "$line" | awk '{for(i=1;i<=NF;i++) if($i ~ /^AAAA/) print $i}')
     if [ -n "$KEY_BODY" ] && ! grep -q "$KEY_BODY" "$KNOWN_KEYS_FILE"; then
       log_alert "🚨 [SSH] Chave desconhecida detectada em $H (usuário): $line"
@@ -45,7 +45,7 @@ for H in "${HOSTS[@]}"; do
     fi
   done <<< "$ROOT_KEYS"
 
-  # 2. Unexpected cron check
+  # 2. Checagem de Cron inesperado
   CRONS=""
   if [ "$H" = "psicopompo" ]; then
     CRONS=$(sudo -n crontab -l 2>/dev/null || true)

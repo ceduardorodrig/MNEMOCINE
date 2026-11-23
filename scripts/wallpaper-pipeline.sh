@@ -1,29 +1,29 @@
 #!/usr/bin/env bash
 #
-# wallpaper-pipeline.sh — psicopompo wallpaper collection (>=4K, EXIF-aware)
+# wallpaper-pipeline.sh — acervo de wallpapers do psicopompo (>=4K, EXIF-aware)
 #
-# Collection rules:
+# Regras do acervo:
 #   >=4K (width>=3840 AND height>=2160) + horizontal/square display -> wallpaper-pc/
 #   >=4K + vertical display                                           -> wallpaper-celular-tablet/
-#   <4K                                                                -> menores-4k/  (upscale queue)
+#   <4K                                                                -> menores-4k/  (fila de upscale)
 #
 # The orientation considered is always the DISPLAY one (EXIF tag 0x0112), never the
 # raw dimension of the file: JPEGs with orientation 6/8 (RightTop/LeftBottom) have
 # their stored pixels rotated 90° and only look correct because the viewer
 # applies the tag. Classifying by raw dimension sends landscape images to the phone folder.
 #
-# Usage:
+# Uso:
 #   wallpaper-pipeline.sh report    [BASE]           count per class (changes nothing)
 #   wallpaper-pipeline.sh normalize [BASE] [--apply] writes the rotation into the pixels (removes the EXIF dependency)
-#   wallpaper-pipeline.sh organize  [BASE] [--apply] move into the 3 folders (scans root + subfolders)
+#   wallpaper-pipeline.sh organize  [BASE] [--apply] move para as 3 pastas (varre raiz + subpastas)
 #   wallpaper-pipeline.sh upscale   [BASE]           menores-4k/ -> .upscale-work/out/
 #
 # The upscale ALWAYS uses the model's native scale (-s 4). Do NOT use -s 2 with an
 # x4 model: it breaks the tile alignment and destroys the image (trap 1 of the guide).
 #
 # Flat images (< 0.02 bytes/pixel) go through Lanczos instead of AI — in those cases
-# the models invent texture (46-102 MB per file) and Lanczos reproduces them faithfully in
-# ~2 MB. See guides/wallpaper-library.md.
+# os modelos inventam textura (46-102 MB por arquivo) e o Lanczos reproduz fiel em
+# ~2 MB. Ver guides/wallpaper-library.md.
 #
 # Default BASE: ~/Pictures/PAREDEDEPAPEL
 # Dependencies: imagemagick (identify/magick); realesrgan-ncnn-vulkan (upscale only)
@@ -120,7 +120,7 @@ cmd_organize() {
   done < <(list_images "$base")
   (( apply )) || echo "(dry-run — use --apply para mover)"
   echo "imagens a mover: $n"
-  # clean up the upscale work dir if it was emptied
+  # limpa a fazenda de upscale se esvaziou
   local work="${base}/${WORK_DIRNAME}"
   if (( apply )) && [[ -d "$work" ]] && ! fd --type f . "${work}/out" | rg -q .; then
     rm -rf "$work"; echo "removido ${WORK_DIRNAME}/ (vazio)"
@@ -132,7 +132,7 @@ run_batch() {
   local extra=()
   [[ "$ext" == "jpg" || "$ext" == "jpeg" ]] && extra=(-f jpg)
   # Without -f the default (ext/png) converts EVERY jpg to png (~12 MB per 4K).
-  # -s 4 = NATIVE scale of realesrgan-x4plus. -t never above 512 (segfault).
+  # -s 4 = escala NATIVA do realesrgan-x4plus. -t nunca acima de 512 (segfault).
   realesrgan-ncnn-vulkan -i "${work}/in-${ext}/" -o "${work}/out/" \
     -s 4 -n realesrgan-x4plus "${extra[@]}" >"${work}/${ext}.log" 2>&1
 }
@@ -151,7 +151,7 @@ aplicar_teto() {
   done < <(fd --type f --absolute-path --max-depth 1 . "${work}/out" -0)
 }
 
-# Flat images: bytes/pixel < 0.02. AI invents texture on those.
+# Imagens chapadas: bytes/pixel < 0.02. IA inventa textura nessas.
 e_chapada() {
   local f="$1" w h
   w="$(identify -format '%w' "$f")"; h="$(identify -format '%h' "$f")"
@@ -199,7 +199,7 @@ cmd_upscale() {
     fi
   fi
 
-  # 3) cap
+  # 3) teto
   echo "aplicando teto de 8192:"
   aplicar_teto "$work"
 
