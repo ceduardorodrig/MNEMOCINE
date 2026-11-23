@@ -1,6 +1,6 @@
 #!/bin/bash
-# audit-access-fleet.sh — Varredura de chaves SSH e Cron jobs em toda a frota Mnemocine
-# Executado periodicamente ou via Stênio Sentinel. Notifica via ntfy em caso de desvio.
+# audit-access-fleet.sh — Scan of SSH keys and cron jobs across the whole Mnemocine fleet
+# Run periodically or via Stênio Sentinel. Notifies via ntfy on deviation.
 set -euo pipefail
 
 NTFY_TOPIC="/alerts"
@@ -15,7 +15,7 @@ log_alert() {
 }
 
 for H in "${HOSTS[@]}"; do
-  # 1. Checagem de SSH keys
+  # 1. SSH keys check
   KEYS=""
   if [ "$H" = "psicopompo" ]; then
     KEYS=$(cat ~/.ssh/authorized_keys 2>/dev/null || true)
@@ -25,11 +25,11 @@ for H in "${HOSTS[@]}"; do
     ROOT_KEYS=$(ssh -o ConnectTimeout=5 -o BatchMode=yes "$H" 'sudo -n cat /root/.ssh/authorized_keys 2>/dev/null || true' 2>/dev/null || true)
   fi
 
-  # Validar cada linha de chave encontrada
+  # Validate each key line found
   while IFS= read -r line; do
     [ -z "$line" ] && continue
     [[ "$line" =~ ^# ]] && continue
-    # Extrair tipo e chave
+    # Extract type and key
     KEY_BODY=$(echo "$line" | awk '{for(i=1;i<=NF;i++) if($i ~ /^AAAA/) print $i}')
     if [ -n "$KEY_BODY" ] && ! grep -q "$KEY_BODY" "$KNOWN_KEYS_FILE"; then
       log_alert "🚨 [SSH] Chave desconhecida detectada em $H (usuário): $line"
@@ -45,7 +45,7 @@ for H in "${HOSTS[@]}"; do
     fi
   done <<< "$ROOT_KEYS"
 
-  # 2. Checagem de Cron inesperado
+  # 2. Unexpected cron check
   CRONS=""
   if [ "$H" = "psicopompo" ]; then
     CRONS=$(sudo -n crontab -l 2>/dev/null || true)
