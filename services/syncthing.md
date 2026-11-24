@@ -46,7 +46,7 @@ Continuous decentralized peer-to-peer file synchronization — preserves real-ti
 > an **intentional leftover**: the owner's pre-Linux syncing folder, which became an old backup.
 > **Do not "fix", re-sync or delete it.**
 >
-> **Never share `agentic-ai` or `backup` with `ybytu`** — the DR need is the KeePass only.
+> **Never share `agentic-ai` or `backup` with `ybytu`** — the DR need is the KeePass only. Verified 2026-11-23: ybytu's `config.xml` lists a single folder (`keepass-recovery`); on psicopompo `agentic-ai` is shared with kuaray and two phones, `backup` with kuaray only.
 
 ## Ybytu KeePass recovery mirror (2026-10-13)
 

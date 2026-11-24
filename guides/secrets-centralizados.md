@@ -13,7 +13,7 @@ Standard for consolidating distributed `.env` files and credentials into a **sin
 age Private Keys — TWO recipients since 2026-10-13 (DR "Rota A"), NEVER synchronized
   psicopompo  ~/.config/sops/age/keys.txt  ← primary (same-host convenience copy: /mnt/NVME_PCI/secrets/age-keys-backup.txt)
   kavure      ~/.config/sops/age/keys.txt  ← 2nd recipient: the store stays decryptable if psicopompo is LOST
-  (the store decrypts with EITHER key; the cold OFFLINE copy is still pending — see recovery/psicopompo-loss.md §2 G1 / HB-064)
+  (the store decrypts with EITHER key; off-host copy: /mnt/BACKUP/secrets-escrow/age-keys-*.gpg, passphrase-protected, created and verified 2026-11-23 — see recovery/psicopompo-loss.md §2 G1 / HB-064)
 
 Central Master Store (psicopompo, plaintext, permissions 0600, NEVER synchronized)
   /mnt/NVME_PCI/secrets/secrets.env  ← Master source for all environment keys
@@ -29,8 +29,8 @@ Operational Helpers (psicopompo, permissions 0700)
 > ⚠️ **age Private Key = access to ALL secrets.** The store is encrypted to **two** age recipients
 > — **psicopompo** and **kavure** (since 2026-10-13) — so it decrypts with **either** key: losing
 > one host no longer loses the vault. `age-keys-backup.txt` (psicopompo) is a same-host convenience
-> copy, **not** an off-host backup; the **cold offline copy** (KeePassXC / USB) is still **pending**
-> — see [`../recovery/psicopompo-loss.md`](../recovery/psicopompo-loss.md) §2 G1 · HB-064.
+> copy, **not** an off-host backup; the **off-host copy** is the passphrase-protected `age-keys-YYYY-MM-DD.gpg` in `/mnt/BACKUP/secrets-escrow/`
+> (created and verified 2026-11-23 with `scripts/age-keys-escrow.sh`; `sops-store-guard` check 7 watches it; a KeePassXC/USB copy is unverified) — see [`../recovery/psicopompo-loss.md`](../recovery/psicopompo-loss.md) §2 G1 · HB-064.
 
 ## Workflow
 
