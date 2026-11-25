@@ -1,6 +1,6 @@
 ---
 tags: [homelab, meta, network, docker, tutorial]
-pending: [HB-061, HB-086]
+pending: [HB-061]
 ---
 
 # Design Decisions — 2026-10 Dossier

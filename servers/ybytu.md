@@ -1,6 +1,6 @@
 ---
 tags: [homelab, server, ybytu, dns, monitoring, changedetection, ntfy]
-pending: [HB-013, HB-117]
+pending: [HB-117]
 ---
 
 # ybytu

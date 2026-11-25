@@ -36,7 +36,7 @@ Oracle Cloud reclaims idle ARM and AMD Always-Free VMs if average 7-day CPU util
 
 > **Reconstructed on 07/10/2026 — 51 active monitors, all UP.** The historical table below (41 monitors) is kept for reference. Current state was rebuilt using **Homepage** (`services.yaml`) as the source of truth for URLs + **3 dedicated DNS monitors** (Pi-hole, AdGuard, and local home route):
 > - **48 HTTP probes** (services with web endpoints) + **6 ICMP pings** (psicopompo, kavure, kuaray, ybytu, ybyra, kururu)… total 54 definitions, of which **51 remained active** after tuning accepted status codes (registry 400/401, transmission 401/409).
-> - Local services on ybytu monitored via **`127.0.0.1`** (host networking); `glances` via Tailscale IP (binds strictly there).
+> - Local services on ybytu are monitored on the tailnet address `100.115.253.109` (AdGuard :3000, Glances :61208, Changedetection :8082, ntfy :8083); only Uptime Kuma itself uses `127.0.0.1:3002` (verified 2026-11-25 in kuma.db).
 > - Automation: Executed via Socket.IO API (`login` → `deleteMonitor` → `add`) using an ephemeral Node.js script inside the container.
 
 > ⚠️ **Anti-flap (09–10/10/2026):** all 51 monitors ran with **`maxretries=0`** — a single

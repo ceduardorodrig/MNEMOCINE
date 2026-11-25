@@ -1,7 +1,6 @@
 ---
 tags: [homelab, hyprland, noctalia, tutorial, cachyos, gpu]
 created: 2026-09-21
-pending: [GB-258, HB-128, GB-273]
 ---
 
 # Hyprland + Noctalia Desktop Guide — CachyOS (psicopompo)

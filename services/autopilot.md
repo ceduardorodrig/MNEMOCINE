@@ -246,6 +246,30 @@ either direction.
 the platform's whole slot — `runner.rs::stage_grounding` reviews every draft in one call) is the third
 move of HB-126 and is **not** in this change; and the `engage` wall-clock timeout is **HB-127**.
 
+## Fix record 2026-11-25 — cache, token observability, HB-126 isolation & HB-127 budget
+
+Landed in `SOCIAL-MEDIA-AUTOPILOT` commit `28403c9` (pushed to `origin/main` and synced to `kavure` via `rsync`):
+
+1. **Prefix / KV cache & 7-day URL deduplication:**
+   - All four pipeline prompt builders (`triage.rs`, `create.rs`, `editor.rs`, `grounding.rs`) and `engage/src/prompt.rs` were reordered so static instructions and JSON schemas precede dynamic content (candidates, 6 KB article body, drafts), maximizing provider prefix-cache reuse.
+   - `JournalEvent` / `StageOutcome` now record `source_url` on `source` events; `runner.rs` filters `stage_harvest` candidates against `read_recent_source_urls` (7-day window) before `stage_triage` and `fetch_article_text`.
+2. **Token cap (`max_tokens`) & unified per-stage token observability:**
+   - `ProviderConfig` gains optional `max_tokens: Option<u32>`, wired to Gemini `generationConfig.maxOutputTokens` and Ollama `options.num_predict`.
+   - `Completion.usage: Option<TokenUsage>` now captures `opencode` `step_finish` token events (`extract_opencode_usage`), Gemini `usageMetadata`, and Ollama `prompt_eval_count`/`eval_count`, recorded in `var/runs/*.jsonl` (`usage` field on `triage`, `create`, `editor`, `grounding`).
+3. **Per-variant grounding isolation (`HB-126`):**
+   - `parse_grounding` isolates per-item failures in multi-variant batches (preserving valid siblings while failing-closed the malformed item) and `stage_grounding` matches labels case-insensitively and falls back to per-variant review when a multi-variant batch fails.
+4. **Engage wall-clock budget, rejection cache & profile cache (`HB-127`):**
+   - `EngageConfig.pacing.max_runtime_secs` (default `1200` s, below systemd `TimeoutStartSec=30min`) caps `Execution::perform_all` before any `sleep`, logging delays and deferring remaining actions cleanly with exit `0`.
+   - `ActionKind::Rejected` in `var/engage/state.jsonl` prevents re-picking posts rejected by guardrail/grounding without consuming daily reply caps; `engage/src/prompt.rs` explicitly forbids inventing external dates/versions/laws absent from the parent post.
+   - `gather_live` caches `interests.accounts` profiles in `var/engage/profiles_cache.json` (7-day TTL).
+5. **Unified monitoring (`autopilot status`):**
+   - Added `autopilot status [--persona <slug>] [--runs-dir ...] [--state ...] [--metrics ...] [--days 7]` summarizing runs, per-stage tokens, engage actions, and URI-deduplicated metrics.
+6. **Multi-persona & B2B readiness (same date, follow-up commit):**
+   - **Engage isolation:** `ActionLog` (`state.rs`) and `plan_for_persona` (`planner.rs`) isolate `has_for`, daily/weekly caps, per-author cooldowns, and `proactive.replies_per_day` by `persona` when sharing `var/engage/state.jsonl`; fixed argument order in `ActionKind::Rejected` (`engage/src/runner.rs`).
+   - **Warming ramp isolation:** `detected_start_day_for` (`autopilot-run/src/runner.rs`) filters `var/runs` by `persona` so new personas do not inherit an older persona's start day.
+   - **Validation (`personas validate`):** `PersonaPack::validate` now checks `channels[].windows` (`HH:MM`), duplicate `platform` entries, and `posts_per_day == 0`; `personas validate` checks cross-persona slug/handle collisions and warns on channels without a live publisher adapter.
+   - **Multi-language & env:** `autopilot-learn/src/craft.rs` adds PT-BR/ES listicle nouns and templated openers; `--endpoint` supports `AUTOPILOT_SEARXNG_URL`.
+
 ## Known gaps
 
 - **The answer contract is enforced by position, not by shape — and a breach is not a

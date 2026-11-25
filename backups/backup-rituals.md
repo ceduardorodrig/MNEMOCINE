@@ -1,6 +1,5 @@
 ---
 tags: [homelab, backup, ritual, checklist]
-pending: [HB-094]
 ---
 
 # Backup & Verification Rituals
@@ -64,10 +63,10 @@ What protects the sops/age secrets, in daily order (`fonte:` units and scripts r
 | Time | Job | What it does for the secrets |
 |---|---|---|
 | 05:00 | `config-backup` | host configs to `/mnt/BACKUP/configs-homelab` (secret files are excluded or gitignored) |
-| 05:10 | `sops-store-guard` | 7 checks: vault decrypts with both recipients and is above the entry floor, NAS mirror, restic copy, kavure replica refreshed, KeePass copy, recipients equal the two keys, age-keys escrow present/armored/fresh. FAIL = ntfy |
+| 05:10 | `sops-store-guard` | 8 checks: vault decrypts with both recipients and is above the entry floor, NAS mirror, restic copy, kavure replica refreshed, KeePass copy, recipients equal the two keys, age-keys escrow present/armored/fresh, Google Drive holds the escrow, the kdbx copy and the store no more than 2 days behind (added 2026-11-24). FAIL = ntfy |
 | 05:20 | `agentic-ai-backup` | vault (incl. `mnemocine/secrets.enc.env`, ciphertext) to `/mnt/BACKUP/agentic-ai-server-psicopompo` |
 | 05:40 | restic | `/mnt/BACKUP/configs-homelab` + the store + `/mnt/BACKUP/secrets-escrow` |
-| 05:55 | `configs-git-push` | private GitHub mirror, gated by `stenio secrets-guard` (fails closed) |
+| 05:55 | `configs-git-push` | private GitHub mirror, first syncs with the remote (fast-forward or replay of `auto:` commits, never force; fails on divergence, 2026-11-25), then gated by `stenio secrets-guard` (fails closed); the mirror CI repeats it as a blocking step after the push (2026-11-24) |
 | 06:30 | `rclone-gdrive-backup` | whole `/mnt/BACKUP` to Google Drive `BACKUP MNEMOCINE`, including `secrets-escrow/` (age-keys `.gpg` + `keepass/AlgoAqui-*.kdbx`) and the store ciphertext |
 
 Copies of each secret asset (what survives what):

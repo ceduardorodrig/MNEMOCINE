@@ -42,7 +42,17 @@ A single native Rust daemon (`kururu-wake`) deployed across three nodes:
 | Redundant Peer Sender (kavure) | `wol-relay` (Native Rust binary, port `9096`) |
 | System Daemons | `hl-wol-dispatcher.service` (ybytu) / `hl-wol-relay.service` (x86) / `/system/etc/install-recovery.sh` (kururu) |
 | NIC State Persistence | `wol@.service` + native network manager configurations (NetworkManager / Netplan) |
-| Security Perimeter | Binds to `127.0.0.1` + Tailscale Serve on x86; binds to Tailscale IP on ybytu |
+| Security Perimeter | x86 daemons listen on `0.0.0.0:9096` (verified 2026-11-25, reachable over `tailscale0`); the dispatcher binds the Tailscale IP on ybytu. `/power/shutdown` is gated by home-LAN presence (below) |
+
+## Home-LAN gate for `/power/shutdown` (deployed 2026-11-25, HB-124)
+
+Source of truth: `crates/kururu-wake` in KURURU-TAB3LITE-LINUX (build with `--target x86_64-unknown-linux-musl`; MNEMOCINE-OPS no longer ships binaries). The daemon shuts the host down only when the gateway `192.168.3.1` answers with the expected MAC, or did so at most 1800 s ago and is now silent; otherwise it replies `409 Conflict`.
+
+- `/etc/wol-relay.env`: `WOL_HOME_GATEWAY_MAC` (required; without it every shutdown is refused), optional `WOL_HOME_GATEWAY_IP`, `WOL_HOME_CACHE_MAX_AGE_SECS`, `WOL_HOME_GATE=off`.
+- Read-only preflight: `WOL_HOME_GATEWAY_MAC=<mac> kururu-wake --check-home`.
+- **Replacing the router requires updating the MAC.**
+- Never test with `/power/shutdown`: the method is not checked, so any request shuts a home host down.
+- Rollback per host: restore `kururu-wake.pre-hb124` and `wol-relay.env.pre-hb124`, then restart `hl-wol-relay` (reopens HB-124).
 
 ## Target Nodes & Physical MAC Addresses
 
