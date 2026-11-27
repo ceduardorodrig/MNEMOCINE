@@ -1,6 +1,6 @@
 ---
 tags: [homelab, service, miracena, stack, docker, n8n, wordpress, kuaray]
-pending: [HB-091, HB-092]
+pending: [HB-091]
 ---
 
 # Miracena - Infrastructure Stack

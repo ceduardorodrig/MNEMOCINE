@@ -63,7 +63,7 @@ Per service: backup config and data, bring it up on the target host, verify as t
 consumer, then stop (do not delete) the source for a cooling-off period.
 
 **Surfaces to update in the same step as each move:**
-- Homepage on **ybytu** — `services.yaml` tiles, `siteMonitor` targets and the `kuaray` Docker-socket entry.
+- Homepage on **kavure** (moved from ybytu on 2026-11-18, `HB-095`; `/srv/data/homepage/config/`) — `services.yaml` tiles, `siteMonitor` targets and the `kuaray` Docker-socket entry.
   ⚠️ This config has **no repository copy today** ([`../services/homepage.md`](../services/homepage.md)); put it under version control as part of this phase.
 - `services-catalog.md`, `network/ports.md`, `network/topology.md`, `servers/kuaray.md`, the target host's server doc, `services/*.md`
 - Uptime Kuma monitors, Loki/promtail targets, Prometheus scrape jobs

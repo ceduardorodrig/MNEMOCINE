@@ -52,6 +52,14 @@ ssh root@100.127.188.45
 - **Boot Hook:** Executed via `/system/etc/install-recovery.sh` on startup: initializes Wi-Fi (`wpa_supplicant`), Dropbear, `kururu-display`, `kururu-wake`, and `tailscaled`.
 - **NTP Time Synchronization:** Due to a non-functional hardware RTC, the boot hook enforces an early NTP sync before initializing network daemons, ensuring accurate log timestamps.
 
+## Metrics (HB-018, installed 2026-11-27)
+
+- **What runs:** `prometheus-node-exporter 1.8.0-r3` (apk), listening only on `100.127.188.45:9100`, and `netwatch-metrics.sh` every 15 s (targets in `/etc/homelab/netwatch-targets.conf`, textfile in `/var/lib/node-exporter/textfile`).
+- **Starter:** `/usr/local/bin/kururu-metrics` (source `provisioning/scripts/kururu-metrics` in MNEMOCINE-OPS) supervises both; log `/data/kururu-metrics.log` at boot. It runs as root because the Android kernel limits sockets.
+- **Boot:** four lines appended to the end of `/system/etc/install-recovery.sh` (`/system` remounted read-write, then read-only again). Syntax checked with `sh -n`; **not proven by a reboot**.
+- **Verified:** `wget` from the tablet returned the metrics; psicopompo and kavure are still blocked by the tailnet ACL (MNEMOCINE-ACL PR #18).
+- **Rollback:** copy `/proc/1/root/data/install-recovery.sh.prev-o1` back over the hook (remount `/system` with `busybox mount -o remount,rw /dev/block/mmcblk0p15 /proc/1/root/system`, then `ro`), kill `kururu-metrics` and `node_exporter`, `apk del prometheus-node-exporter`, remove the two scripts and the targets file.
+
 ## Known Issues
 
 - **Tailscale netfilter (HB-015, fixed 12/10):** Tailscale's health reported `adding [-i tailscale0 -j MARK …] … MARK revision 0 not supported, missing kernel module` — the Marvell 3.4.5 kernel has **no module tree and no `xt_MARK`**, so the `ts-forward` MARK rule failed. **Fix:** `tailscale set --netfilter-mode=off` (documented — disables Tailscale's netfilter management). Functionally a no-op here (the rule never applied) and it clears the health warning. ⚠️ Tailscale now warns *"configure iptables yourself"* — acceptable for this probe/WoL node (no subnet routing/NAT). Persisted in tailscaled prefs.

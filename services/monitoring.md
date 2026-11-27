@@ -1,6 +1,6 @@
 ---
 tags: [homelab, service, grafana, prometheus, loki, monitoring]
-pending: [HB-005]
+pending: []
 ---
 
 # Observability — Grafana + Prometheus + Loki
@@ -89,6 +89,7 @@ Custom metrics exported via the **textfile collector** (homelab standard — zer
 | `ContainerRestarting` | container in restarting state for 10m | warning |
 | `ContainerUnhealthy` | container whose healthcheck reports `unhealthy` for 5m (31/10/2026) | warning |
 | `ContainerFlapping` | `changes(homelab_container_started_seconds[1h]) >= 3`: crash loop or **autoheal churn** (31/10/2026) | warning |
+| `ContainerExitedNfs` | `calibre`, `navidrome` or `crafty-controller` in `exited` state for 10m (HB-100, added 2026-11-26) | warning |
 | `n8nDown` / `PrometheusDown` | scrape target unreachable | critical |
 | `NetworkCarrierDown` | physical NIC `carrier == 0` (20 s) | warning |
 | `NetworkRxErrors` | `increase(node_network_receive_errs_total[5m]) > 0` | warning |
@@ -110,9 +111,32 @@ Custom metrics exported via the **textfile collector** (homelab standard — zer
 >  
 > **False Positives Remediated (09/10/2026):** (a) `n8nDown`/`PrometheusDown` fired every 4 hours because the Prometheus `n8n` job scraped the deprecated kavure target — Miracena stack (including n8n) moved to **kuaray** on 04/10; scrape target updated to `100.94.209.99:5678` (instance relabeled `kuaray`). (b) `BackupNotRun` on scryfall-mirror was false: The rewritten `scryfall-sync` Rust binary (29/09) omitted touching the health stamp — fixed via `ExecStartPost` in the systemd unit (see [`scryfall-mirror`](scryfall-mirror.md)).
 
+> **`BackupNotRun` on kavure closed (verified 2026-11-26, HB-005):** over the previous 20 days the kavure episodes were `valheim-backup` and `monitoring-backup` (2026-11-14 to 11-17) and a short `scryfall-prefetch` one (11-15). The journals show real failures for the first two (`timeout`, `mount NFS ausente`), fixed on 11-17; no kavure episode since, and every kavure stamp was under 15 h old. The mtime of the empty stamp file is the intended indicator.
+>
+> **AdGuard probe updated on kavure (2026-11-26, HB-118f):** installed `adguard-probe.sh` from `MNEMOCINE-OPS` (previous copy `/usr/local/bin/adguard-probe.sh.prev`). With a seeded failure count of 5 and a healthy answer, the old script exported `consecutive_failures 5` and the new one `0`.
+>
+> **AdGuard probe updated again on kavure (2026-11-27, HB-118):** the PR #28 version (an undelivered alert is retried) is installed; one run `Result=success`, `homelab_adguard_probe_ok 1`. Alert delivery was not exercised live. Rollback: `/usr/local/bin/adguard-probe.sh.prev-i1`.
+>
 > **Known-and-accepted silence (2026-10-30):** `SmartDiskError` for `kuaray` `/dev/sdb` (dying HDD, already known; the host is being retired from the homelab — HB-087) is **silenced for 90 days** in Alertmanager (silence `5582a8e6-3742-48f4-a4c6-342c7b3c4d7a`, matchers `alertname`+`instance`+`device`). It is a runtime silence (not in `alertmanager.yml`), so it **expires on its own on 2027-01-28** and the alert returns if the disk is still monitored. Scoped to that one disk: temperature, `NodeDown` and backup alerts for kuaray still fire. List/remove: `curl http://100.124.146.77:9093/api/v2/silences` · `DELETE /api/v2/silence/<id>`.
 >
 > **Known-and-accepted silence (2026-11-17):** `SmartDiskError` for `psicopompo` `/dev/sdf` (`EXPANSION-2TB` `ST2000LM007-1R8174`, serial `ZDZ6D6X9`, unmounted external USB dying since HB-001 with 25,320 reallocated / 32 pending / 32 uncorrectable sectors) is **silenced for 30 days** (`720h`, silence `89fae8ed-3550-4a6e-bb39-936cfe66f788`, expires `2026-12-17`) until physically unplugged. Scoped strictly to `device="/dev/sdf"`; internal disks (`sda`, `sdb`, `sdc`) remain active.
+
+## Fundamental Services and Off-Host Probes
+
+The block below is read by the Stenio rule `FUNDAMENTAL-NO-OFFHOST-PROBE` (GB-232; engine PR pending, the released binary does not read it yet). It records what is installed, read on kavure on 2026-11-27 (`/usr/local/bin/adguard-probe.sh`, lines 25-28; `hl-adguard-probe.timer` active). The alert URL of the probe points at ntfy on **ybytu**, the host of the watched service, so the alert path is not independent and the rule reports it until that changes.
+
+```toml stenio-fundamental
+fundamental = ["adguardhome"]
+
+[[probe]]
+service = "adguardhome"
+service_host = "ybytu"
+probe_host = "kavure"
+port = 53
+query = "doubleclick.net"
+expect = "0.0.0.0"
+alert_host = "ybytu"
+```
 
 ## Long-Term Retention & Recording Rules (12/09)
 

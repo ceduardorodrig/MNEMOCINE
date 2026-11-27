@@ -1,6 +1,6 @@
 ---
 tags: [homelab, env, sops, backup, secrets]
-pending: [HB-026, HB-051, HB-072, HB-103, HB-115]
+pending: [HB-026, HB-051, HB-103, HB-115]
 ---
 
 # Centralized Secrets Management (.env) with SOPS/age
@@ -108,6 +108,7 @@ Credentials in structured configurations (XML, JSON, YAML) are backed up inside 
 - **Uptime Kuma / AdGuard** (ybytu) — Passwords stored as irreversible bcrypt/sha hashes in databases/configs; recovered via password resets if needed.
 
 > **Helper Usage:** `inject-secrets.sh` (supports dry-run: `--dry-run`) injects credentials into target configurations while retaining `.bak` backups. It is executed strictly during recovery drills.
+> Since 2026-11-27 the versioned form is `provisioning/scripts/inject-secrets [--dry-run] [--host NAME]` in the private repository `MNEMOCINE-OPS` (PR #30): values travel on the stdin of `bash -s`, with no `/tmp` payload file on the target (the old pair wrote one). Verified with a synthetic test and a dry run on `psicopompo`; not yet run against remote hosts.
 
 ## Oracle Cloud (OCI) API Key Integration (2026-10-08)
 
@@ -119,6 +120,37 @@ Oracle Cloud VMs (`ybytu`, `ybyra`) are managed via API directly from the termin
 ```
 
 ## Secret Hygiene Findings (HB-051) — 2026-10-13
+
+> **Verified 2026-11-26 (names and permissions only, no values) — supersedes parts of (a) and (c) below.**
+> - **(a)** `docker service inspect sae-edge_tunnel` (and `-standby`) on kavure lists the variable
+>   `TS_EDGE_AUTH_KEY`, no `TS_AUTH_KEY`/`TS_AUTHKEY`, and no Docker secret. The official image reads only
+>   `TS_AUTHKEY` or `TS_AUTH_KEY`
+>   ([containerboot](https://github.com/tailscale/tailscale/blob/main/cmd/containerboot/main.go)), so since the
+>   2026-10-13 rename the value is **exposed in the spec and never consumed**: a tunnel with empty or logged-out
+>   state cannot authenticate by itself (affects a rebuild and possibly the failover standby; failover not tested).
+>   Fix in [SUMAENIMA-HUB PR #83](https://github.com/ceduardorodrig/SUMAENIMA-HUB/pull/83) (Docker secret through
+>   `TS_AUTHKEY=file:`, `TS_AUTH_ONCE=true`, repository gate) — **not merged, not deployed**.
+> - **(c)** kuaray `~/.ssh/authorized_keys` has two entries: the current key and **one** stale `edu@Psicopompo`
+>   (`SHA256:GLg5fhcl…`); the duplicate is gone. The stale entry was not removed.
+> - **HB-103 permissions:** kavure `/srv/data/sumaenimahub/SUMAENIMA-HUB/.env` is `0640 kavure:1001`; kavure has
+>   no user or group named for id 1001, and one `python3` process runs with that id (whether it can reach the
+>   file: not verified). ybytu `homelab/homepage/docker-compose.yml` is `0664 ubuntu:ubuntu` (group of the owner
+>   only) and a literal-secret pattern matched nothing in it. Neither was changed.
+>
+> **Applied 2026-11-27 (owner approved) — supersedes (c) and the HB-103 bullet above.**
+> - **(c)** the stale `edu@Psicopompo` entry on kuaray is **commented out**, not deleted. Before and after,
+>   OpenSSH on kuaray (reached on its loopback through Tailscale SSH) answered `Server accepts key` for the
+>   current key, and Tailscale SSH still logs in. A full OpenSSH login was not made (the key has a
+>   passphrase). Rollback: `cp -p ~/.ssh/authorized_keys.prev-o1 ~/.ssh/authorized_keys` on kuaray.
+> - **HB-103:** the id 1001 on the kavure `.env` is **in use**: the `sae-core_backup` container runs as
+>   `appuser` (1001:1001), mounts that file read-only at `/app/.env`, and its group bit is its only read
+>   access. `0640 kavure:1001` is therefore kept; `chgrp kavure` plus `chmod 600` would cut the backup off.
+>   No user or group of the host has id 1001. The ybytu compose file is now `0644`
+>   (rollback: `chmod 664`).
+> - **HB-115:** the `OPENAI_API_KEY` line was removed from `~/.hermes/.env` on psicopompo (it held the
+>   OpenCode Go key under a second name; no `OPENAI_BASE_URL`, and the store has no such key). Hermes
+>   `stt` has no explicit provider, so the `openai`/`whisper-1` block is only a fallback and now has no key.
+>   Rollback: `~/.hermes/.env.prev-o1` (mode 0600, remove once validated).
 
 Reconnaissance recorded three secret-hygiene gaps. The previous platform's token is remediated here; the
 `TS_AUTH_KEY` was rotated the same day, but the replacement value was then exposed in a chat
@@ -296,6 +328,12 @@ Sensitive configuration files must strictly enforce permissions `0600` (read/wri
 ---
 
 ## ⚠️ The `.sops.yaml` mirror in the `MNEMOCINE` git repo is **frozen** (2026-10-13, HB-072)
+
+> **✅ Resolved — verified 2026-11-26.** The unified `homelab-docs-sync` rsyncs the whole `mnemocine/` tree
+> (its excludes do not match `.sops.yaml`), so the mirror follows the vault daily: `cmp` of both copies is
+> identical, both list 2 recipients, the store has 2 `sops_age__list_N__map_recipient` entries, and mirror commit
+> `a972b58` (2026-11-23) changed `.sops.yaml` automatically. The text below is the 2026-10-13 history. A vault
+> change reaches the mirror at the next 04:45 run, and encrypt runs still belong in `mnemocine/`.
 
 `/mnt/NVME_PCI/homelab/mnemocine/.sops.yaml` (repo `ceduardorodrig/MNEMOCINE`, fed from the vault by
 the `docs(homelab): auto-sync documentation updates` job) holds a **second copy of the encryption

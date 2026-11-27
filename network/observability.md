@@ -58,6 +58,14 @@ One line per probe, `"<segment> <host-or-ip>"`; versioned templates in
 | **ybytu** (external witness) | `gateway`, `internet_{cloudflare,google}`, `home_{kavure,psicopompo}_tailnet`, `tailnet_ybyra` |
 
 > **Coverage:** the collector runs on every node with **node_exporter** (5 of 6). **`kururu`** has neither node_exporter nor systemd → not covered yet (HB-018).
+>
+> **Surveyed 2026-11-26:** Alpine 3.20.3 armv7, `crond` available, `prometheus-node-exporter 1.8.0-r3` in the community repository (not installed), interface `mlan0`, no `bash`. MNEMOCINE-OPS PR #28 makes the collector parse busybox `ping` and adds `netwatch-targets-kururu.conf`. Still needed, with the owner's approval: install on the host, an ACL grant `tag:server` → `100.127.188.45:9100`, and a Prometheus scrape target.
+>
+> **Installed 2026-11-27:** the PR #28 collector is on psicopompo, kavure, kuaray, ybytu and ybyra (checksum equal to the repo, one successful run each). Rollback per host: `netwatch-metrics.sh.prev-i1` in `/usr/local/bin`.
+>
+> **kururu, 2026-11-27:** node_exporter and the collector run on it ([`../servers/kururu.md`](../servers/kururu.md#metrics-hb-018-installed-2026-11-27)), but Prometheus does **not** scrape it yet: the ACL grant is [MNEMOCINE-ACL PR #18](https://github.com/ceduardorodrig/MNEMOCINE-ACL/pull/18), awaiting merge. Add the target `100.127.188.45:9100` to `/srv/data/monitoring/prometheus/prometheus.yml` on kavure only **after** the merge, or `NodeDown` fires.
+>
+> **Known defect (verified 2026-11-26):** `homelab_net_ping_rtt_seconds` carries the value in **milliseconds** (kavure gateway reads `0.317` for a sub-millisecond LAN ping).
 
 > **To adapt to a new ISP / router / house:** edit the `gateway`/`internet_*` lines. To add a
 > node, append `tailnet_<name>`. Nothing else changes — the dashboard and alerts are

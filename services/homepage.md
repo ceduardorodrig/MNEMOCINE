@@ -1,6 +1,5 @@
 ---
 tags: [homelab, service, homepage, monitoring]
-pending: [HB-069]
 ---
 
 # Homepage
@@ -28,16 +27,15 @@ Central homelab dashboard — aggregates links, live metrics, and real-time heal
 
 ## Configuration
 
-Homepage utilizes YAML files located in `/app/config/` (host: `/home/ubuntu/homelab/homepage/config/`).
+Homepage utilizes YAML files located in `/app/config/` (host: `/srv/data/homepage/config/` on kavure).
 
-> ⚠️ **Governance gap (13/10/2026) — the config has no repository copy.** `services.yaml`,
-> `docker.yaml`, `settings.yaml`, `bookmarks.yaml` and `widgets.yaml` live **only on ybytu** under
-> `/home/ubuntu/homelab/homepage/`: there is **no** copy in `MNEMOCINE-OPS`, `sumaenimahub` or
-> `/mnt/NVME_PCI/homelab`, and the compose is **not** mirrored by `config-backup` to the NAS. Every
-> backup is the local `services.yaml.bak-YYYYMMDD-<slug>` the operator takes before editing — the vault
-> then documents the change, but the machine-readable source is single-homed. The house rule
-> (`mnemocine/AGENTS.md` *Config-as-Code*) expects a versioned source; a change here is applied on the
-> host and then **documented** in this note. Mitigate it as tracked in **[HB-069](../backlog.md)**.
+> **Copies of the config (verified 2026-11-26, closes HB-069).** `config-backup` on kavure has `/srv/data`
+> in `SRC_DIRS`, so `compose.yml` and the YAML files are mirrored daily to
+> `/mnt/BACKUP/configs-homelab/kavure/data/homepage/` and pushed to the private repo `MNEMOCINE-CONFIGS`.
+> `compose.yml`, `services.yaml`, `docker.yaml`, `settings.yaml`, `bookmarks.yaml` and `widgets.yaml` were
+> identical live and on the NAS (sha256), and the NAS files matched GitHub (blob ids). The 2026-10-13 claim that
+> no copy existed was already wrong for the former ybytu path, which is mirrored too (`ybytu/homelab/homepage/`,
+> a pre-migration leftover). Changes are still applied on the host and then documented here.
 
 Configuration files:
 - `docker.yaml` — Connected Docker daemon instances (automatic up/down container status)

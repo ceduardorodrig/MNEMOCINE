@@ -48,6 +48,7 @@ docker service scale sae-edge_proxy=0 sae-edge_tunnel=0 sae-edge_umami=0
 **Operational Nuances:**
 - Standby registers node **`sumaenima-1`** (canonical name `sumaenima` belongs to primary) → **public URL drifts** during failover. For primary to reclaim canonical hostname, **purge obsolete `sumaenima*` nodes** in Tailscale admin console prior to launching tunnel.
 - Standby requires a **valid, unexpired Tailscale auth key** (see [`network/tailscale.md`](../network/tailscale.md)).
+- ⚠️ **Verified 2026-11-26:** the running tunnels receive the key as `TS_EDGE_AUTH_KEY`, a name the Tailscale image does not read, so a tunnel without logged-in state will not authenticate on its own. Fix pending merge and deploy: [SUMAENIMA-HUB PR #83](https://github.com/ceduardorodrig/SUMAENIMA-HUB/pull/83). Evidence: [`guides/secrets-centralizados.md`](../guides/secrets-centralizados.md) (HB-051).
 - Registered tunnel nodes are not ephemeral by default → purge via Tailscale console after drills (or generate ephemeral auth keys).
 - **Tailnet tag (2026-10-13):** the `sumaenima` Funnel node carries **`tag:edge`** — the tag allowed to open a public Funnel (`nodeAttrs`). `TS_AUTH_KEY` was **rotated** the same day and the running key matches the SOPS store, though a second rotation is recommended (value exposed in chat). See [`guides/tailnet-tagging.md`](../guides/tailnet-tagging.md) and [`guides/secrets-centralizados.md`](../guides/secrets-centralizados.md).
 

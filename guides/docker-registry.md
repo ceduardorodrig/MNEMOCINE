@@ -131,6 +131,8 @@ TimeoutStopSec=60s
 
 Applied via `sudo systemctl daemon-reload`. Matches the drop-in timeout pattern established on kavure in `nfs-ordering.conf`.
 
+> **Correction (verified 2026-11-26):** "all nodes" does not hold for **kuaray**, which is not a Swarm node and has no `timeout.conf` (`TimeoutStopUSec=10s`). That gap caused the 2026-11-17 outage; see [`../servers/kuaray.md`](../servers/kuaray.md). The other hosts were not re-checked on this date.
+
 **Manual Recovery Commands:**
 
 ```console

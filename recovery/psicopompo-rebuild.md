@@ -1,6 +1,6 @@
 ---
 tags: [homelab, recovery, checklist, backup, psicopompo, sops, swarm, docker, tailscale, storage, server]
-pending: [HB-104]
+pending: [HB-065]
 ---
 
 # psicopompo — From-Zero Rebuild Runbook
@@ -9,8 +9,13 @@ pending: [HB-104]
 > counterpart of the dependency matrix in [`psicopompo-loss.md`](psicopompo-loss.md) (the *what stops,
 > what survives* analysis) and fills the §3 sketch of [`disaster-recovery.md`](disaster-recovery.md).
 > Drafted **2026-10-30** (closes the documentation half of HB-065). Both documented gaps were closed
-> **2026-11-03** with live data: the storage/`fstab` layout (§2.1) and whether the tool installer
-> handles the systemd units (§2.6 — it does not).
+> **2026-11-03** with live data: the storage/`fstab` layout (§2.1) and the systemd units (§2.6 — installed by
+> the same installer with `--units` since MNEMOCINE-OPS PR #24/#25).
+>
+> **Paper verification 2026-11-26 (read-only on the live host, not a rebuild):** the §2.1 UUIDs match
+> `/etc/fstab`; the five §3 health stamps are dated 2026-11-26; the SOPS store decrypts; `nfs-server`, `docker`
+> and `hl-infer` are enabled; `daemon.json` has no `live-restore`. Two defects found: the §2.3 export list was
+> incomplete (fixed) and `inject-secrets.sh` had no backup (fixed 2026-11-27, §2.4).
 >
 > **Status of this document: written from the documented design and read-only inspection of the
 > live host; it has never been executed end to end.** Steps marked **⚠️ unverified** have not been
@@ -90,7 +95,7 @@ with `blkid` instead of copying the one above.
 
 ### 2.3 NFS exports
 
-1. Restore `/etc/exports` (from `configs-homelab/psicopompo` or the etckeeper repo). It must contain the media, `sumaenima-server-kavure`, `zomboid-server-kavure`, `minecraft-server-kavure`, `n8n-server-kavure` and `configs-homelab` exports, scoped to the two tailnet IPs above.
+1. Restore `/etc/exports` (from `configs-homelab/psicopompo` or the etckeeper repo). The NAS mirror copy is `configs-homelab/psicopompo/golden/etc/exports`. Live set on 2026-11-26 (`exportfs -s`): `/mnt/BACKUP/{media/music,media/books,configs-homelab,repos/git}`, `/mnt/BACKUP/{sumaenima,zomboid,minecraft,n8n,valheim,monitoring,miracena}-server-kavure` and `/mnt/SSD_SATA/scryfall-mirror`, scoped to tailnet addresses.
 2. `sudo exportfs -arv`, then `sudo systemctl enable --now nfs-server`.
 3. Client mounts must keep `soft` (never `hard` — see [`../AGENTS.md`](../AGENTS.md)). Verify from kavure/kuaray: `findmnt -n -o FSTYPE /mnt/nas | rg nfs`.
 
@@ -99,14 +104,14 @@ with `blkid` instead of copying the one above.
 1. On a host holding an age key (kavure, or the cold copy), decrypt the store and confirm it opens: `sops -d mnemocine/secrets.enc.env >/dev/null && echo OK` (never print the output).
 2. Place the age key on the rebuilt psicopompo at `~/.config/sops/age/keys.txt` (`0600`, owner `edu`) **only if** you intend psicopompo to be a recipient again; otherwise keep decrypting from kavure and re-add psicopompo's new key as a recipient later.
 3. If the psicopompo recipient changed, update **both** copies of the rules and verify the recipient count, per [`../guides/secrets-centralizados.md`](../guides/secrets-centralizados.md) (HB-072).
-4. Run `inject-secrets.sh` to repopulate per-service `.env` files.
+4. Repopulate per-service credentials with `provisioning/scripts/inject-secrets --dry-run`, then without the flag, from a clone of the private repository `MNEMOCINE-OPS` (versioned 2026-11-27, PR #30, tested with synthetic data; remote hosts not yet exercised). It needs `sops`, the age key and SSH to the targets. The older copies `/mnt/NVME_PCI/secrets/inject-secrets.{sh,py}` remain on the NVMe disk only. Fallback by hand: the table in [`../guides/secrets-centralizados.md`](../guides/secrets-centralizados.md).
 
 ### 2.5 Docker and Swarm
 
 1. Install Docker; **do not** set `"live-restore": true` (breaks Swarm — [`../AGENTS.md`](../AGENTS.md)).
 2. On **kavure** (manager): remove the dead worker entry — `docker node rm Psicopompo` — then rejoin the rebuilt host with the worker join token (`docker swarm join-token worker` on the manager).
 3. Re-label the node `role=gpu` (the GPU services are constrained by that label).
-4. Restore the compose projects to `/home/edu/homelab/*/` from the NAS mirror or the private `mnemocine` git repo, then `docker compose up -d` per project. The private registry (`registry:3`, port 5000) is the image source for Swarm deploys, so bring it up first.
+4. Restore the compose projects to `/home/edu/homelab/*/` from the NAS mirror or the private `MNEMOCINE-CONFIGS` git repo (`MNEMOCINE` is the public documentation repo), then `docker compose up -d` per project. The private registry (`registry:3`, port 5000) is the image source for Swarm deploys, so bring it up first.
 
 ### 2.6 Operational layer — `MNEMOCINE-OPS`
 
@@ -120,34 +125,25 @@ cd ~/homelab/mnemocine-ops/provisioning/scripts
 ./install-homelab-tools.sh --all       # install the tools (Rust tools are compiled on psicopompo, the build node)
 ```
 
-Then install the **systemd units** — the tool installer does not do it. **Verified 2026-11-03** by
-reading `install-homelab-tools.sh` in the repository: it distributes the operation tools to
-`/usr/local/bin` (and compiles the Rust ones on psicopompo, the build node, ADR-026) and contains
-no systemd handling at all. The units are a manual copy:
+Then install the **systemd units** with the same installer (`--units`, MNEMOCINE-OPS PR #24; the
+timer set per host is `HOST_TIMERS` inside the script):
 
 ```bash
-sudo cp ~/homelab/mnemocine-ops/provisioning/systemd/*.service \
-        ~/homelab/mnemocine-ops/provisioning/systemd/*.timer /etc/systemd/system/
-sudo systemctl daemon-reload
-sudo systemctl enable --now \
-  hl-access-audit.timer hl-agentic-ai-backup.timer hl-arandu-sync.timer \
-  hl-arm-hunt.timer hl-arm-hunt-watchdog.timer hl-backlog-report.timer \
-  hl-ceduardorodrig-docs-sync.timer hl-config-backup.timer hl-configs-git-push.timer \
-  hl-container-check.timer hl-container-metrics.timer hl-docker-prune.timer \
-  hl-etckeeper-push.timer hl-health-metrics.timer hl-hygiene.timer \
-  hl-mnemocine-docs-sync.timer hl-netwatch-metrics.timer \
-  hl-rclone-gdrive-backup.timer hl-restic-configs-backup.timer \
-  hl-restic-configs-check.timer hl-smart-metrics.timer
+./install-homelab-tools.sh --host psicopompo --units     # run it after --all
 ```
 
-Counts on the live host (2026-11-03): **52** `hl-*` unit files in `/etc/systemd/system` and **21**
-enabled `hl-*.timer` — exactly the list above. The repository holds **75** unit files: the
-difference belongs to kavure, kuaray and the edge nodes, so copying `*` is safe (a unit for another
-host simply never activates here) but do not enable timers you did not have enabled before.
+It copies every `provisioning/systemd/*.{service,timer}`, runs `daemon-reload` and enables the
+host's timers. A unit that already exists with other content is kept and reported as `DIFFERS`
+(exit 1); read the difference before using `--force-units`, which saves `<unit>.bak-<time>` first.
+PR #25 (merged 2026-11-26) added the psicopompo drop-ins (`provisioning/systemd/hosts/psicopompo/`),
+versioned `hl-access-audit` and `hl-docker-prune` and added `hl-dnat-audit`: `HOST_TIMERS[psicopompo]`
+lists 23 timers. Reconciled on 2026-11-27: `--units --force-units` overwrote four reviewed units (backups
+`.bak-20261127022849` and `.prev-i1`), enabled `hl-dnat-audit.timer`, and a second `--units` run reported
+`PASS unchanged=90 differs=0 timers=23`.
 
-> **Gap closed by this section:** `install-homelab-tools.sh` installing the units was an open
-> question. It does not. A `--units` mode in the installer would remove 25 lines from this runbook —
-> tracked as HB-104.
+Not covered by the installer: the drop-in `hl-arandu-sync.service.d/hub-repo.conf` (points at the
+Arandu source clone) and `hl-wol-relay.service`, which belongs to `KURURU-TAB3LITE-LINUX`.
+`hl-infer.service` is installed but must be enabled by hand (it is a service, not a timer).
 
 ## 3. Restarting the backup circuit — strict order
 
@@ -184,7 +180,8 @@ Run these from **another host** where possible (test as the end user — [`../..
 | Gap | Tracked as |
 |---|---|
 | ~~Btrfs subvolume layout and `fstab` of psicopompo are not recorded in the vault~~ — **closed 2026-11-03**: §2.1 records the verified layout | — |
-| ~~Whether `install-homelab-tools.sh` installs/enables the units~~ — **closed 2026-11-03**: it does not; §2.6 carries the manual copy and the 21 timers | HB-104 (`--units` mode) |
+| ~~Whether `install-homelab-tools.sh` installs/enables the units~~ — **closed 2026-11-03**: `--units` installs them (§2.6, MNEMOCINE-OPS PR #24/#25) | — |
+| ~~`inject-secrets.sh` (and its `.py`) unversioned and not mirrored~~ — **closed 2026-11-27**: ported to `MNEMOCINE-OPS` `provisioning/scripts/inject-secrets` (§2.4); never exercised against remote hosts | HB-065 |
 | No second, independent freshness witness for the off-site pipeline | HB-066 |
 | No failover for the NFS exports (rebuild is the only path) | HB-067 |
 | **The runbook was never executed** — the only remaining blocker to closing HB-065 | run it in a recovery drill |

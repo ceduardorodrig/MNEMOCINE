@@ -185,7 +185,12 @@ sudo ufw allow from 172.16.0.0/12 to any port 9100 proto tcp comment 'container-
   172.16.0.0/12 … -j RETURN`), so it does **not** filter this — verified after the fix: `soularr`
   (kuaray, default bridge) reached `192.168.3.1:80` (the ISP router's web UI), a
   **lateral-movement path** kept open for container **egress** (downloads/HTTP). Whether to keep
-  or close it is a **design decision** for the owner (tracked as **HB-059**).
+  or close it is a **design decision** for the owner (tracked as **HB-059**). **Verified 2026-11-26 on
+  kavure (read-only):** `docker exec calibre` and `docker exec navidrome` (HTTP GET to
+  `192.168.3.1`) both returned `200`; `iptables -S DOCKER-USER` still has `-s 172.16.0.0/12 -j RETURN`.
+  kuaray was not probed that day. A "close" variant would need a `NEW` drop for
+  `-s 172.16.0.0/12 -d 192.168.3.0/24` placed **before** that `RETURN`, after listing the containers
+  that legitimately reach LAN addresses (including a LAN DNS upstream); not applied, not tested.
 - **Why not move the `*arr` to a user-defined network and use service names?** That is the
   Docker-idiomatic pattern for *container↔container*, and it would also dodge the `! -i docker0`
   guard — but it **cannot** fix a `network_mode: host` service (there is no container name to

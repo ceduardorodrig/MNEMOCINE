@@ -119,10 +119,9 @@ Standby mirror / media + **Miracena** client stack. **Standalone Docker — not 
 | service | what it does (1 line) | how | port(s) + bind | why it exists | who depends on it | owner |
 |---|---|---|---|---|---|---|
 | miracena-wordpress | WordPress content engine (historical: retired 2026-10-31) | container | `100.94.209.99:8085` | Miracena public site (historical) | miracena-tunnel (Funnel, disabled) | edu · Miracena |
-
 | miracena-n8n | Workflow automation (Miracena) | container | `100.94.209.99:5678` | Miracena automations | owner | edu · Miracena |
 | miracena-nginx-proxy-manager | Reverse proxy + SSL manager | container | `100.94.209.99:81`, `8180`, `8445` | ingress for the Miracena stack | Miracena services | edu · Miracena |
-| miracena-tunnel | Tailscale Funnel ingress (historical: disabled since 2026-10-29, compose profile `tunnel`; reopening planned, HB-091) | container | HTTPS 443 (Funnel), when enabled | public URL for Miracena (historical) | none while disabled | edu · Miracena |
+| miracena-tunnel | Tailscale Funnel ingress (active since 2026-11-05, verified 2026-11-26; compose profile `tunnel`) | container | HTTPS 443 (Funnel) | public URL for the Miracena platform (`miracena.chimaera-heptatonic.ts.net`) | miracena-nginx-proxy-manager | edu · Miracena |
 | miracena-postgres / -mariadb | X container | internal `5432` / `3306` | state | WordPress, n8n | edu · Miracena |
 | transmission | BitTorrent client | container | `0.0.0.0:9091`, `51413` | download engine | prowlarr/lidarr pipelines | edu |
 | prowlarr | Indexer proxy manager | container | `0.0.0.0:9696` | central indexer hub | lidarr | edu |

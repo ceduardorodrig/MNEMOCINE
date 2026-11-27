@@ -24,6 +24,23 @@ pending: [HB-061]
 > [`acl-lockout-audit.md`](acl-lockout-audit.md) §6, [`ufw-lan-runbook.md`](ufw-lan-runbook.md)
 > §3.1/§3.2 and [`../network/ports.md`](../network/ports.md) §5.
 
+## State on 2026-11-26 (verified)
+
+| # | State | Evidence |
+|---|---|---|
+| D1 | **Closed 2026-11-27** — (ii) keep `:9092` closed | `acl-lockout-audit.md` §4.1/§6; decision below |
+| D2 | **Open — needs the live browser probe** | `acl-lockout-audit.md` §6 |
+| D3 | **Closed 2026-11-27** — (i) mDNS stays LAN-only | `ufw-lan-runbook.md` §3.1; decision below |
+| D4 | **Open — owner**, tracked by HB-059 (open) | `backlog.md` |
+| D5 | **Closed** — both PRs merged 2026-10-13 | `gh pr view 48`/`49` on `SUMAENIMA-HUB` → `MERGED` |
+| D6 | Closed 2026-11-03 | HB-060 (archive) |
+| D7 | **Closed** — released | `git tag --contains 757e434` → `v4.11.0` onwards |
+| D8 | **Closed** — risk accepted, no second rotation (owner, 2026-10-13) | `secrets-centralizados.md` §(a) |
+| D9 | Closed — HB-047 resolved 2026-10-13 | `backlog-archive.md` |
+| D10 | Closed — HB-013 done | `backlog-archive.md` |
+
+The per-decision sections below keep the 2026-10-13 text.
+
 ## Summary
 
 | # | Decision | Kind | Owner cost | Reference |
@@ -65,7 +82,8 @@ ingress — infra, runbook §3 … the tile status already works via grant (5)"*
 
 **(c) Candidate recommendation.** Keep closed (ii) **unless the owner actually clicks through**;
 if he does, prefer (iii) over (i) — it gives the click without adding ingress reachability.
-**Decision:** _open — owner to decide (date: ____, why: ____)._
+**Decision:** **(ii) keep closed** (date: 2026-11-27, applied under the owner's blanket approval of
+that day; why: least privilege, the tile status already works, nothing changes). Reversible: one grant.
 
 **(d) Official source to consult first.**
 [Docker — *Use swarm mode routing mesh*](https://docs.docker.com/engine/swarm/ingress/) (ingress
@@ -116,7 +134,9 @@ multicast discovery, not a tailnet path"*); the port is listed as a **LAN except
 | **(ii)** Try to make discovery work over the tailnet | Would need a unicast/advertise mechanism the protocol does not offer by default; added complexity for a convenience feature. |
 
 **(c) Candidate recommendation.** Confirm (i): leave mDNS on the LAN and document that tailnet
-clients reach Punktfunk by IP. **Decision:** _open — owner to confirm (date: ____, why: ____)._
+clients reach Punktfunk by IP. **Decision:** **(i) mDNS stays LAN-only** (date: 2026-11-27, applied
+under the owner's blanket approval of that day; why: mDNS is link-local, tailnet clients use the IP,
+no change on any host).
 
 **(d) Official source to consult first.**
 [RFC 6762 — Multicast DNS](https://datatracker.ietf.org/doc/html/rfc6762) (mDNS is link-local) and

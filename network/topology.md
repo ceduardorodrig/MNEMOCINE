@@ -1,6 +1,6 @@
 ---
 tags: [homelab, network, tailscale, docker, storage, env]
-pending: [HB-123]
+pending: []
 ---
 
 # Network Topology
@@ -94,6 +94,12 @@ Internet → ISP Router (192.168.3.1) ⇄ IT-BLUE LE-4203 Switch ⇄ { psicopomp
 | Raw LAN Download Throughput (1 GiB test payload) | **102 MiB/s ≈ 858 Mbps** |
 | **Conclusion** | **✅ Full Gigabit Confirmed** (93% saturation of theoretical line rate) |
 
+## Gateway and spare network hardware
+
+- **Gateway authority:** `192.168.3.1` is the Huawei `WS7001-40` (WiFi AX2). Verified 2026-11-26: the TLS certificate on `192.168.3.1:443` returns `O=Huawei Technologies Co., Ltd, OU=MBB&HOME, CN=mediarouter.home` (the model name comes from the 2026-10-10 router debug export). This section is the single place that names the model.
+- **Spare, not in service:** MitraStar `DSL-100HN-T1-NV` (ADSL2+, Vivo, 2015). Per the 2026-11-12 evaluation (HB-123; not re-verified since): no OpenWrt/DD-WRT port, and root only through CVE-2017-16522 / CVE-2017-16523 on firmware `ES_113WJY0b16`. Use it at most as a bench unit for UART and flash work.
+- **Rule:** it must not join the flat `192.168.3.0/24` as an access point before VLAN 20 exists ([`move-plan.md`](move-plan.md)): `kururu` needs that broadcast domain for Wake-on-LAN (`hl-wol-relay`, `:9096`) and the Tuya bulbs already share it unsegmented.
+
 ## IP Address Allocation Table
 
 | Hostname | Tailscale IP (Primary Canonical) | LAN IP (Physical / Fallback) | Physical Interface |
@@ -147,7 +153,7 @@ Internet → ISP Router (192.168.3.1) ⇄ IT-BLUE LE-4203 Switch ⇄ { psicopomp
 | Storage Pool | Block Device | Filesystem | Mountpoint | Capacity | Allocation |
 |---|---|---|---|---|---|
 | System SSD | `/dev/sda2` | Ext4 | `/` | 224 GB | Base OS and local containers |
-| Storage HDD | `/dev/sdb1` | Ext4 | `/mnt/storage` | 932 GB | Inactive media files and torrent staging |
+| Storage HDD | `/dev/sdb1` | Ext4 | `/mnt/storage` | 932 GB | Inactive media files and torrent staging (**not mounted**, verified 2026-11-26: see [`../servers/kuaray.md`](../servers/kuaray.md)) |
 
 ### Kavure — Core Services Server
 | Storage Pool | Block Device | Filesystem | Mountpoint | Capacity | Allocation |

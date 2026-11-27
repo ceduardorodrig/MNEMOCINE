@@ -1,6 +1,6 @@
 ---
 tags: [homelab, server, kavure, docker, storage, gaming, todo]
-pending: [HB-100]
+pending: []
 ---
 
 # kavure
@@ -110,3 +110,5 @@ decryptable if `psicopompo` is lost — DR "Rota A" (detail in
 - [`services/unbound.md`](../services/unbound.md) — Recursive local DNS resolver
 
 > **2026-11-02 note:** on 2026-11-01 around 02:46 UTC `calibre`, `navidrome` and `crafty-controller` stopped with exit 128 (`error mounting /srv/data/media/books ... no such device`): they were started while the NFS exports from psicopompo (`/mnt/BACKUP/media/books` and `music`, automount in fstab) were not available. The mounts were healthy again on 2026-11-02 and the three containers were started with `docker start` (no recreate). To prevent a repeat, give the containers a start dependency on the mounts (for example `restart: unless-stopped` plus a check in the compose `depends_on` wrapper or a systemd drop-in that waits for the automount), tracked in HB-100.
+
+> **2026-11-26 (HB-100):** the alert `ContainerExitedNfs` is live in Prometheus (these three containers `exited` for 10m, severity warning; rollback copy `/srv/data/monitoring/prometheus/alerts.yml.bak-20261126-205203-hb100`, tested with `promtool test rules`). The recovery actor `nfs-container-recover` + `hl-nfs-container-recover.timer` comes from [MNEMOCINE-OPS PR #26](https://github.com/ceduardorodrig/MNEMOCINE-OPS/pull/26), merged and **installed 2026-11-27**. A docker.service dependency on the mounts was rejected: it would hold every container down while one export is unreachable. A Docker restart policy does not retry a container that never started ([Docker docs](https://docs.docker.com/engine/containers/start-containers-automatically/)). Verified after the install: service `Result=success`, timer every 2 min, the three containers healthy and no container qualifying for a start (a live NFS failure was not provoked). `--units` also copied 40 unit files left disabled and kept 12 `DIFFERS` units untouched. Rollback: `sudo systemctl disable --now hl-nfs-container-recover.timer`.

@@ -1,6 +1,6 @@
 ---
 tags: [homelab, service, gpu, psicopompo]
-pending: [HB-102]
+pending: []
 ---
 
 # hl-infer (GPU Inference Gateway)
@@ -104,6 +104,15 @@ Live run against the RTX 5050 (8.55 GB total, 2.4 GB in use by the owner at the 
 | release of an unknown id | `404` |
 | **resident lease + renew** (the pattern a long-lived consumer such as StênioREC uses) | `transcribe` lease admitted with a TTL, reservation visible in `effective_free_bytes`, `renew` extends it, `release` returns the reservation |
 | **centralized wait** | a fitting job answers `201 admitted` in ~24 ms; an oversized job with `?wait_secs=5` blocks ~6 s and answers `202 queued` |
+
+## Ollama runner attribution — verified 2026-11-26 (HB-102)
+
+The `llama-server` runner is attributed to `ollama` (by `ollama.service` cgroup or an `ollama`
+ancestor; `MNEMOCINE-OPS` `3287b84`), so a lease labelled `ollama` or `ollama:<model>` covers it.
+Installed on psicopompo 2026-11-26 (previous binary kept at `/usr/local/bin/hl-infer.prev`; `cargo
+test`: 41 passed). Live proof with `gemma4:e2b` loaded: with lease `job-000001`, `llama-server` was
+`managed`, owner `ollama`, `unmanaged: 0`, `hl-infer audit` exit 0; after releasing the lease with the
+model still loaded, `unmanaged: 1`, exit 1; then the model was unloaded.
 
 ## Enforcement
 

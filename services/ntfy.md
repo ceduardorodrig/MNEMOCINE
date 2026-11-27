@@ -50,7 +50,7 @@ services:
 
 > **Topic contract & priority rules:** see [`notification-methodology.md`](../guides/notification-methodology.md) (priority = Android channel, anti-flap, who may publish where).
 
-> **Unauthenticated Topics:** Any node on the tailnet can publish/subscribe. ntfy is **private to the tailnet** (bound to `0.0.0.0` but the host firewall/routing only exposes it across the tailnet). Consider provisioning a `server.yml` with authentication if further isolation is required.
+> **Unauthenticated Topics:** Any node on the tailnet can publish/subscribe. ntfy is **private to the tailnet** (published only on the tailnet address `100.115.253.109:8083`, HB-047; verified 2026-11-27 in the mirrored compose `ybytu/homelab/ntfy/compose.yml`). Consider provisioning a `server.yml` with authentication if further isolation is required.
 
 ## Integrations
 

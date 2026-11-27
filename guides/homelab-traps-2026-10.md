@@ -1,6 +1,6 @@
 ---
 tags: [homelab, network, tailscale, dns, docker, tutorial]
-pending: [HB-071]
+pending: []
 ---
 
 # Homelab Traps — Field Notes from 2026-10-13
@@ -362,6 +362,16 @@ problem. The same host had a second zombie on `:8083` (`→ 172.17.0.9:80`, also
      `sudo cp /etc/iptables/rules.v4 /etc/iptables/rules.v4.bak && sudo netfilter-persistent save`.
   4. **Fleet re-audit (2026-10-19):** After purging `ybytu`, all nodes (`psicopompo`, `kavure`, `kuaray`,
      `ybyra`) were scanned live — **0 zombie rules across all active nodes**. Tracking automation via **[HB-071](../backlog.md)**.
+  5. **Audit tool (2026-11-26):** `dnat-audit` (MNEMOCINE-OPS, read-only) is installed on psicopompo and
+     passed there (`rules=9 orfa=0 desvio=0`, `ingress_checked=no` because it is a Swarm worker).
+     MNEMOCINE-OPS PR #25 adds `--notify` (ntfy `/alerts` on findings or an unreadable host, stamp
+     `/srv/health/dnat-audit-last-ok` on success) and `hl-dnat-audit.timer` (every 6 h).
+  6. **Automatic since 2026-11-27 (HB-071):** tool and timer installed on psicopompo, kavure, kuaray, ybytu and
+     ybyra; one `hl-dnat-audit.service` run per host ended `PASS` (rules 9/25/18/7/5, 0 orphan, 0 deviation) and
+     each host got HTTP 200 from the ntfy health endpoint. A real alert delivery was not exercised.
+     `ingress_checked=no` on the four hosts other than kavure. Install with
+     `./install-homelab-tools.sh --host <host> dnat-audit && ./install-homelab-tools.sh --host <host> --units`;
+     on **kuaray** copy only `hl-dnat-audit.{service,timer}` by hand (no `--units` there).
 
 
 ---

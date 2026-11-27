@@ -106,7 +106,8 @@ Application containers map NFS mountpoints using standard directory binds withou
 ## Performance & Throughput Characteristics
 
 - **Local NVMe/SSD write speed on psicopompo:** ~1 GB/s (Btrfs subvolume).
-- **Remote NFS write speed from kuaray:** ~3.6 MB/s — the primary throughput bottleneck is the host's physical Wi-Fi connection (`wlp6s0`, SSID "Cratos"; ethernet `enp7s0` disconnected). Ping latency to kuaray ranges between 74–190 ms.
+- **kuaray link (verified 2026-11-26):** wired `enp7s0` (`192.168.3.200`, 100 Mb/s full duplex) is the primary route; Wi-Fi `wlp6s0` is the backup (metric 600). The tailnet path to the NAS is direct over the LAN (`tailscale ping` via `192.168.3.100`, ping avg 0.89 ms).
+- **Historical write speed from kuaray:** ~3.6 MB/s was measured while the host was on Wi-Fi only. It has not been re-measured on the wired link; the ceiling of that link is 100 Mb/s.
 - While `async` improves transmission bursts, physical link saturation remains the limiting factor for batch rescans.
 - **kavure Gigabit Link:** Kavure connects via physical Ethernet (`192.168.3.41`) with 0.17–0.28 ms local latency. Operating through the dedicated `IT-BLUE LE-4203` Gigabit switch, measured raw LAN throughput delivers **912 Mbps up / 858 Mbps down** (93% line rate saturation) — see [`topology.md`](topology.md).
 

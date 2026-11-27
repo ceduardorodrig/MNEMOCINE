@@ -14,7 +14,7 @@ tags: [homelab, recovery, backup, checklist]
 |---|---|---|
 | **Central NAS Mirror** | Configurations and Docker Compose stacks across all nodes | `/mnt/BACKUP/configs-homelab/{host}/` |
 | **restic** | Versioned configuration history + Obsidian vault | `/mnt/BACKUP/repos/restic/configs` (`--insecure-no-password`) |
-| **git GitHub `mnemocine`** | Declarative configuration history | Private repository `ceduardorodrig/mnemocine` |
+| **git GitHub `MNEMOCINE-CONFIGS`** | Declarative configuration history (daily push of the NAS mirror) | Private repository `ceduardorodrig/MNEMOCINE-CONFIGS` (`MNEMOCINE` is the **public** documentation repo) |
 | **rclone → Google Drive** | **Off-Site Storage** — Full mirror of `/mnt/BACKUP` | `BACKUP MNEMOCINE` directory |
 | **etckeeper** | System `/etc` configurations per node | Bare git repositories at `/mnt/BACKUP/repos/git/etckeeper-{host}.git` |
 | **snapper** | Btrfs timeline snapshots on psicopompo | Configs `nvme`/`backup`/`hdd`/`root` |
@@ -23,7 +23,7 @@ tags: [homelab, recovery, backup, checklist]
 ## 2. Generic Host Recovery Procedure
 
 1. **OS Installation & Container Engine Setup** (see host role in Section 4).
-2. **Restore Configurations & Compose Files:** Clone `git clone https://github.com/ceduardorodrig/mnemocine` (or copy from NAS mirror) → `/home/{user}/homelab/`; restore `/etc` via etckeeper (`git clone /srv/backup-gitrepos/etckeeper-{host}.git`).
+2. **Restore Configurations & Compose Files:** Clone `git clone https://github.com/ceduardorodrig/MNEMOCINE-CONFIGS` (or copy from NAS mirror) → `/home/{user}/homelab/`; restore `/etc` via etckeeper (`git clone /srv/backup-gitrepos/etckeeper-{host}.git`).
 3. **Launch Containers:** `for d in /home/{user}/homelab/*/; do (cd "$d" && docker compose up -d); done`.
 4. **Restore Persistent Volumes:** Extract from restic via `restic -r /mnt/BACKUP/repos/restic/configs --insecure-no-password restore latest --target /` or mount NFS off-box targets.
 5. **Verify Operational Health** (Section 5).

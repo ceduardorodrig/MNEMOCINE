@@ -190,7 +190,7 @@ Research across Oracle's official docs and the community (`oci-*-catcher` projec
 ## Loop Watchdog (HB-007)
 
 The loop can **stop silently** (dead timer, stalled log). `arm-hunt-watchdog`
-(`provisioning/scripts/arm-hunt-watchdog` + `hl-arm-hunt-watchdog.timer`, daily 09:00) alerts on
+(`provisioning/scripts/arm-hunt-watchdog` + `hl-arm-hunt-watchdog.timer`, hourly since 2026-11-27) alerts on
 `/alerts` if the timer is not active or the log has been idle for > 1 h. If already captured
 (`done` sentinel), it does not watch.
 
@@ -218,6 +218,10 @@ today would resolve an outdated `TS_AUTH_KEY`. Revisit only if psicopompo stops 
 **Ready to be born tagged (2026-10-13):** the SOPS `TS_AUTH_KEY` now carries `tag:server`, so when a
 capacity window finally opens the VM will register with a tag identity and key expiry off — and the
 loop will **refuse** to launch if the key is ever missing (see *Identity & tags* above).
+
+**Soak result (verified 2026-11-26, HB-007 / HB-008):** still not captured; the timer is active and the last ticks are normal capacity misses (about 700 per full day on 11-22 to 11-24). On 2026-11-25 there were gaps of **471 min** (ending 18:03) and **133 min** (ending 21:21), inside home WAN outages (psicopompo `CONNECTED_SITE` 10:14–18:03 and 19:05–21:23); cycles were killed by `TimeoutStartSec=90` and logged nothing. The daily watchdog reads only the last 60 ticks, so it could not see a gap that had ended. Fix: MNEMOCINE-OPS PR #28 (24 h window, hourly).
+
+**Installed 2026-11-27 (HB-007):** the watchdog now scans the last 24 h (`ARM_WATCHDOG_WINDOW`) instead of the last 60 ticks and alerts on one gap of 30 min or 3 consecutive gaps over 5 min. Verified: `hl-arm-hunt-watchdog.service` `Result=success`, timer next run on the full hour, 704 ticks in the previous 24 h with a largest gap of 128 s. Rollback: `/usr/local/bin/arm-hunt-watchdog.prev-i1` and `/etc/systemd/system/hl-arm-hunt-watchdog.timer.prev-i1`, then `daemon-reload`.
 
 ## See Also
 

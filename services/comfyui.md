@@ -167,3 +167,9 @@ jobs, since `other` has the lowest priority but is still admitted when VRAM fits
 **(c) ComfyUI as an image source for the autopilot — ⚠️ open, and adjacent to HB-032/HB-037.** Wiring
 generated imagery into the publishing path is the same integration surface as the per-persona
 `visual` block, so the two should land together rather than as two divergent designs.
+
+**Update 2026-11-26.** HB-032 and HB-037 are resolved (`fa30428`, see the archive), so (c) no longer
+waits for them. It is still not implemented: `config/media.yaml` and `crates/autopilot-media` in the
+autopilot repository say the ComfyUI path "is not implemented". Observed the same day: the `comfyui`
+container is `Exited (137)` since 2026-10-21 15:27 UTC (policy `unless-stopped`, so a deliberate stop
+stays stopped; who stopped it and why: not verified). The weights are in place.

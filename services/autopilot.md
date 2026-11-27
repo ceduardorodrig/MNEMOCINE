@@ -1,6 +1,6 @@
 ---
 tags: [homelab, service, agents, kavure]
-pending: [HB-078, HB-114, HB-116, HB-126, HB-127]
+pending: [HB-078, HB-116]
 ---
 
 # Social-Media Autopilot (`SOCIAL-MEDIA-AUTOPILOT`)
@@ -269,6 +269,42 @@ Landed in `SOCIAL-MEDIA-AUTOPILOT` commit `28403c9` (pushed to `origin/main` and
    - **Warming ramp isolation:** `detected_start_day_for` (`autopilot-run/src/runner.rs`) filters `var/runs` by `persona` so new personas do not inherit an older persona's start day.
    - **Validation (`personas validate`):** `PersonaPack::validate` now checks `channels[].windows` (`HH:MM`), duplicate `platform` entries, and `posts_per_day == 0`; `personas validate` checks cross-persona slug/handle collisions and warns on channels without a live publisher adapter.
    - **Multi-language & env:** `autopilot-learn/src/craft.rs` adds PT-BR/ES listicle nouns and templated openers; `--endpoint` supports `AUTOPILOT_SEARXNG_URL`.
+
+## Verification 2026-11-26 — live state of HB-114, HB-116, HB-126, HB-127
+
+Read on `kavure` and `psicopompo` on 2026-11-26 (journals, `var/runs`, unit state):
+
+- **Publications:** windows from 2026-11-20 18:19 through 2026-11-24 06:19 published, including three
+  consecutive ones (11-20 18:19, 11-21 06:18, 11-21 18:16). The four windows between the 11-25 deploy
+  and 11-26 18:19 ran cleanly but published nothing (no candidate above threshold, an empty harvest,
+  and on 11-26 18:19 both drafts rejected because the source held only headline, date and byline).
+  No answer-contract error appeared in them.
+- **Forwarder:** `ollama-tailnet.socket` is `enabled`/`active` after the 2026-11-24 04:58 reboot and
+  `http://psicopompo:11434/api/version` answers 200 from `kavure`.
+- **Engage budget:** on 11-26 09:36 and 13:36 the stage logged `deferred 1 remaining action(s)` and
+  exited cleanly. The last `Result=timeout` was 11-23 10:05, before the 11-25 deploy.
+- **Alert gap:** on 11-25 13:37 and 20:37 both the stage (DNS failure) and its alert
+  (`ntfy: HTTP 000`, `ybytu:8083`) failed; the notification was not retried.
+- **Drop-ins:** `GEMINI_API_KEY` is still listed in `AUTOPILOT_SECRETS` on the engage, metrics and
+  learn units (only the `run` unit lost it).
+- **Source on `kavure`:** `runner.rs` matches commit `556fd0b`. PR #12 (CI fix and a visible
+  `providers: passed over ...` journal line naming status and model) is not deployed.
+
+## Deploy 2026-11-27 — PR #12 (HB-116) and the last `GEMINI_API_KEY` drop-ins
+
+Done at about 04:08 BRT, outside the publishing windows, no run active. It supersedes the last two
+bullets of the verification above.
+
+- **Source:** `origin/main` `6ed3e6c` (PR #12) synced per *Deploy*; the same sync also brought the two
+  earlier dependency commits (`Cargo.lock`, `dependabot.yml`). Built on kavure with `--locked`;
+  `cargo test --release -p autopilot-providers` 34 passed; `run --dry-run` for `tech-curiosities` ok.
+  The 429 path has not been seen live yet. **Rollback:** `sudo rsync -aHAX --checksum --exclude target/
+  --exclude autopilot.bin.prev /home/kavure/homelab/.autopilot-engine.prev-o1/
+  /home/kavure/homelab/sumaenima-socialmedia-autopilot/` (the wrapper rebuilds on the next run).
+- **Drop-ins:** `AUTOPILOT_SECRETS` on engage, metrics and learn is now `BLUESKY_APP_PASSWORD` only,
+  like the `run` unit (`systemctl show` counts 0 `GEMINI_API_KEY` on all four). Only the `gemini`
+  provider kind reads that variable and the tenant registry has no such provider. **Rollback:** restore
+  each `10-kavure.conf.prev-o1` and `daemon-reload`.
 
 ## Known gaps
 

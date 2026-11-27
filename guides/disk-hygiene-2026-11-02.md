@@ -83,3 +83,8 @@ What `--apply` removed cannot be restored, but it is regenerable output (cache a
 ## Installed on 2026-11-02 (owner approved the weekly automatic clean-up)
 `hl-hygiene` and `hl-hygiene.timer` are installed and enabled on psicopompo, kuaray, kavure, ybytu and ybyra (`/usr/local/bin/hl-hygiene`, units in `/etc/systemd/system`). Next run: Sunday 2026-11-08 04:30 (host local time). Mode: `--apply --notify` (the service file). Before enabling, each host ran the report and `--apply --dry-run` (the dry-run output lists only the safe categories). Version control: the tool lives in the `MNEMOCINE-OPS` repository (`provisioning/scripts/hl-hygiene`, `provisioning/systemd/hl-hygiene.*`, commit `548a38e`, pushed), installed by the same commands as the other `hl-*` tools. Rollback per host: `sudo systemctl disable --now hl-hygiene.timer && sudo rm /etc/systemd/system/hl-hygiene.{service,timer} /usr/local/bin/hl-hygiene && sudo systemctl daemon-reload`.
 
+## First Sunday runs (HB-098, verified 2026-11-26, psicopompo only)
+`journalctl -u hl-hygiene`: the runs of 11-08, 11-15 and 11-22 at 04:30 all reached `Finished`; each of the three logged an ntfy send (`ntfy: sent (priority low)` seen for 11-08, 11-15, 11-22). On 11-22 it removed two stale `target/debug` directories (hub server 2.6 GB, valheim 467 MB) and 394 cached packages (7.17 GiB). The other four hosts were not read in this check.
+
+`CARGO_TARGET_DIR` outside the vault is **not done**: `governance/stenio/target` is 23 GiB (excluded from Syncthing by `.stignore`, so it costs disk only). The engine hard-codes `target/release/stenio` (`governance/stenio/src/release_engine.rs:358,398`), so moving the directory needs an engine change first.
+

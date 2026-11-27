@@ -117,6 +117,8 @@ chase capture or the decoder without reading the handoff first: capture, NVENC a
 every session (`loss_windows=0`, `sock_drops=0`), and a `grim` capture of the live streamed head shows a
 real image.
 
+**State verified 2026-11-26 (HB-122):** `host-settings.json` (modified 2026-11-14) has `"encoder": "nvenc"` again, and the 2026-11-24 journal shows NVENC sessions. Installed now: `punktfunk-host 0.48.0-1`, `nvidia-utils 620.73.04-1`, kernel `7.3.5-2-cachyos-bore`. Whether those NVENC sessions showed an image is **not verified**; no host setting was changed.
+
 ## Virtual Display Integration with Hyprland, Tablet (Anansi) & Phone (Pira-Nuya)
 
 psicopompo streams via Punktfunk virtual headless outputs (`PF-*`) to both the Samsung Galaxy Tab S9 FE+ ("Anansi", `2880x1800@90Hz`) and the Android phone ("Pira-Nuya", `2712x1220`).

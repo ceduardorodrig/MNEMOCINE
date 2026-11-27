@@ -66,6 +66,19 @@ Five critical bugs resolved on 30/09/2026 and **guarded** within the unified eng
 5. Stages changes: `git add -A`; exits cleanly if zero changes exist.
 6. Commits: `docs(<repo>): auto-sync documentation updates (<timestamp>)` and pushes to GitHub.
 
+### Publication guard (HB-089) — `MNEMOCINE-OPS` PR #29, installed on psicopompo 2026-11-27
+
+For the `mnemocine` profile, `publication-guard` runs after step 5 and before the commit. It blocks changed files
+whose path looks client-private, files marked `publish: false` or tagged `client`, and personal data (CPF, CNPJ,
++55 phone, `R$` amount, e-mail, proposal or confidential wording) that is not already public. It prints paths and
+classes only, alerts on ntfy and restores the mirror clone; it fails closed. Install both files together:
+`install-homelab-tools.sh --host psicopompo publication-guard homelab-docs-sync`. To publish a deliberate new
+value, review it and commit it to the public repo by hand once; from then on it counts as already public.
+
+Verified 2026-11-27 after the install: `--check` PASS, and a dry run on a throwaway clone of the mirror with the
+current vault delta passed (`publication-guard: PASS files=35 findings=0`). Rollback:
+`sudo install -m 0755 /usr/local/bin/homelab-docs-sync.prev-i1 /usr/local/bin/homelab-docs-sync`.
+
 ## Operation
 
 ```bash

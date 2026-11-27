@@ -133,12 +133,45 @@ through the GDrive mirror of `/mnt/BACKUP`.
 > host. *Reveal:* check `/srv/health/rclone-gdrive-last-ok` and `rclone about gdrive:` on any live
 > host, or the GDrive folder's newest mtime.
 
+#### Independent freshness witness (HB-066, verified 2026-11-26)
+
+Do not rely on `/srv/health/rclone-gdrive-last-ok`: it dies with psicopompo, and `BackupNotRun` goes
+quiet when the host stops exporting the metric. Two witnesses live elsewhere:
+
+1. **That the origin is dead:** Prometheus on kavure raises `NodeDown` (`up{job="node"} == 0` for
+   5 min; `psicopompo` is a target). Source: mirrored
+   `configs-homelab/kavure/data/monitoring/prometheus/alerts.yml`.
+2. **How old the off-site copy is:** look at Google Drive itself, folder
+   `BACKUP MNEMOCINE/repos/restic/configs/snapshots`. restic writes one new file there at about
+   05:50 every day, so the newest file date is the last day that reached Drive. From a phone or any
+   browser (no secret on any server), or from a host with a `gdrive` rclone remote:
+
+```bash
+rclone lsf --format tp --files-only "gdrive:BACKUP MNEMOCINE/repos/restic/configs/snapshots" | sort | tail -3
+```
+
+Run on psicopompo on 2026-11-26: newest entry `2026-11-26 05:52:16`, same name and time as the local
+snapshot. **Not rehearsed from another host.** There is no automatic alert for this off-box: that
+would need the Drive credential on a second host. **Decided 2026-11-27 (owner's blanket approval,
+recommended default):** the credential is **not** copied to a second host; the two witnesses above are
+the documented answer.
+
 ### 🟡 G4 — The NFS NAS has **no failover**
 
 kavure/kuaray mount psicopompo's exports for media and off-box backup targets
 ([`../network/nfs.md`](../network/nfs.md)). No runbook re-exports those datasets from another host.
 
 > **Gap:** no emergency re-export path.
+
+**Impact while psicopompo is down (HB-067, from [`../network/nfs.md`](../network/nfs.md) and the live
+`exportfs -v` of 2026-11-26):** kavure loses music and books (Navidrome, Calibre), the Scryfall
+mirror, and its off-box backup targets (Sumænimá, Zomboid, Minecraft, Valheim, n8n, monitoring);
+kuaray loses music, books and the Miracena off-box target; every client loses the config mirror and
+the etckeeper bare repos. The mounts are `soft` and `nofail`, so clients do not hang.
+**Decided 2026-11-27 (owner's blanket approval, recommended option):** this downtime is
+**accepted** and rebuild is the only recovery. The
+data lives on the disks that were lost, so a cold re-export from another host would first need a
+second full copy of `/mnt/BACKUP` there (hardware and cost).
 
 ### 🟡 G5 — The registry + GPU services have **no fallback**
 

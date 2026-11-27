@@ -105,7 +105,7 @@ Not a "backup outage" but its worst cousin: the **GitHub off-site copy was froze
 
 **Rule extracted:** a backup job without (a) a freshness stamp and (b) an `OnFailure` alert is a silent-failure candidate. Audit any new job against both. Full detail: [`config-backup.md`](config-backup.md) §Incident.
 
-## miracena-backup: preflight and failure alert (2026-11-04, HB-104)
+## miracena-backup: preflight and failure alert (2026-11-04, HB-129)
 
 On 2026-11-04 `hl-miracena-backup.service` failed at 05:35 (Frappe containers stopped after a Docker auto-upgrade) and sent no alert because the unit had no `OnFailure=`. Fixed on kuaray and in the repo (`mnemocine-ops`, commit `ba430d7`):
 

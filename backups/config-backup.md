@@ -1,6 +1,6 @@
 ---
 tags: [homelab, backup, config, docker, compose]
-pending: [HB-009, HB-010]
+pending: []
 ---
 
 # Canonical Configuration Backup — `config-backup`
@@ -57,6 +57,13 @@ Each Host (05:00) → /usr/local/bin/config-backup (systemd timer hl-config-back
 
 | Health Stamp | `/srv/health/config-backup-{host}-last-ok` |
 | Health Stamp (git push, 19/10/2026) | `/srv/health/configs-git-push-last-ok` — touched on every successful run (including "no changes"); feeds `homelab_backup_last_ok_seconds{job="configs-git-push"}` → Grafana `BackupNotRun` (>26h). See the incident below |
+
+> **Health stamps are empty on purpose (HB-010, verified 2026-11-26).** The scripts only `touch` them: **the mtime is the signal, the content is always empty** (`eza -l /srv/health/` shows size 0 for every stamp, which is normal and not a failure). Check one with `stat -c '%y' /srv/health/<job>-last-ok`; `health-files-metrics.sh` exports the mtime as `homelab_backup_last_ok_seconds`.
+
+> **Host mount dependency in the units (HB-009, MNEMOCINE-OPS PR #25, installed on psicopompo 2026-11-27).** Verified that day: psicopompo `--units` PASS with the drop-ins loaded; the live units on kavure, kuaray and ybytu have no mount line and ybyra mounts only its own `/srv/backup-*` paths (those remote units were not overwritten and still `DIFFERS` from the repo). `hl-config-backup.service` and `hl-etckeeper-push.service` are one generic unit with no mount line; only psicopompo adds `RequiresMountsFor=/mnt/BACKUP` through `provisioning/systemd/hosts/psicopompo/<unit>.d/10-nas-mount.conf`, installed by `install-homelab-tools.sh --host psicopompo --units`. Clients reach the NAS through `x-systemd.automount` and the script's own reachability probe.
+
+> **Drift pass, 2026-11-27.** The `config-backup` script on kavure, kuaray, ybytu and ybyra was one older revision (`67b6f43`) differing only in comments; the repository version is installed (`--check` PASS, rollback `/usr/local/bin/config-backup.prev-o1`). Units that differed **only in comments** were refreshed one by one, never with `--units` (rollback `<unit>.prev-o1`): `config-backup`, `etckeeper-push` and `notify-backup-failure@` services on kavure, kuaray and ybytu, plus `hl-autopilot.service` and `hl-scryfall-prefetch.{service,timer}` on kavure.
+> **Kept on purpose, do not run `--force-units` there:** the live unit is right and the repository unit is generic. kavure: `Environment=` bind addresses of `minecraft-status`, `unbound-status`, `zomboid-health`; `ExecStartPost=touch` stamps of `n8n-backup`, `scryfall-mirror`; `TimeoutStartSec=1200` of `valheim-backup`. ybytu: UTC calendar times of the `config-backup` and `etckeeper-push` timers. ybyra: `RequiresMountsFor=/srv/backup-*` in both services. These need host drop-ins in the repository.
 
 ## Sources by Host (Mirrored Assets)
 

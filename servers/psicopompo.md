@@ -122,6 +122,15 @@ list), `--write` (repair a stale file immediately), `--dry-run` (log instead of 
 afterwards). Rollback: move them back, `systemctl --user daemon-reload && systemctl --user enable
 --now hypr-session-save.timer`, then disable the daemon unit.
 
+**Observation window, interim reading 2026-11-26 (HB-121, day 17 of about 28):** the user unit is
+`enabled` and active, `NRestarts=0` in the current boot; the journal shows it starting again after
+each of the 7 reboots since 11-09 (13th, 14th twice, 15th, 18th, 21st, 24th). `coredumpctl` lists no
+Hyprland crash after the install, so the crashed-session case is **not yet exercised**. Whether each
+restore brought back the right set is not logged (owner observation needed). **Open defect:**
+`saved-session.json` holds `/tmp/.mount_SCSKiliPGhiH/usr/bin/SCSKiller.Ui`, the per-launch mount
+path of an AppImage, which cannot be launched after a reboot. The tracker source commits are still
+only local (`mnemocine-ops` `main`, ahead of `origin`).
+
 - **Saver (retired 2026-11-09, kept as history):** `~/.config/systemd/user/hypr-session-save.service` (oneshot, `PartOf=`/`After=graphical-session.target`) runs `~/.local/bin/hypr-session-save`, which reads `hyprctl clients -j`, drops system classes (noctalia, portals, polkit, hyprlock), maps `class` to an executable and writes `~/.config/hypr/saved-session.json` as `[{workspace, cmd}]` — **one entry per app, no pid, geometry or floating state**. It refuses an *empty* list, and since 2026-11-09 it also refuses a save that would leave fewer than half of the current entries.
 - **Restorer:** `~/.config/hypr/config/autostart.lua` (`restore_saved_session()`, called from `hl.on("hyprland.start")`) re-launches each entry with `hl.exec_cmd("[workspace N silent] uwsm app -- " .. cmd)` (updated 2026-11-21 alongside `uwsm app -- noctalia` so all restored apps and Noctalia enter `app.slice` scopes for `hyprland-focused-booster` and `launch_apps_as_systemd_services`, see `HB-128`), remapping workspaces 4/5/6 to 1 when no second monitor is present. Purely Lua at start — no service, no timer.
 - **Guard (2026-11-09, owner decision: keep the automatic save).** `hypr-session-save` now refuses a save that would replace N entries with fewer than half of them, prints `hypr-session-save: refused to replace N entries with M …` to the journal and exits 0 (a guard, not a failure); `--accept-shrink` forces a legitimate big shrink. Every accepted save first copies the previous file to `saved-session.json.prev`, so one bad save is always one command away from undo. Verified both ways in a throwaway `HOME`: 10→4 refused with the file untouched, 10→4 with `--accept-shrink` accepted with `prev: 10`; the unit itself ran green (`Result=success`, `ExecMainStatus=0`). Timer re-enabled (`systemctl --user enable --now hypr-session-save.timer`).
