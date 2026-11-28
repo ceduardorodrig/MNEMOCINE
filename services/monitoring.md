@@ -173,22 +173,22 @@ alert_host = "ybytu"
 - [[n8n]] — Metrics scraped by Prometheus
 - [[homepage]] — Grafana/Prometheus dashboard shortcuts in Kavure group
 - [[backup-rituals]] — Monitored backup health stamps (28/08)
-## Backup off-box — incidente resolvido (2026-10-13)
+## Off-box backup — incident resolved (2026-10-13)
 
-O `hl-monitoring-backup` (Prometheus/Loki/Grafana → NFS no psicopompo) ficou **falhando por dias**
-(12–13/10, exit 1 após ~4 min) e o log dizia apenas `snapshot Prometheus falhou (resposta: )` — **sem
-motivo**, porque o `stderr` do `curl` ia para `/dev/null`. Eram **dois bugs reais escondidos** atrás
-desse silêncio:
+The `hl-monitoring-backup` (Prometheus/Loki/Grafana → NFS on psicopompo) had been **failing for days**
+(12–13/10, exit 1 after ~4 min) and the log only said `snapshot Prometheus falhou (resposta: )` — **with no
+reason**, because `curl`'s `stderr` went to `/dev/null`. There were **two real bugs hidden** behind
+that silence:
 
-1. **URL errada:** `PROM_URL` apontava para `http://localhost:9091`, mas o container do Prometheus
-   publica **só no IP da tailnet** (`100.124.146.77:9091`) — nada escuta no loopback, então o
-   snapshot nunca conectava. Corrigido para o IP da tailnet **e** o `stderr` do `curl` agora vai para
-   o log (a próxima falha é diagnosticável).
-2. **rsync fora do padrão:** as 3 chamadas usavam `-a` puro, que tenta preservar dono/grupo. O NAS
-   exporta com **`all_squash,anonuid=1000`** — todo cliente escreve como `edu` e **não pode `chown`**
-   → `chown: Operation not permitted`. Agora usam **`--no-o --no-g`**, o mesmo padrão que o
-   `config-backup` já usava (este script era o único fora do padrão).
+1. **Wrong URL:** `PROM_URL` pointed to `http://localhost:9091`, but the Prometheus container
+   publishes **only on the tailnet IP** (`100.124.146.77:9091`) — nothing listens on loopback, so the
+   snapshot never connected. Fixed to the tailnet IP **and** `curl`'s `stderr` now goes to
+   the log (the next failure is diagnosable).
+2. **Non-standard rsync:** the 3 calls used plain `-a`, which tries to preserve owner/group. The NAS
+   exports with **`all_squash,anonuid=1000`** — every client writes as `edu` and **cannot `chown`**
+   → `chown: Operation not permitted`. They now use **`--no-o --no-g`**, the same pattern that
+   `config-backup` already used (this script was the only one off-standard).
 
-**Verificado ao vivo:** `exit 0`; log `snapshot → rsync prometheus/loki/grafana OK → backup OK —
-health file atualizado`; e **5.0 GB** (prometheus) + **537 MB** (loki) + **15 MB** (grafana) no NAS.
-Health file (marcador) em `/srv/health/monitoring-backup-last-ok`. Commit `242a209` (MNEMOCINE-OPS).
+**Verified live:** `exit 0`; log `snapshot → rsync prometheus/loki/grafana OK → backup OK —
+health file atualizado`; and **5.0 GB** (prometheus) + **537 MB** (loki) + **15 MB** (grafana) on the NAS.
+Health file (marker) at `/srv/health/monitoring-backup-last-ok`. Commit `242a209` (MNEMOCINE-OPS).

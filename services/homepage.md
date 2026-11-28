@@ -1,5 +1,6 @@
 ---
 tags: [homelab, service, homepage, monitoring]
+pending: [HB-132]
 ---
 
 # Homepage
@@ -84,11 +85,20 @@ noise without adding information. The rule:
 
 | Instance | Endpoint | Server |
 |---|---|---|
-| `ybytu` | `/var/run/docker.sock` | local |
+| `kavure` | `/var/run/docker.sock` | local |
+| `ybytu` | `100.115.253.109:2375` | dockerproxy |
 | `psicopompo` | `100.82.51.112:2375` | dockerproxy |
 | `kuaray` | `100.94.209.99:2375` | dockerproxy |
-| `kavure` | `100.124.146.77:2375` | dockerproxy |
 | `ybyra` | `100.66.224.34:2375` | dockerproxy |
+
+> **Socket proxy hardening (verified 2026-11-27).** Homepage only reads the container list, inspect and
+> stats, so every proxy now runs `CONTAINERS=1`, `EVENTS`/`PING`/`VERSION` and `POST=0`, `IMAGES=0`,
+> `INFO=0`, `NETWORKS=0`, `SERVICES=0`, `TASKS=0`
+> ([Homepage Docker docs](https://gethomepage.dev/configs/docker/)). The `kavure` proxy listens on loopback
+> only (Homepage uses the socket). `/api/docker/statuses` answered for all five instances. Rollback per host:
+> copy `<compose>.prev-sec2` back and `docker compose up -d dockerproxy`.
+> The tailnet policy limits `tcp:2375` to `tag:monitoring` (applied and audited 2026-11-27); follow-up in
+> `HB-132`. Still open: anything on kavure can read all proxies.
 
 Each service in `services.yaml` with `server:` + `container:` displays live status automatically. Containers in `Exited` states (e.g. on kuaray) appear offline without manual intervention.
 

@@ -395,27 +395,27 @@ the grant. See [`acl-lockout-audit.md`](acl-lockout-audit.md) §4.1/§10.
 
 ---
 
-## D12 — ComfyUI: uso interativo fora das janelas (**decidido 2026-10-14**)
+## D12 — ComfyUI: interactive use outside the windows (**decided 2026-10-14**)
 
-**Pergunta.** O `hl-infer` admite classes *batch* (`Triage`, `Create`, `ImageGen`) apenas dentro das
-janelas fixas (06–07, 12–13, 18–19, 00–01); as *interativas* (`Transcribe`, `Other`) são servidas
-sempre que a VRAM **medida** permitir. Um humano pode gerar imagem no ComfyUI **fora** dessas janelas?
+**Question.** `hl-infer` admits *batch* classes (`Triage`, `Create`, `ImageGen`) only within the
+fixed windows (06–07, 12–13, 18–19, 00–01); *interactive* ones (`Transcribe`, `Other`) are served
+whenever the **measured** VRAM allows. May a human generate an image in ComfyUI **outside** those windows?
 
-**Decisão:** sim, via lease **`other`** — admitida sempre que a VRAM medida caiba.
+**Decision:** yes, via an **`other`** lease — admitted whenever the measured VRAM fits.
 
-**Por quê (a razão, não o palpite):** o que protege a GPU não é a janela, é o **livro de VRAM**: o
-gateway só admite um job quando a sobra medida cabe, e ADR-020 já proíbe fallback de CPU. A janela
-batch existepara o trabalho *em lote* do autopilot, não para dono da GPU ser uma agenda fixa. ComfyUI
-é ferramenta **de pessoa** antes de ser etapa de pipeline — travar um humano às 22h para preservar
-uma agenda que o livro de VRAM já garante seria trocar uma proteção real por uma burocrática.
+**Why (the reason, not the guess):** what protects the GPU is not the window, it is the **VRAM ledger**: the
+gateway only admits a job when the measured headroom fits, and ADR-020 already forbids CPU fallback. The batch
+window exists for the autopilot's *bulk* work, not so that the GPU owner has a fixed schedule. ComfyUI
+is a **person's** tool before it is a pipeline stage — blocking a human at 22:00 to preserve
+a schedule that the VRAM ledger already guarantees would trade a real protection for a bureaucratic one.
 
-**Custo aceito (conscientemente):** um lease humano pode **atrasar** os jobs `image_gen` do autopilot,
-porque `other` tem a prioridade mais baixa (4) — mas ainda é admitido quando a VRAM cabe.
+**Accepted cost (knowingly):** a human lease may **delay** the autopilot's `image_gen` jobs,
+because `other` has the lowest priority (4) — but it is still admitted when the VRAM fits.
 
-**Verificação ao vivo (2026-10-14, 11:16, fora de toda janela):**
-`kind: other`, `required_bytes: 6 GiB`, `process: "python"` → estado **`admitted`** (`job-000001`);
-liberado na sequência; o livro voltou a `{"unmanaged":0,"leases":[]}` (o processo do ComfyUI de volta
-a 88 MB ocioso). Detalhe e receita em [`../services/comfyui.md`](../services/comfyui.md).
+**Live verification (2026-10-14, 11:16, outside every window):**
+`kind: other`, `required_bytes: 6 GiB`, `process: "python"` → state **`admitted`** (`job-000001`);
+released right after; the ledger returned to `{"unmanaged":0,"leases":[]}` (the ComfyUI process back
+to 88 MB idle). Detail and recipe in [`../services/comfyui.md`](../services/comfyui.md).
 
 ---
 

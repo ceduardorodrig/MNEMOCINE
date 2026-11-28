@@ -1,6 +1,6 @@
 ---
 tags: [homelab, service, agents, kavure]
-pending: [HB-078, HB-116]
+pending: [HB-078]
 ---
 
 # Social-Media Autopilot (`SOCIAL-MEDIA-AUTOPILOT`)
@@ -298,7 +298,10 @@ bullets of the verification above.
 - **Source:** `origin/main` `6ed3e6c` (PR #12) synced per *Deploy*; the same sync also brought the two
   earlier dependency commits (`Cargo.lock`, `dependabot.yml`). Built on kavure with `--locked`;
   `cargo test --release -p autopilot-providers` 34 passed; `run --dry-run` for `tech-curiosities` ok.
-  The 429 path has not been seen live yet. **Rollback:** `sudo rsync -aHAX --checksum --exclude target/
+  The first window after the deploy (06:00 BRT, 11-27) published (`tech-curiosities`, Bluesky,
+  `1 published, ok`) and logged the new line live (`providers: passed over opencode: call failed —
+  kind=opencode, model=opencode/mimo-v2.6-flash-free: timed out ...`, 06:20). The 429 path itself has
+  not been seen live yet. **Rollback:** `sudo rsync -aHAX --checksum --exclude target/
   --exclude autopilot.bin.prev /home/kavure/homelab/.autopilot-engine.prev-o1/
   /home/kavure/homelab/sumaenima-socialmedia-autopilot/` (the wrapper rebuilds on the next run).
 - **Drop-ins:** `AUTOPILOT_SECRETS` on engage, metrics and learn is now `BLUESKY_APP_PASSWORD` only,

@@ -1,6 +1,6 @@
 ---
 tags: [homelab, server, kururu]
-pending: []
+pending: [HB-134]
 ---
 
 # Kururu — Dedicated Headless Node
@@ -57,7 +57,7 @@ ssh root@100.127.188.45
 - **What runs:** `prometheus-node-exporter 1.8.0-r3` (apk), listening only on `100.127.188.45:9100`, and `netwatch-metrics.sh` every 15 s (targets in `/etc/homelab/netwatch-targets.conf`, textfile in `/var/lib/node-exporter/textfile`).
 - **Starter:** `/usr/local/bin/kururu-metrics` (source `provisioning/scripts/kururu-metrics` in MNEMOCINE-OPS) supervises both; log `/data/kururu-metrics.log` at boot. It runs as root because the Android kernel limits sockets.
 - **Boot:** four lines appended to the end of `/system/etc/install-recovery.sh` (`/system` remounted read-write, then read-only again). Syntax checked with `sh -n`; **not proven by a reboot**.
-- **Verified:** `wget` from the tablet returned the metrics; psicopompo and kavure are still blocked by the tailnet ACL (MNEMOCINE-ACL PR #18).
+- **Verified:** `wget` from the tablet returned the metrics. ACL grant MNEMOCINE-ACL PR #18 merged; Prometheus on kavure scrapes `100.127.188.45:9100` since 2026-11-27 (`up{instance="kururu"}` = 1, netwatch series present; rollback `prometheus.yml.bak-20261127-kururu` + `POST /-/reload`).
 - **Rollback:** copy `/proc/1/root/data/install-recovery.sh.prev-o1` back over the hook (remount `/system` with `busybox mount -o remount,rw /dev/block/mmcblk0p15 /proc/1/root/system`, then `ro`), kill `kururu-metrics` and `node_exporter`, `apk del prometheus-node-exporter`, remove the two scripts and the targets file.
 
 ## Known Issues

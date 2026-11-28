@@ -1,6 +1,6 @@
 ---
 tags: [homelab, backup, config, docker, compose]
-pending: []
+pending: [HB-130, HB-133, HB-135, HB-136, HB-137]
 ---
 
 # Canonical Configuration Backup — `config-backup`
@@ -65,6 +65,37 @@ Each Host (05:00) → /usr/local/bin/config-backup (systemd timer hl-config-back
 > **Drift pass, 2026-11-27.** The `config-backup` script on kavure, kuaray, ybytu and ybyra was one older revision (`67b6f43`) differing only in comments; the repository version is installed (`--check` PASS, rollback `/usr/local/bin/config-backup.prev-o1`). Units that differed **only in comments** were refreshed one by one, never with `--units` (rollback `<unit>.prev-o1`): `config-backup`, `etckeeper-push` and `notify-backup-failure@` services on kavure, kuaray and ybytu, plus `hl-autopilot.service` and `hl-scryfall-prefetch.{service,timer}` on kavure.
 > **Kept on purpose, do not run `--force-units` there:** the live unit is right and the repository unit is generic. kavure: `Environment=` bind addresses of `minecraft-status`, `unbound-status`, `zomboid-health`; `ExecStartPost=touch` stamps of `n8n-backup`, `scryfall-mirror`; `TimeoutStartSec=1200` of `valheim-backup`. ybytu: UTC calendar times of the `config-backup` and `etckeeper-push` timers. ybyra: `RequiresMountsFor=/srv/backup-*` in both services. These need host drop-ins in the repository.
 
+> **Failed runs and a DNS outage, 2026-11-27.** On `ybytu` (952 MiB RAM) both runs of the day failed and starved the host: a manual verification run at 07:32 UTC (stopped by hand at 07:49) and the 08:00 UTC timer (failed 08:24, `close failed ... .kuma.snapshot ... Input/output error`, kernel `nfs: server 100.82.51.112 not responding`). Prometheus shows `homelab_adguard_probe_ok=0` and the node target down for most of both windows, so AdGuard and ntfy were unreachable for long stretches; the last good mirror of `ybytu` is 2026-11-26. A failed run of the same kind happened on 11-22. On `kavure`, manual runs at 04:21 and 04:32 BRT failed or were stopped after about 2 GB of Valheim server files changed (same `Input/output error`; load reached 30 and Pi-hole timed out for a short while); the 05:00 run succeeded. **Do not start these backups by hand on `ybytu`.** Likely cause (inference): large files over a `soft,timeo=30,retrans=2` NFS mount.
+
+## Load Bounds (HB-130, 2026-11-27, MNEMOCINE-OPS PR #34)
+
+**What a run costs (measured 2026-11-27):** on `ybytu` the daily bulk is one file, `uptime-kuma/kuma.snapshot` (525 MB, rewritten at 04:45). The old `kuma.db.bak-*` copies (380 MB) are unchanged, so rsync does not resend them; they stay in the mirror and are **not** excluded. On `kavure` a normal delta was about 258 MB; a Valheim update adds about 2 GB of server files.
+
+**Script revision `68349e6f…` is installed on all five hosts** (`ybytu` and `kavure` first; `psicopompo`, `kuaray` and `ybyra` later the same day, `--check` PASS on each). The per-host bounds below exist **only on `ybytu` and `kavure`**: the repository defines no limits drop-in for the other three and their `config-backup.conf` sets none of the new keys, so the script defaults apply (`BWLIMIT` 8000 KiB/s on `kuaray` and `ybyra`, unlimited on `psicopompo`; no resolver guard). Dry runs with the installed rsync arguments ended with status 0 on the three; one bounded run on `psicopompo` (`systemd-run`, 10 min timeout) succeeded in under 5 s. First timer run on `kuaray` and `ybyra` with this revision: not yet observed. Rollback on those three: `sudo cp -p /usr/local/bin/config-backup.prev-o3 /usr/local/bin/config-backup`.
+
+
+| Bound | `ybytu` | `kavure` |
+|---|---|---|
+| `BWLIMIT` (rsync, KiB/s) | 600 | 8000 |
+| `GUARD_RESOLVERS` (rsync stops after 2 failed probes, no retry, ntfy) | AdGuard + Pi-hole | AdGuard + Pi-hole |
+| Drop-in `hl-config-backup.service.d/20-limits.conf` (`CPUQuota`, `MemoryHigh`/`Max`, `TimeoutStartSec`) | 25 %, 96/192 MB, 40 min | 50 %, 384/768 MB, 30 min |
+| `KEEP_EXCLUDED` (not copied, mirrored copy **not** deleted) | **`uptime-kuma/kuma.snapshot` (temporary, see below)** | Valheim server files under `data/valheim/data/` (Steam app 896660, reinstalled by SteamCMD); `BepInEx` and `.staging` are still copied |
+
+The consequence of the guard: if either resolver is down, the backup does not run and says so.
+
+- **Rollback (each host):** `sudo cp -p /usr/local/bin/config-backup.prev-o2 /usr/local/bin/config-backup; sudo cp -p /etc/config-backup.conf.prev-o2 /etc/config-backup.conf; sudo rm /etc/systemd/system/hl-config-backup.service.d/20-limits.conf; sudo systemctl daemon-reload`.
+- **NFS timeout not changed.** The mandatory `fstab` options in [`../AGENTS.md`](../AGENTS.md) are `soft,timeo=30,retrans=2`; `nfs(5)` gives 600 deciseconds as the TCP default and says a higher `retrans` may mitigate the corruption risk of `soft`. Raising it is an owner decision.
+
+- **Verification, 2026-11-27 (`systemd-run`, same limits, both resolvers probed from `psicopompo`):** `kavure` succeeded in 86 s with no failed probe. `ybytu` **with** the snapshot at 1500 KiB/s failed the test: load reached 20, CPU steal 1.0 to 1.4 of 2 vCPUs, one AdGuard probe from `psicopompo` failed after 248 s and the run was stopped (memory available stayed above 300 MB, so the likely limit is CPU spent by `tailscaled`; inference). `ybytu` **without** the snapshot succeeded in about 2 minutes or less with no failed probe.
+- **Open gap: the Uptime Kuma database is not leaving `ybytu`.** `kuma.snapshot` is still written locally at 04:45 UTC (journal, 2026-11-27); the mirrored copy is the one of 2026-11-26 and is protected. The `config-backup` health stamp does **not** show this gap. Options (HB-130): compress the snapshot at source before it is mirrored (changes the restore format), send it by a separate throttled path, or shrink the Kuma history. Restore the old behaviour with `/etc/config-backup.conf.prev-o2-snapshot` (not safe on this host as measured).
+- **Compression at source measured, not enabled (2026-11-27 evening, HB-135, MNEMOCINE-OPS PR #38 kept as draft).** Bounded transient units with both resolvers probed from `psicopompo`: `zstd -3 --rsyncable` took the 525 MB snapshot to 130 MB in 84 s (16 s CPU, `CPUQuota=20%`), 0 failed probes; the transfer of that file to the NAS at 600 KiB/s took 217 s, 0 failed probes. The end-to-end run of the snapshot unit with the new script (21:49 UTC) then **failed the criterion**: external probes of the resolvers failed while the existing, unbounded `sqlite3 .backup` step was running (before compression started at 21:51), load reached about 23, and the unit was stopped at 21:52. The local Prometheus metric `homelab_adguard_probe_ok` recorded no failure in that window. The host is back on the previous script and configuration. The 04:45 UTC timer still runs the same backup step.
+- **One current off-host copy exists:** `kuma.snapshot.zst` (made from the 04:45 UTC snapshot of 2026-11-27) is in the `ybytu` mirror; on `psicopompo` it decompressed and `PRAGMA quick_check` returned `ok` (50 monitors). The same file stays at the source path so the daily mirror run keeps it without resending it (size and modification time are identical on both sides, checked 2026-11-27, so rsync has nothing to resend; confirm after the next run). It is **not refreshed**. The mirror `.gitignore` keeps it out of GitHub (file above 95 MB).
+- **Bounded sqlite step tested, failed, not installed (2026-11-28 01:58 UTC, MNEMOCINE-OPS PR #38, draft).** The whole new script ran as a transient unit on throwaway paths: each heavy step with `CPUQuota=20%`, `MemoryHigh=64M`, `MemoryMax=160M` and 4 MB/s read and write (`io.max` confirmed on the host), and `.backup` inside one read transaction (without it, every Kuma write restarts a slow copy). Both resolvers were probed from `psicopompo`: 0 failed in the 90 s baseline, then one AdGuard probe failed 129 s after start, with about 452 MB of the copy written; the local probes on `ybytu` had not failed. The units were killed 18 s after the failure (the on-host watcher lagged behind its heartbeat queue), the test files removed, and 30 later rounds against both resolvers had 0 failures. The host already showed memory pressure before the test (`/proc/pressure/memory` `some avg60` about 13 to 24 %), so the cause is not isolated. The installed script and timer are unchanged.
+
+### `apt-daily` on `ybytu` (same day)
+
+`apt-daily.service` (`unattended-upgrade --download-only`, started 11:04:52 UTC) thrashed the host for more than 35 minutes and AdGuard failed most probes until it was stopped (about 11:45 UTC). It started during agent work on the host (a `daemon-reload` as trigger is not ruled out). Now installed from MNEMOCINE-OPS PRs #35/#36: `apt-daily.service.d/20-limits.conf` (CPU and memory bounds, 30 min timeout), timers `apt-daily` 14:00 UTC + 1 h and `apt-daily-upgrade` 16:00 UTC + 30 min (`20-window.conf`); `apt-daily-upgrade` keeps its existing `50-limits.conf` (HB-117/118). First bounded `apt-daily` run: 14:54 UTC, 57 s. Rollback: remove `20-limits.conf` and the two `20-window.conf`, then `daemon-reload`.
+
 ## Sources by Host (Mirrored Assets)
 
 | Host | SRC_DIRS | Primary Exclusions |
@@ -108,6 +139,18 @@ Each Host (05:00) → /usr/local/bin/config-backup (systemd timer hl-config-back
 3. Validate compose syntax: `docker compose config --quiet`.
 4. Trigger manual run: `sudo /usr/local/bin/config-backup` → verify files on NAS + `git log` / `restic snapshots`.
 5. Document additions in vault.
+
+## Stenio Work Ledger Backup (psicopompo, verified 2026-11-27)
+
+The shared work ledger (`~/.local/state/stenio/hub.db`) has its own user timer, separate from
+`config-backup`: `stenio-hub-backup.timer` (daily 04:30, `Persistent=true`; units in
+`~/.config/systemd/user/`). It runs `stenio hub backup --out /mnt/BACKUP/stenio-hub --keep 30`
+(online snapshot plus JSONL event export, restore-tested in a local scratch directory) and then
+`stenio hub backup --check`. `stenio hub status` shows `backup stale` after 26 hours.
+
+- Restore: stop agent sessions, move `hub.db`, `hub.db-wal` and `hub.db-shm` aside, copy the
+  newest `hub-*.db` to `~/.local/state/stenio/hub.db`, run `stenio hub audit`.
+- Disable: `systemctl --user disable --now stenio-hub-backup.timer`.
 
 ## Restoration Procedures
 

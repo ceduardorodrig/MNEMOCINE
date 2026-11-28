@@ -1,6 +1,6 @@
 ---
 tags: [homelab, recovery, checklist, backup, psicopompo, tailscale, sops, docker, storage, kuaray, kavure, server]
-pending: [HB-065, HB-066, HB-067]
+pending: [HB-065]
 ---
 
 # Worst-Case Loss of psicopompo — Dependency Matrix & Gaps

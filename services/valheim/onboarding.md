@@ -46,7 +46,7 @@ Installation: Managed locally through Gale Mod Manager (recommended) or r2modman
 
 ### Client Runtime & Launch Options (psicopompo)
 
-- **Proton Runtime:** `proton-cachyos-slr` (Proton CachyOS padrão do sistema — descartado override do `proton_experimental` por estabilidade e frametime superiores no stack CachyOS).
+- **Proton Runtime:** `proton-cachyos-slr` (system default Proton CachyOS — the `proton_experimental` override was discarded because stability and frametime are better on the CachyOS stack).
 - **Mod Manager:** Gale Mod Manager com perfil `gale-valheim`.
 - **Launch Options:** Declarativamente gerenciadas via `steam-launch-options` (`profile = "gale-valheim"`, Smooth Motion adaptativo e Wayland nativo).
 

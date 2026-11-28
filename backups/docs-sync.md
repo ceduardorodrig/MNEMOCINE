@@ -1,6 +1,6 @@
 ---
 tags: [homelab, backup, config, automation, meta]
-pending: [HB-089]
+pending: []
 ---
 
 # `homelab-docs-sync` — Public Documentation Repository Publisher (Vault → Public)
@@ -62,7 +62,7 @@ Five critical bugs resolved on 30/09/2026 and **guarded** within the unified eng
 1. Enforces clean working tree (`git status --porcelain` empty) — aborts if dirty.
 2. Performs `git fetch` and fast-forwards if behind `origin/main`.
 3. Executes `rsync -a --delete` from vault → working clone, respecting profile exclusions.
-4. **Mandatory Quality Gate:** `stenio --scope <scope> --path <repo>` — any violation immediately aborts execution and dispatches an alert to ntfy.
+4. **Mandatory Quality Gate:** `stenio --scope <scope> --path <repo> --strict` — any ERROR aborts execution and dispatches an alert to ntfy (warnings do not block). Without `--strict` the command exits 0 on errors. The clone directory must keep its queue name (`mnemocine`), otherwise the backlog and publication rules do not apply.
 5. Stages changes: `git add -A`; exits cleanly if zero changes exist.
 6. Commits: `docs(<repo>): auto-sync documentation updates (<timestamp>)` and pushes to GitHub.
 
@@ -78,6 +78,14 @@ value, review it and commit it to the public repo by hand once; from then on it 
 Verified 2026-11-27 after the install: `--check` PASS, and a dry run on a throwaway clone of the mirror with the
 current vault delta passed (`publication-guard: PASS files=35 findings=0`). Rollback:
 `sudo install -m 0755 /usr/local/bin/homelab-docs-sync.prev-i1 /usr/local/bin/homelab-docs-sync`.
+
+### Strict gate (GB-343) — `MNEMOCINE-OPS` PR #37, installed on psicopompo 2026-11-27
+
+Verified 2026-11-27 on throwaway clones with a local bare remote: a planted `DOC-PUBLISH-OPEN-WEAKNESS` row blocked
+the sync (nothing pushed, clone restored) and the current vault passed (0 errors). Regression test:
+`provisioning/tests/docs-sync-strict-test.sh`. A reference from this folder to a file outside it does not resolve in
+the published tree, so test a change on the mirror copy and not only on the vault. Rollback:
+`sudo install -m 0755 /usr/local/bin/homelab-docs-sync.prev-o4 /usr/local/bin/homelab-docs-sync`.
 
 ## Operation
 

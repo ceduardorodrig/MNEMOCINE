@@ -189,8 +189,8 @@ list of what the guard now protects is in [§5b](#5b-the-ci-guard-what-the-tests
 
 **Why it exists.** Phase 3 proved that thin `tests` are worse than none: deleting the allow-all
 grant silently cut nine catalogue tiles and the Valheim ports and CI stayed **green**. The owner's
-rule, verbatim: *"da medo de perder acesso a serviços e ter que ficar pescando durante semanas o
-que quebrou acesso e o que não."* The guard inverts that: a future tighten that cuts an expected
+rule, verbatim:
+*"da medo de perder acesso a serviços e ter que ficar pescando durante semanas o que quebrou acesso e o que não."* The guard inverts that: a future tighten that cuts an expected
 access now **fails CI**, and Tailscale **rejects the file** (nothing is applied).
 
 **The expected-reach set** is the machine-readable "what the owner clicks" —

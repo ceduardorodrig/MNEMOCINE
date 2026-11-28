@@ -61,8 +61,8 @@ steam-launch-options ge-update  # Pull and unpack latest GE-Proton release
 
 | Category | Target Proton Tool | Assigned Profile |
 |---|---|---|
-| **Default / Stack Padrão (incl. AAA & DX12)** | `proton-cachyos-slr` (Proton CachyOS — canonizado 2026-11-21) | `vram`, `dx12`, ou `rtx` |
-| **Fallback / Compatibilidade específica** | `GE-Proton` (mantido instalado e atualizado como fallback) | `vram`, `dx12`, ou `rtx` |
+| **Default / Standard stack (incl. AAA & DX12)** | `proton-cachyos-slr` (Proton CachyOS — canonized 2026-11-21) | `vram`, `dx12`, or `rtx` |
+| **Fallback / Specific compatibility** | `GE-Proton` (kept installed and updated as fallback) | `vram`, `dx12`, or `rtx` |
 | **Online Multiplayer / Anti-Cheat específico** | `proton_experimental` | `vram` |
 
 > 💡 **Valheim:** Segue o Proton padrão do sistema (`proton-cachyos-slr`). Anteriormente utilizava override para `proton_experimental`, mas o Proton CachyOS padrão provou entregar desempenho, frametime e estabilidade superiores com os mods via Gale/BepInEx e Wayland nativo.
@@ -95,12 +95,12 @@ When running frame generation via `NVPRESENT_ENABLE_SMOOTH_MOTION=1`, Hyprland's
 - **Target Proton:** `GE-Proton11-12-x86_64` (updated from GE-Proton 11-11 on 2026-11-03 across all 9 GE profiles).
 - **Launch Options & Wayland Nativo:**
   - `PROTON_ENABLE_WAYLAND=1`: executa sob `winewayland.drv` nativo, eliminando a camada XWayland, scaling artifacts e latência de IPC.
-  - `VKD3D_CONFIG=descriptor_heap`: alocação de descritores diretamente na GPU via `VK_EXT_descriptor_heap` (NVIDIA 570+ / RTX 5050), reduzindo overhead de CPU na tradução DX12.
-  - `PROTON_VKD3D_LOWLATENCY=1`: NVIDIA Reflex DX12 nativo dentro do VKD3D-Proton para mínima latência de amostragem.
-  - `systemd-run --user --scope game-performance`: governor de desempenho CachyOS e priorização de VRAM (`dmem.low`) via `hyprland-focused-booster`.
-  - `with-smooth-motion`: wrapper Rust RAII que suspende `direct_scanout = 0` no Hyprland durante a execução e injeta `NVPRESENT_ENABLE_SMOOTH_MOTION=1` para interpolação de quadros fluida sem half-rate lock.
-- **Hyprland Window Rule (2026-11-03):** mapeado para `workspace = name:gaming` e `content = "game"`. Em `~/.config/hypr/config/windowrules.lua`, `emulatorApps` casa com `^(pcsx2.*|PCSX2.*|[Aa]zimuth.*|steam_app_3758807005)$` posicionado *após* a regra genérica de `.*\\.exe`, impedindo o sequestro da janela para a workspace 1 via `monitor = PRIMARY_MONITOR`.
-- **Gaming `PRIMARY_MONITOR` Pinning (2026-11-14):** as regras de `gamingApps`, `xdg_tag = "^(.*game.*)$"`, `content = "game"` e `Launching...` em `~/.config/hypr/config/windowrules.lua:26-44` incluem `monitor = PRIMARY_MONITOR`, `workspace = "name:gaming"` e `suppress_event = "fullscreenoutput"` (impedindo `xdg_toplevel.set_fullscreen(wl_output)` do `winewayland.drv` de jogar o fullscreen para `PF-1`), sem `size = { "monitor_w", "monitor_h" }` na regra `gamingApps` (evitando herdar dimensões de `PF-*` quando focado), além de `package.loaded["config.windowrules"] = nil` em `~/.config/hypr/hyprland.lua:14`. Nota: `proton-cachyos-slr` (`CachyOS-11.0-100`) não possui `WAYLANDDRV_PRIMARY_MONITOR` nem leitura de `xrandr --primary` (exclusivo do GE-Proton), e `hyprland-focused-booster` `0.1.7` falha no Hyprland `0.57.2` (`missing field id` em `activewindow` + panic em `WorkspaceAddedV2` com nomes não numéricos).
+  - `VKD3D_CONFIG=descriptor_heap`: descriptor allocation directly on the GPU via `VK_EXT_descriptor_heap` (NVIDIA 570+ / RTX 5050), reducing CPU overhead in DX12 translation.
+  - `PROTON_VKD3D_LOWLATENCY=1`: native NVIDIA Reflex DX12 inside VKD3D-Proton for minimal sampling latency.
+  - `systemd-run --user --scope game-performance`: CachyOS performance governor and VRAM prioritization (`dmem.low`) via `hyprland-focused-booster`.
+  - `with-smooth-motion`: Rust RAII wrapper that suspends `direct_scanout = 0` in Hyprland during execution and injects `NVPRESENT_ENABLE_SMOOTH_MOTION=1` for smooth frame interpolation without half-rate lock.
+- **Hyprland Window Rule (2026-11-03):** mapped to `workspace = name:gaming` and `content = "game"`. In `~/.config/hypr/config/windowrules.lua`, `emulatorApps` matches `^(pcsx2.*|PCSX2.*|[Aa]zimuth.*|steam_app_3758807005)$` positioned *after* the generic `.*\\.exe` rule, preventing the window from being hijacked to workspace 1 via `monitor = PRIMARY_MONITOR`.
+- **Gaming `PRIMARY_MONITOR` Pinning (2026-11-14):** the rules for `gamingApps`, `xdg_tag = "^(.*game.*)$"`, `content = "game"` and `Launching...` in `~/.config/hypr/config/windowrules.lua:26-44` include `monitor = PRIMARY_MONITOR`, `workspace = "name:gaming"` and `suppress_event = "fullscreenoutput"` (preventing `xdg_toplevel.set_fullscreen(wl_output)` from `winewayland.drv` from throwing the fullscreen onto `PF-1`), without `size = { "monitor_w", "monitor_h" }` in the `gamingApps` rule (avoiding inheriting `PF-*` dimensions when focused), plus `package.loaded["config.windowrules"] = nil` in `~/.config/hypr/hyprland.lua:14`. Note: `proton-cachyos-slr` (`CachyOS-11.0-100`) has neither `WAYLANDDRV_PRIMARY_MONITOR` nor reading of `xrandr --primary` (exclusive to GE-Proton), and `hyprland-focused-booster` `0.1.7` fails on Hyprland `0.57.2` (`missing field id` in `activewindow` + panic in `WorkspaceAddedV2` with non-numeric names).
 
 #### PCSX2 (native) Architecture
 - **Replaced (2026-11-01):** the Windows build `pcsx2-qt.exe` under Proton plus the UNCANNY STRATA stack were removed entirely. Reasons: UNCANNY is a closed-source, unsigned Windows alpha whose PowerShell-based installer cannot run under Wine, and the Windows build with `Renderer = -1` (Auto) selected D3D12/VKD3D, which failed on `Method 'Load' for structured buffers` and produced a black screen. `Renderer = 11` is the *Null* renderer, not D3D12.
@@ -124,26 +124,26 @@ When running frame generation via `NVPRESENT_ENABLE_SMOOTH_MOTION=1`, Hyprland's
 
 ### Non-Steam & External Gaming Inventory (Verified 2026-11-15)
 
-Inventário completo de atalhos não-Steam, emuladores e launchers externos em `psicopompo` (~130 GiB no total):
+Full inventory of non-Steam shortcuts, emulators and external launchers on `psicopompo` (~130 GiB in total):
 
-| Item | Tipo / AppID | Onde estão os arquivos | Prefixo / Config | Tamanho | Como desinstalar |
+| Item | Type / AppID | Where the files are | Prefix / Config | Size | How to uninstall |
 |---|---|---|---|---|---|
-| **Azimuth (Forza PC)** | Proton (`3758807005`) | `/mnt/NVME_PCI/azimuth (forza_pc)` (FH2 39 GiB + FH3 51 GiB) | `compatdata/3758807005` (546 MiB) | **~90.5 GiB** | Remover atalho no Steam + `rm -rf "/mnt/NVME_PCI/azimuth (forza_pc)" ~/.local/share/Steam/steamapps/compatdata/3758807005 ~/.local/share/Steam/userdata/115099278/config/grid/3758807005*` + remover de `games.toml` e `windowrules.lua` |
-| **PCSX2** | Nativo (`3162449111`) | `/mnt/NVME_PCI/pcsx2-games` (4 ISOs: Burnout 3, NFS Carbon, NFS Most Wanted, SotC) | `~/.config/PCSX2` (38 MiB: saves/BIOS) | **~12.0 GiB** | Remover atalho no Steam + `yay -Rns pcsx2` + apagar `/mnt/NVME_PCI/pcsx2-games`, `~/.config/PCSX2` (se não quiser saves) e `grid/3162449111*` |
-| **(Minecraft) Prism Launcher** | Nativo (`3651350099`) | `~/.local/share/PrismLauncher` (instância `Dominium` 5.4 GiB + assets 1.4 GiB) | `~/.local/share/icons/prismlauncher.png` | **7.3 GiB** | Remover atalho no Steam + `pacman -Rns prismlauncher` + `rm -rf ~/.local/share/PrismLauncher` e `grid/3651350099*` |
-| **Winboat (Windows VM)** | Fora do Steam | `/mnt/NVME_PCI/winboat` (`data.img` 18 GiB) | — | **18 GiB** | Desinstalar pacote Winboat + `rm -rf /mnt/NVME_PCI/winboat` |
-| **Bottles (Flatpak)** | Fora do Steam | `~/.var/app/com.usebottles.bottles` (runners 627 MiB) | — | **905 MiB** | `flatpak uninstall com.usebottles.bottles` + `rm -rf ~/.var/app/com.usebottles.bottles` |
-| **Lutris** | Fora do Steam | `~/.local/share/lutris` (runtime 471 MiB; `~/Games` vazio) | — | **472 MiB** | `pacman -Rns lutris` + `rm -rf ~/.local/share/lutris ~/Games` |
-| **Heroic Games Launcher** | Fora do Steam | `~/.config/heroic` (tools 115 MiB; sem jogos em `~/Games/Heroic`) | — | **256 MiB** | `pacman -Rns heroic-games-launcher-bin` (ou pacote instalado) + `rm -rf ~/.config/heroic` |
+| **Azimuth (Forza PC)** | Proton (`3758807005`) | `/mnt/NVME_PCI/azimuth (forza_pc)` (FH2 39 GiB + FH3 51 GiB) | `compatdata/3758807005` (546 MiB) | **~90.5 GiB** | Remove the Steam shortcut + `rm -rf "/mnt/NVME_PCI/azimuth (forza_pc)" ~/.local/share/Steam/steamapps/compatdata/3758807005 ~/.local/share/Steam/userdata/115099278/config/grid/3758807005*` + remove from `games.toml` and `windowrules.lua` |
+| **PCSX2** | Native (`3162449111`) | `/mnt/NVME_PCI/pcsx2-games` (4 ISOs: Burnout 3, NFS Carbon, NFS Most Wanted, SotC) | `~/.config/PCSX2` (38 MiB: saves/BIOS) | **~12.0 GiB** | Remove the Steam shortcut + `yay -Rns pcsx2` + delete `/mnt/NVME_PCI/pcsx2-games`, `~/.config/PCSX2` (if you do not want the saves) and `grid/3162449111*` |
+| **(Minecraft) Prism Launcher** | Native (`3651350099`) | `~/.local/share/PrismLauncher` (`Dominium` instance 5.4 GiB + assets 1.4 GiB) | `~/.local/share/icons/prismlauncher.png` | **7.3 GiB** | Remove the Steam shortcut + `pacman -Rns prismlauncher` + `rm -rf ~/.local/share/PrismLauncher` and `grid/3651350099*` |
+| **Winboat (Windows VM)** | Outside Steam | `/mnt/NVME_PCI/winboat` (`data.img` 18 GiB) | — | **18 GiB** | Uninstall the Winboat package + `rm -rf /mnt/NVME_PCI/winboat` |
+| **Bottles (Flatpak)** | Outside Steam | `~/.var/app/com.usebottles.bottles` (runners 627 MiB) | — | **905 MiB** | `flatpak uninstall com.usebottles.bottles` + `rm -rf ~/.var/app/com.usebottles.bottles` |
+| **Lutris** | Outside Steam | `~/.local/share/lutris` (runtime 471 MiB; `~/Games` empty) | — | **472 MiB** | `pacman -Rns lutris` + `rm -rf ~/.local/share/lutris ~/Games` |
+| **Heroic Games Launcher** | Outside Steam | `~/.config/heroic` (tools 115 MiB; no games in `~/Games/Heroic`) | — | **256 MiB** | `pacman -Rns heroic-games-launcher-bin` (or installed package) + `rm -rf ~/.config/heroic` |
 
-> **Nota sobre `compatdata/`:** em `~/.local/share/Steam/steamapps/compatdata/` existem ainda `0` (547 MiB, prefixo genérico do Steam) e `1493710` (378 MiB, *Proton Experimental*). O Steam **não** apaga `compatdata/<AppID>` nem `grid/<AppID>*` automaticamente quando um jogo não-Steam é removido da biblioteca.
+> **Note on `compatdata/`:** `~/.local/share/Steam/steamapps/compatdata/` still holds `0` (547 MiB, generic Steam prefix) and `1493710` (378 MiB, *Proton Experimental*). Steam does **not** delete `compatdata/<AppID>` or `grid/<AppID>*` automatically when a non-Steam game is removed from the library.
 
 ### 🎯 Returnal (`1649240`) & Direct Scanout `non_shader_cm = 0` (2026-11-21)
 
-- **Proton canonizado:** `proton-cachyos-slr` em `~/.config/steam-launch-options/games.toml:165-169` (substituindo `GE-Proton11-12-x86_64`, `profile = "dx12"`).
-- **Tela preta no `direct_scanout = 2` (NVIDIA Wayland):** com `PROTON_ENABLE_WAYLAND=1` + `render:direct_scanout = 2`, o Hyprland entrava em `solitary` (`directScanoutTo: "0"`) e a tela ficava preta até o compositor voltar a compor (ex.: ao abrir o scratchpad ou trocar de workspace).
-- **Fix canônico:** habilitado `non_shader_cm = 0` em `~/.config/hypr/config/misc.lua:57` mantendo `direct_scanout = 2` ativo. Validado ao vivo (`hyprctl getoption render:non_shader_cm → 0`, `render:direct_scanout → 2`, Returnal renderizando normalmente em `gaming`).
-- **SCSKiller (`v1.4.9`, instalado 2026-11-21):** AppImage em `~/.local/bin/SCSKiller-x86_64.AppImage` (`BlueHeisenberg/SCSKiller`) para pré-compilar shaders DX12/`vkd3d-proton` (warming offline + modo Recorder opcional) no cache NVIDIA antes de abrir os jogos.
+- **Canonized Proton:** `proton-cachyos-slr` in `~/.config/steam-launch-options/games.toml:165-169` (replacing `GE-Proton11-12-x86_64`, `profile = "dx12"`).
+- **Black screen with `direct_scanout = 2` (NVIDIA Wayland):** with `PROTON_ENABLE_WAYLAND=1` + `render:direct_scanout = 2`, Hyprland entered `solitary` (`directScanoutTo: "0"`) and the screen stayed black until the compositor composed again (e.g. on opening the scratchpad or switching workspace).
+- **Canonical fix:** enabled `non_shader_cm = 0` in `~/.config/hypr/config/misc.lua:57` while keeping `direct_scanout = 2` active. Validated live (`hyprctl getoption render:non_shader_cm → 0`, `render:direct_scanout → 2`, Returnal rendering normally in `gaming`).
+- **SCSKiller (`v1.4.9`, installed 2026-11-21):** AppImage at `~/.local/bin/SCSKiller-x86_64.AppImage` (`BlueHeisenberg/SCSKiller`) to precompile DX12/`vkd3d-proton` shaders (offline warming + optional Recorder mode) into the NVIDIA cache before opening the games.
 
 
 ## See Also

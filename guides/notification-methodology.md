@@ -39,6 +39,16 @@ every new producer. Applies to every agent, session and service that publishes t
 > accepted (low likelihood), but recorded. **Optional improvement:** an external *dead-man's
 > switch* (heartbeat to a third-party service) to cover exactly this case.
 
+### Alert path independent of ybytu: options (researched 2026-11-27, nothing installed, `GB-213`)
+
+| Option | What changes | Covers | Cost and limits |
+|---|---|---|---|
+| A. External dead man's switch (for example healthchecks.io) | A kavure timer probes `ybytu:8083/v1/health` and pings an external check only when it answers; the service notifies by e-mail when pings stop | ybytu, ntfy, kavure or the home WAN being down | Needs an account the owner creates; free plan lists 20 monitored jobs (<https://healthchecks.io/pricing/>, read 2026-11-27) |
+| B. Second Alertmanager receiver | Route with `continue: true` sends the ybytu alerts (or all critical ones) also to e-mail or to hosted ntfy.sh (<https://prometheus.io/docs/alerting/latest/configuration/>, read 2026-11-27) | ybytu or ntfy down while kavure and the WAN work | ntfy.sh: 250 messages a day and the topic name is the password (<https://docs.ntfy.sh/publish/>, read 2026-11-27); e-mail needs an SMTP credential |
+| C. Move ntfy to another host | Reconfigure every producer | Only the coupling with ybytu | The new host is also watched, so the same defect moves; not advised |
+
+**Recommendation:** A first (it is the only one that survives kavure or the WAN failing), then B for alerts about ybytu. `OPS-ALERT-INDEPENDENCE` stays a warning: after B it would still flag the ybytu receiver, so promoting it also needs the rule to accept a configuration that has a second receiver outside the scrape targets.
+
 ## Boundary: Uptime Kuma × Prometheus
 
 Complementary layers — **not** alternatives. Do not remove one in favour of the other:

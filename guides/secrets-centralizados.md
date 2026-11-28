@@ -1,6 +1,6 @@
 ---
 tags: [homelab, env, sops, backup, secrets]
-pending: [HB-026, HB-051, HB-103, HB-115]
+pending: [HB-026, HB-051, HB-103, HB-115, HB-131]
 ---
 
 # Centralized Secrets Management (.env) with SOPS/age
@@ -85,6 +85,7 @@ scp secrets/generated/sumaenima.env ybyra:/home/ubuntu/homelab/sumaenima/.env   
 | **Oracle Cloud (OCI)** | `~/.oci/config` + private key (psicopompo) | ✅ 2026-10-08 | `OCI_*` |
 | **Tailscale — Funnel Auth Key (edge)** | `edge.yml` via `${TS_AUTH_KEY}` | ✅ 2026-10-08 | `TS_AUTH_KEY` |
 | **Miracena — previous platform static token** | Was referenced from `services/miracena-stack.md` (platform retired 31/10/2026; key record kept) | ✅ 2026-10-13 | `MIRACENA_DIRECTUS_TOKEN` |
+| **StenioSentinel remote MCP** | `/srv/data/miracena/env/stenio.env` (kuaray); client reads the store through `~/.local/bin/stenio-mcp-header` (psicopompo) | ✅ 2026-11-27 | `STENIO_MCP_TOKEN` |
 
 ## Non-.env Secret Handling (Migrated 2026-08-28)
 

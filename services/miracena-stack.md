@@ -23,7 +23,7 @@ pending: [HB-091]
 | PostgreSQL | miracena-postgres | 5432 (internal) | postgres:16-alpine | 1 GB | 0.5 |
 
 
-| Nginx Proxy Manager | miracena-nginx-proxy-manager | 81 (admin), 8180 (HTTP), 8445 (HTTPS) | jc21/nginx-proxy-manager:2.16.0 | 256 MB | 0.25 |
+| Nginx Proxy Manager | miracena-nginx-proxy-manager | 81 (admin), 8180 (HTTP), 8445 (HTTPS) | jc21/nginx-proxy-manager:2.17.1 (2026-11-27; rollback `/srv/data/miracena/docker-compose.yml.prev`, data archive `/srv/data/miracena/npm-pre-2.17.1-20261127/`) | 256 MB | 0.25 |
 | WordPress | miracena-wordpress | 8085 | wordpress:6.6.2-php8.3-apache | 512 MB | 0.5 |
 | MariaDB | miracena-mariadb | 3306 (internal) | mariadb:11 | 512 MB | 0.25 |
 | n8n | miracena-n8n | 5678 | docker.n8n.io/n8nio/n8n:stable | 1 GB | 0.5 |
@@ -49,6 +49,10 @@ pending: [HB-091]
 - **n8n:** http://kuaray.chimaera-heptatonic.ts.net:5678
 - **NPM Admin:** http://kuaray.chimaera-heptatonic.ts.net:81
 - **StenioSentinel (MCP SSE / Audit / Semântica):** http://kuaray.chimaera-heptatonic.ts.net:9099 (bound strictly to `100.94.209.99:9099`)
+  - **Hardened 2026-11-27** (verified on the host: `docker inspect miracena-stenio`): no Docker socket mount, `user: 1000:1000`, `cap_drop: ALL`, `no-new-privileges`, `STENIO_MCP_ALLOWED_HOSTS` for the engine Host check. `stenio_docker` returns an error on this server by design. Rollback: `/srv/data/miracena/docker-compose.yml.prev-sec1`, then `docker compose up -d stenio`.
+  - Engine 4.45.0 since 2026-11-27 (verified: `docker exec miracena-stenio stenio --version`). Image rollback: `docker tag stenio-sentinel:prev-4.44.0 ghcr.io/ceduardorodrig/stenio-sentinel:4`, then `docker compose up -d stenio`.
+  - **Bearer token required since 2026-11-27** (probed from `psicopompo`: request without or with a wrong token 401, with the token 200, `/health` 200 without a token). The key `STENIO_MCP_TOKEN` lives in the SOPS store and in `/srv/data/miracena/env/stenio.env` (0600). Claude Code sends it through a `headersHelper` (`~/.local/bin/stenio-mcp-header` on `psicopompo`), so the client config holds no secret; sessions started before the change must restart or reconnect. Rollback: restore `env/stenio.env.prev-o5`, then `docker compose up -d --no-deps stenio`.
+  - Further hardening of this endpoint is tracked privately (`GB-322`).
 
 ### Hardening & Containment (Enforced 2026-10-29, HB-083 & HB-084)
 1. **Network Egress Firewall (`hl-miracena-egress-guard.service`):**
@@ -229,7 +233,8 @@ docker exec miracena-tunnel tailscale status
 - **Script:** `/usr/local/bin/miracena-backup`
 - **Health Stamp:** `/srv/health/miracena-backup-last-ok`
 - **Log:** `/var/log/miracena-backup.log`
-- **ntfy:** Posts to `/backup` on failure
+- **ntfy:** Posts to `/backup` on failure (each call bounded to 15 s)
+- **Verification (2026-11-27, `MNEMOCINE-OPS` PR #32 and #33):** the stamp is written only after every artifact of the run passes `gzip -t` / `tar -t`, the dump trailer and a minimum size (PostgreSQL 10 KiB, WordPress 300 B because that database is empty since 31/10/2026, Frappe database 100 KiB, Frappe tars 10 KiB). Dumps are written to `.part` and renamed after verification; retention runs only after the new Frappe set passes. Check the newest artifacts without writing anything: `sudo env MIRACENA_BACKUP_VERIFY_ONLY=1 /usr/local/bin/miracena-backup`. Installed and verified (verify-only) on 2026-11-27. Rollback: `sudo install -m 0755 /usr/local/bin/miracena-backup.prev /usr/local/bin/miracena-backup`
 
 ### Recovery Commands
 

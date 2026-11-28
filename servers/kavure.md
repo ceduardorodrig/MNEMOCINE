@@ -23,7 +23,7 @@ pending: []
 | **OS** | Ubuntu 24.04 LTS (kernel `6.8.0-149-generic`) |
 | **Filesystem** | LVM + ext4 |
 | **Tailscale IP** | `100.124.146.77` — `kavure` |
-| **Access** | `tailscale ssh kavure@kavure` · **OpenSSH key-only** (sem senha desde 13/10 — [detalhe](../network/tailscale.md)) |
+| **Access** | `tailscale ssh kavure@kavure` · **OpenSSH key-only** (no password since 13/10 — [detail](../network/tailscale.md)) |
 
 ## Operational Capabilities & Architecture
 
@@ -65,6 +65,24 @@ pending: []
 | `hl-n8n-backup.timer` | 05:25 | Homelab n8n PostgreSQL | pg\_dump $\rightarrow$ NAS mirror (health stamp since 09/10) |
 | `hl-valheim-backup.timer` | 05:30 | Valheim world saves | rsync $\rightarrow$ NAS mirror |
 | `hl-sumaenima-backup.timer` | 03:00 | Sumænimá database & uploads | Borg + pg_dump $\rightarrow$ NAS mirror |
+| `stenio-hub-backup.timer` | 04:30 | Stenio shared work ledger | restore-proven snapshot in `/srv/data/stenio-hub/backup/` (14 kept); `latest.snapshot` is carried to the NAS by the 05:00 mirror |
+
+## Stenio shared work ledger (2026-11-27)
+
+`stenio-hub.service` serves the work ledger used by agents on every host (claims, hand-backs, owner questions, quota). Engine 4.51.0 (verified 2026-11-27); units from the engine repository (`deploy/hub/`).
+
+- **Updates:** `stenio release-engine` rolls each release out to the targets of the engine repository file `deploy/rollout.toml` (this server first, with a ledger backup, a rollback copy `<path>.prev-<old>`, restart and health check; a failure restores the previous binary and stops), then to the client binaries on `kavure`, `kuaray` and `ybytu`, and checks version and sha256 parity.
+- **Rollback of 4.51.0:** on each target copy `<path>.prev-4.50.0` over `<path>` (with `sudo` for the service binary, then `systemctl restart stenio-hub`).
+- **Guard:** since 4.51.0 the harness hooks refuse a file edit inside another worker's live `tree:` claim; three expired or failed attempts of a row need `ssh -t kavure stenio-hub-owner reset-attempts --row <ID> --reason <why>`.
+
+- **Access:** listens on `127.0.0.1:8797`; published to the tailnet only by `tailscale serve` on `https://kavure.chimaera-heptatonic.ts.net:8443` (never Funnel). The existing tailnet policy covers it. Every request needs a per-client token.
+- **Files:** binary `/usr/local/lib/stenio-hub/stenio`; data `/srv/data/stenio-hub/` (`state/hub.db`, `clients.toml` with token hashes, `backup/`); `/etc/stenio-hub.env`; system user `stenio-hub`.
+- **Clients:** `~/.config/stenio/hub-remote.toml` plus `~/.config/stenio/hub.token` (0600) on `psicopompo`, `kavure`, `kuaray`, `ybytu`; tokens are kept in the sops store (`STENIO_HUB_TOKEN_<HOST>`). Server unreachable: clients claim nothing and write no backlog.
+- **New client:** `stenio hub token --client <host> --out <new file>`, append the printed entry to `clients.toml` (read on every request), move the token over stdin only.
+- **Owner commands:** `ssh -t kavure stenio-hub-owner questions` (also `answer`, `quota override`).
+- **Check:** `stenio hub audit` from any client; `systemctl status stenio-hub`.
+- **Restore:** stop the service, copy a snapshot over `state/hub.db` (remove `hub.db-wal`/`-shm`, owner `stenio-hub`, mode 0600), run `sudo stenio-hub-owner audit`, start.
+- **Back to the single-host ledger (psicopompo):** delete `hub-remote.toml`, remove the empty directory `~/.local/state/stenio/hub.db/`, copy the newest server snapshot to that path (the pre-move file is `hub.db.pre-remote`), re-enable the user `stenio-hub-backup.timer`.
 
 ## Network & Wake-on-LAN
 

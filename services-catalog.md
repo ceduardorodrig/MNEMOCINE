@@ -98,7 +98,7 @@ Dedicated services node and **Swarm manager** (`sae-core` + `sae-edge` standby).
 | monitoring-promtail | Loki log shipper (kavure) | container | — | ship kavure logs | Loki | edu |
 | monitoring-alertmanager-ntfy | Alertmanager → ntfy bridge | container | internal `8000` | push alerts to phones | Alertmanager → ntfy (ybytu) | edu |
 | node-exporter | Prometheus host metrics | container | `0.0.0.0:9100` | host telemetry | Prometheus | edu |
-| dockerproxy | Read-only Docker socket proxy | container | `127.0.0.1` + `100.124.146.77:2375` | Homepage live status | Homepage | edu |
+| dockerproxy | Read-only Docker socket proxy | container | `127.0.0.1:2375` (verified 2026-11-27) | no tailnet bind; Homepage on this host uses the local socket | - | edu |
 | watchtower | Image auto-updater | container | — | keep images current | — | edu |
 | autoheal | Restart unhealthy containers | container | — | self-healing | all local containers | edu |
 | dnscrypt-proxy | Anonymized DNS egress (**COLD — exited**) | container | — | decommissioned 2026-10-08 (superseded by native unbound) | none | edu |

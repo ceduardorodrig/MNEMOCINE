@@ -1,6 +1,6 @@
 ---
 tags: [homelab, server, ybytu, dns, monitoring, changedetection, ntfy]
-pending: [HB-117]
+pending: [HB-117, HB-138]
 ---
 
 # ybytu
@@ -155,26 +155,26 @@ Between 06:54Z and 21:53Z the host stayed powered, stayed up on the wire, and be
 
 ## Security Baseline (2026-10-13)
 
-- **SSH (OpenSSH)**: **key-only** — `PasswordAuthentication no` + `KbdInteractiveAuthentication no` (drop-in `/etc/ssh/sshd_config.d/00-homelab.conf`). O `:22` é alcançável da **internet pública**, mas só por **chave** (as ~34.000 tentativas de força bruta em 30 dias falharam todas: `passwordauth no`, `kbdinteractive no`, `permitemptypasswords no`).
-- **fail2ban** (1.0.2, ativo): jail `sshd` (`mode = aggressive`, `bantime 1h`, `findtime 10m`, `maxretry 5`). **`ignoreip` inclui a tailnet (`100.64.0.0/10`)** — o acesso normal é por ela e **nunca** deve ser banido.
-- **Acesso normal**: **Tailscale SSH** pela tailnet (não usa o OpenSSH). Detalhe: [`../network/tailscale.md`](../network/tailscale.md).
-- **Revisão de compromisso (13/10)**: **sem sinais** — todos os logins bem-sucedidos usam a **mesma chave do dono** (do ISP brasileiro), sem usuários/chaves/unidades/cron/conexões de saída fora do padrão.
+- **SSH (OpenSSH)**: **key-only** — `PasswordAuthentication no` + `KbdInteractiveAuthentication no` (drop-in `/etc/ssh/sshd_config.d/00-homelab.conf`). Port `:22` is reachable from the **public internet**, but only by **key** (the ~34,000 brute-force attempts in 30 days all failed: `passwordauth no`, `kbdinteractive no`, `permitemptypasswords no`).
+- **fail2ban** (1.0.2, active): `sshd` jail (`mode = aggressive`, `bantime 1h`, `findtime 10m`, `maxretry 5`). **`ignoreip` includes the tailnet (`100.64.0.0/10`)** — normal access goes through it and it must **never** be banned.
+- **Normal access**: **Tailscale SSH** over the tailnet (does not use OpenSSH). Detail: [`../network/tailscale.md`](../network/tailscale.md).
+- **Compromise review (13/10)**: **no signs** — all successful logins use the **same owner key** (from the Brazilian ISP), with no unusual users/keys/units/cron/outbound connections.
 
 ### Firewall & Docker NAT Persistence (`netfilter-persistent`)
 
-Diferente dos nós gerenciados por UFW (`kavure`, `kuaray`), o `ybytu` utiliza `iptables` nativo gerenciado por `netfilter-persistent` (`/etc/iptables/rules.v4`).
+Unlike the UFW-managed nodes (`kavure`, `kuaray`), `ybytu` uses native `iptables` managed by `netfilter-persistent` (`/etc/iptables/rules.v4`).
 
-**Protocolo obrigatório ao alterar regras de firewall no `ybytu`:**
-1. **Serviços em Host-Mode:** Containers com `network_mode: host` (`homepage:3001`, `uptime-kuma:3002`, `glances:61208`) **não podem ter regras DNAT** na chain `nat/DOCKER`. Se existirem, sequestram o tráfego da Tailnet para IPs mortos de bridge (`No route to host`).
-2. **Auditoria mandatória antes de salvar:** Nunca rodar `sudo netfilter-persistent save` cegamente. Execute antes:
+**Mandatory protocol when changing firewall rules on `ybytu`:**
+1. **Host-mode services:** Containers with `network_mode: host` (`homepage:3001`, `uptime-kuma:3002`, `glances:61208`) **must not have DNAT rules** in the `nat/DOCKER` chain. If they exist, they hijack Tailnet traffic to dead bridge IPs (`No route to host`).
+2. **Mandatory audit before saving:** Never run `sudo netfilter-persistent save` blindly. Run first:
    ```bash
    sudo iptables -t nat -S DOCKER
    ```
-   Valide se todos os IPs de destino batem com containers ativos (`docker inspect`). Remova qualquer resíduo com `sudo iptables -t nat -D DOCKER <regra>`.
-3. **Persistência segura:**
+   Validate that every destination IP matches an active container (`docker inspect`). Remove any residue with `sudo iptables -t nat -D DOCKER <regra>`.
+3. **Safe persistence:**
    ```bash
    sudo cp /etc/iptables/rules.v4 /etc/iptables/rules.v4.bak-$(date +%Y%m%d)
    sudo netfilter-persistent save
    ```
-Ver detalhes e histórico de recuperação em [`../guides/homelab-traps-2026-10.md`](../guides/homelab-traps-2026-10.md#11-a-zombie-dnat-rule-steals-a-host-port-that-a-host-networked-container-is-listening-on).
+See details and recovery history in [`../guides/homelab-traps-2026-10.md`](../guides/homelab-traps-2026-10.md#11-a-zombie-dnat-rule-steals-a-host-port-that-a-host-networked-container-is-listening-on).
 
